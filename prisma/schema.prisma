@@ -1,0 +1,87 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Rol {
+  SUPER_ADMIN
+  ADMIN_MICRORED
+  CONSULTA
+}
+
+enum TipoLicencia {
+  ENFERMEDAD_COMUN
+  ACCIDENTE_COMUN
+  MATERNIDAD
+  PATERNIDAD
+  LEY_30012
+}
+
+enum OrigenCertificado {
+  ESSALUD_CITT
+  PARTICULAR
+}
+
+model Usuario {
+  id              String         @id @default(uuid())
+  dni             String         @unique
+  nombres         String
+  apellidos       String
+  passwordHash    String
+  rol             Rol            @default(ADMIN_MICRORED)
+  microredId      Int?
+  microred        Microred?      @relation(fields: [microredId], references: [id])
+  activo          Boolean        @default(true)
+  creadoEn        DateTime       @default(now())
+}
+
+model Microred {
+  id               Int               @id @default(autoincrement())
+  nombre           String            @unique
+  establecimientos Establecimiento[]
+  usuarios         Usuario[]
+}
+
+model Establecimiento {
+  id           Int           @id @default(autoincrement())
+  codigoRenaes String?       @unique
+  nombre       String
+  microredId   Int
+  microred     Microred      @relation(fields: [microredId], references: [id])
+  trabajadores Trabajador[]
+}
+
+model Trabajador {
+  id                String          @id @default(uuid())
+  dni               String          @unique
+  nombres           String
+  apellidos         String
+  cargo             String
+  condicionLaboral  String
+  establecimientoId Int
+  establecimiento   Establecimiento @relation(fields: [establecimientoId], references: [id])
+  licencias         Licencia[]
+}
+
+model Licencia {
+  id                String            @id @default(uuid())
+  trabajadorId      String
+  trabajador        Trabajador        @relation(fields: [trabajadorId], references: [id])
+  tipoLicencia      TipoLicencia      @default(ENFERMEDAD_COMUN)
+  origen            OrigenCertificado
+  numeroCertificado String
+  fechaInicio       DateTime
+  fechaFin          DateTime
+  diasOtorgados     Int
+  anioEjercicio     Int
+  mesEjercicio      Int
+  
+  archivoRuta       String?
+  
+  creadoEn          DateTime          @default(now())
+}
+
