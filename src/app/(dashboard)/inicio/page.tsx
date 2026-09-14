@@ -1,10 +1,53 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Search, UserPlus, Users, Activity, FileCheck } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, UserPlus, Users, Activity, FileCheck, Eye } from 'lucide-react';
 
 export default function InicioPage() {
   const [busqueda, setBusqueda] = useState('');
+  const [kpis, setKpis] = useState({ totalTrabajadores: 0, licenciasActivas: 0, subsidiosPendientes: 0 });
+  const [loadingKpis, setLoadingKpis] = useState(true);
+  
+  // Estado para los resultados de búsqueda
+  const [resultados, setResultados] = useState<any[]>([]);
+  const [buscando, setBuscando] = useState(false);
+
+  useEffect(() => {
+    async function loadKpis() {
+      try {
+        const res = await fetch('/api/dashboard');
+        const data = await res.json();
+        if (data) setKpis(data);
+      } catch (error) {
+        console.error("Error loading KPIs", error);
+      } finally {
+        setLoadingKpis(false);
+      }
+    }
+    loadKpis();
+  }, []);
+
+  // Efecto para buscar automáticamente cuando se escribe
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      if (busqueda.length >= 2) {
+        setBuscando(true);
+        try {
+          const res = await fetch(`/api/trabajadores/buscar?q=${encodeURIComponent(busqueda)}`);
+          const data = await res.json();
+          setResultados(data);
+        } catch (error) {
+          console.error("Error buscando", error);
+        } finally {
+          setBuscando(false);
+        }
+      } else {
+        setResultados([]); // Limpiar si borran la búsqueda
+      }
+    }, 500); // Esperar medio segundo para no saturar la BD mientras escribe
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [busqueda]);
 
   return (
     <div className="space-y-6">
@@ -37,49 +80,96 @@ export default function InicioPage() {
         </div>
       </div>
 
-      {/* Tarjetas de Resumen Rápido (KPIs) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 flex items-center gap-4">
-          <div className="p-3 bg-blue-100 rounded-full">
-            <Users className="w-6 h-6 text-blue-600" />
+      {/* Tarjetas de Resumen Rápido (KPIs) - SOLO SE MUESTRAN SI NO HAY BÚSQUEDA */}
+      {busqueda.length < 2 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 flex items-center gap-4">
+            <div className="p-3 bg-blue-100 rounded-full">
+              <Users className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-slate-500 text-sm font-medium">Total Trabajadores Registrados</p>
+              <h3 className="text-2xl font-bold text-slate-800">
+                {loadingKpis ? '...' : kpis.totalTrabajadores.toLocaleString()}
+              </h3>
+            </div>
           </div>
-          <div>
-            <p className="text-slate-500 text-sm font-medium">Total Trabajadores Registrados</p>
-            <h3 className="text-2xl font-bold text-slate-800">1,245</h3>
+
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 flex items-center gap-4">
+            <div className="p-3 bg-emerald-100 rounded-full">
+              <Activity className="w-6 h-6 text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-slate-500 text-sm font-medium">Licencias Activas Totales</p>
+              <h3 className="text-2xl font-bold text-slate-800">
+                {loadingKpis ? '...' : kpis.licenciasActivas.toLocaleString()}
+              </h3>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 flex items-center gap-4">
+            <div className="p-3 bg-purple-100 rounded-full">
+              <FileCheck className="w-6 h-6 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-slate-500 text-sm font-medium">Subsidios Pendientes EsSalud</p>
+              <h3 className="text-2xl font-bold text-slate-800">
+                {loadingKpis ? '...' : kpis.subsidiosPendientes.toLocaleString()}
+              </h3>
+            </div>
           </div>
         </div>
+      )}
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 flex items-center gap-4">
-          <div className="p-3 bg-emerald-100 rounded-full">
-            <Activity className="w-6 h-6 text-emerald-600" />
+      {/* Resultados de Búsqueda Activa */}
+      {busqueda.length >= 2 && (
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-slate-50 px-6 py-4 border-b border-slate-200">
+            <h2 className="text-sm font-semibold text-slate-700">Resultados para "{busqueda}"</h2>
           </div>
-          <div>
-            <p className="text-slate-500 text-sm font-medium">Licencias Activas (Este Mes)</p>
-            <h3 className="text-2xl font-bold text-slate-800">48</h3>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 flex items-center gap-4">
-          <div className="p-3 bg-purple-100 rounded-full">
-            <FileCheck className="w-6 h-6 text-purple-600" />
-          </div>
-          <div>
-            <p className="text-slate-500 text-sm font-medium">Subsidios Pendientes EsSalud</p>
-            <h3 className="text-2xl font-bold text-slate-800">12</h3>
-          </div>
-        </div>
-      </div>
-
-      {/* Resultados de Búsqueda Vacíos (Placeholder) */}
-      {busqueda && (
-        <div className="bg-white p-8 rounded-lg shadow-sm border border-slate-200 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 mb-4">
-            <Search className="w-8 h-8 text-slate-400" />
-          </div>
-          <h3 className="text-lg font-medium text-slate-900 mb-1">Buscando "{busqueda}"...</h3>
-          <p className="text-slate-500 text-sm">
-            Conectando a la base de datos para recuperar el historial completo del servidor.
-          </p>
+          
+          {buscando ? (
+            <div className="p-8 text-center text-slate-500">Buscando en la base de datos...</div>
+          ) : resultados.length === 0 ? (
+            <div className="p-8 text-center text-slate-500">No se encontró ningún trabajador con esos datos.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="bg-white border-b border-slate-200 text-slate-600">
+                    <th className="py-3 px-6 font-medium">DNI</th>
+                    <th className="py-3 px-6 font-medium">Trabajador</th>
+                    <th className="py-3 px-6 font-medium">Cargo</th>
+                    <th className="py-3 px-6 font-medium">Microred</th>
+                    <th className="py-3 px-6 font-medium">Establecimiento</th>
+                    <th className="py-3 px-6 text-center font-medium">Ver Perfil</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {resultados.map((trabajador) => (
+                    <tr key={trabajador.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-3 px-6 text-slate-600">{trabajador.dni}</td>
+                      <td className="py-3 px-6 font-medium text-slate-800">
+                        {trabajador.apellidos}, {trabajador.nombres}
+                      </td>
+                      <td className="py-3 px-6 text-slate-500">{trabajador.cargo}</td>
+                      <td className="py-3 px-6 text-slate-500">
+                        {trabajador.establecimiento?.microred?.nombre || 'NO ASIGNADA'}
+                      </td>
+                      <td className="py-3 px-6 text-slate-500">
+                        {trabajador.establecimiento?.nombre || 'NO ASIGNADO'}
+                      </td>
+                      <td className="py-3 px-6 text-center">
+                        <button className="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded-full transition-colors">
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

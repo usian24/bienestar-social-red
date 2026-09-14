@@ -1,0 +1,25 @@
+# Registro de Cambios e Integraciones (Bienestar Social - Red Salud Huánuco)
+
+Este documento mantiene un registro cronológico de todas las actualizaciones, refactorizaciones e integraciones realizadas en el sistema.
+
+## [2026-09-14] - Refactorización de Interfaz y Preparación de BD
+- **Arquitectura**: Migración de la estructura monolítica a un diseño modular con `layout.tsx` maestro para el Dashboard.
+- **Navegación**: Se desglosaron los submódulos de `Salud`, `Maternidad` y `Paternidad` hacia el menú lateral izquierdo para mantener una navegación limpia y profesional.
+- **Limpieza UI**: Se eliminaron botones globales redundantes ("Mostrar", "Excel") del área de filtros, dando prioridad a las acciones por fila.
+- **Nuevo Módulo - Inicio**: Creación de la ruta `/inicio` (y redirección raíz `/`) que actúa como página de bienvenida con:
+  - Buscador global por DNI/Nombres (preparado para buscar en todo el historial).
+  - Tarjetas de KPIs (Total servidores, licencias activas, expedientes pendientes).
+  - Botón de Registro de Nuevo Ingreso manual.
+- **Almacenamiento Local**: Creación segura del directorio `storage_vol/evidencias` para almacenar los escaneos de los CITT médicos.
+- **Mocks**: Se crearon datos falsos (mock data) adaptados a la normativa peruana para probar la interfaz:
+  - Maternidad: 98 días (tono rosa).
+  - Paternidad: 10 días (tono índigo).
+
+## PRÓXIMAS INTEGRACIONES APROBADAS (PENDIENTES)
+1. Levantar contenedor de base de datos PostgreSQL (Docker).
+2. Ejecutar esquema de Prisma (`schema.prisma`).
+3. Modificar la tabla de Salud para reflejar explícitamente el cálculo de los 20 días (Días Empleador vs Días Subsidiados).
+4. Integrar importador Excel masivo (`lectorExcel.ts`).
+
+Ejecuté docker-compose up -d: Este comando leyó el archivo docker-compose.yml que creamos antes. Lo que hace es prender una "computadora virtual chiquita" dentro de tu PC que solamente tiene instalado PostgreSQL. El -d significa que corre en modo silencioso de fondo.
+Ejecuté npx prisma db push: Prisma es nuestro "traductor". Este comando agarró tu archivo schema.prisma (que está en español y es fácil de leer) y lo tradujo al lenguaje de la base de datos para crear las tablas vacías (Trabajador, Licencia, etc.).

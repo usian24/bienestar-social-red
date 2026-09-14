@@ -6,9 +6,9 @@ import Link from 'next/link';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen bg-[#f4f7fb] font-sans text-slate-800 text-sm antialiased overflow-hidden">
+    <div className="flex h-screen bg-[#f4f7fb] font-sans text-slate-800 text-sm antialiased overflow-hidden print:overflow-visible print:bg-white print:h-auto print:block">
       {/* Sidebar Lateral */}
-      <aside className="w-56 bg-[#f4f7fb] border-r border-slate-200 flex flex-col shrink-0 h-full">
+      <aside className="w-56 bg-[#f4f7fb] border-r border-slate-200 flex flex-col shrink-0 h-full print:hidden">
         <div className="h-20 flex items-center px-4 gap-3 pt-2">
           <button className="text-slate-500 hover:text-slate-700">
             <Menu className="w-5 h-5" />
@@ -62,9 +62,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* Contenedor Principal */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-white">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-white print:overflow-visible print:h-auto print:block">
         {/* Barra Superior */}
-        <header className="h-14 bg-white px-6 flex items-center justify-end shrink-0 border-b border-transparent shadow-sm z-10">
+        <header className="h-14 bg-white px-6 flex items-center justify-end shrink-0 border-b border-transparent shadow-sm z-10 print:hidden">
           <div className="flex items-center gap-4">
             <span className="text-[13px] font-medium text-slate-600">
               SEDE RED SALUD HUANUCO
@@ -76,11 +76,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* Contenido de la página (scrollable) */}
-        <main className="flex-1 overflow-y-auto p-6 pt-4">
+        <main className="flex-1 overflow-y-auto p-6 pt-4 print:overflow-visible print:p-0 print:m-0 print:block">
           {children}
         </main>
       </div>
     </div>
   );
 }
-
