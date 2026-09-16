@@ -1,0 +1,80 @@
+import { NextResponse } from 'next/server';
+import prisma from '@/core/db/prisma';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../../auth/[...nextauth]/route';
+import bcrypt from 'bcryptjs';
+import { Rol } from '@prisma/client';
+
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any)?.rol !== 'SUPER_ADMIN') {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    }
+
+    const { id } = await params;
+    const body = await request.json();
+    const { nombres, apellidos, password, rol, microredId } = body;
+
+    const dataToUpdate: any = {
+      nombres,
+      apellidos,
+      rol: rol as Rol,
+      microredId: microredId ? Number(microredId) : null,
+    };
+
+    if (password && password.trim() !== '') {
+      dataToUpdate.passwordHash = await bcrypt.hash(password, 10);
+    }
+
+    // No se permite cambiar el rol de admin123 para evitar lock-out
+    const targetUser = await prisma.usuario.findUnique({ where: { id } });
+    if (targetUser?.dni === 'admin123' && rol !== 'SUPER_ADMIN') {
+      return NextResponse.json({ error: 'No se puede quitar el rol de SUPER_ADMIN al usuario principal' }, { status: 400 });
+    }
+
+    const updatedUser = await prisma.usuario.update({
+      where: { id },
+      data: dataToUpdate
+    });
+
+    return NextResponse.json(updatedUser);
+  } catch (error) {
+    console.error('Error actualizando usuario:', error);
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any)?.rol !== 'SUPER_ADMIN') {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    }
+
+    const { id } = await params;
+    
+    // Buscar al usuario que se intenta eliminar
+    const targetUser = await prisma.usuario.findUnique({ where: { id } });
+    
+    if (!targetUser) {
+      return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
+    }
+
+    // Regla de negocio: Un SUPER_ADMIN no puede eliminar a otro SUPER_ADMIN
+    if (targetUser.rol === 'SUPER_ADMIN') {
+       return NextResponse.json({ error: 'Por seguridad, no se puede eliminar a un usuario con rango de Súper Administrador' }, { status: 403 });
+    }
+
+    // En lugar de borrar (delete), desactivamos la cuenta (soft delete) por integridad de la base de datos
+    await prisma.usuario.update({
+      where: { id },
+      data: { activo: false }
+    });
+
+    return NextResponse.json({ message: 'Usuario desactivado correctamente' });
+  } catch (error) {
+    console.error('Error eliminando usuario:', error);
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
+  }
+}

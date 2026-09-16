@@ -1,7 +1,7 @@
 import NextAuth, { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import prisma from "@/core/db/prisma";
-// import bcrypt from "bcryptjs"; // Lo usaremos pronto cuando encriptemos las contraseñas
+import bcrypt from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -14,29 +14,45 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.dni || !credentials?.password) return null;
         
-        // 1. Buscamos al usuario en la base de datos por su DNI
         const user = await prisma.usuario.findUnique({
           where: { dni: credentials.dni }
         });
         
-        if (!user) throw new Error("Usuario no encontrado");
+        if (!user || !user.activo) throw new Error("Usuario no encontrado o inactivo");
         
-        // 2. Comparamos la contraseña (por ahora texto plano, luego pondremos bcrypt)
-        const isPasswordValid = credentials.password === user.passwordHash;
+        const isPasswordValid = await bcrypt.compare(credentials.password, user.passwordHash);
         
         if (!isPasswordValid) throw new Error("Contraseña incorrecta");
         
-        // 3. Si todo está bien, dejamos pasar al usuario y guardamos sus datos en la sesión
         return { 
             id: user.id, 
-            name: user.nombres, 
-            email: user.dni, // NextAuth pide email por defecto, usaremos el DNI aquí internamente
+            name: user.nombres + ' ' + user.apellidos, 
+            email: user.dni,
+            rol: user.rol,
+            microredId: user.microredId?.toString()
         };
       }
     })
   ],
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.rol = (user as any).rol;
+        token.microredId = (user as any).microredId;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        (session.user as any).rol = token.rol;
+        (session.user as any).microredId = token.microredId;
+        (session.user as any).id = token.sub;
+      }
+      return session;
+    }
+  },
   pages: {
-    signIn: '/login', // Le decimos a NextAuth dónde está nuestra pantalla de login personalizada
+    signIn: '/login',
   },
   session: { strategy: 'jwt' },
   secret: process.env.NEXTAUTH_SECRET,

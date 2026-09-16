@@ -37,6 +37,8 @@ model Usuario {
   microred        Microred?      @relation(fields: [microredId], references: [id])
   activo          Boolean        @default(true)
   creadoEn        DateTime       @default(now())
+  
+  licenciasRegistradas Licencia[]
 }
 
 model Microred {
@@ -81,6 +83,9 @@ model Licencia {
   mesEjercicio      Int
   
   archivoRuta       String?
+  
+  registradoPorId   String?
+  registradoPor     Usuario?          @relation(fields: [registradoPorId], references: [id])
   
   creadoEn          DateTime          @default(now())
 }

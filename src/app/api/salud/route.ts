@@ -1,17 +1,37 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../auth/[...nextauth]/route';
 
 export async function GET(request: Request) {
   try {
-    // Obtenemos todos los trabajadores que tienen al menos una licencia de ENFERMEDAD_COMUN
-    const trabajadores = await prisma.trabajador.findMany({
-      where: {
-        licencias: {
-          some: {
-            tipoLicencia: 'ENFERMEDAD_COMUN'
-          }
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    const isSuperAdmin = (session.user as any)?.rol === 'SUPER_ADMIN';
+    const userMicroredId = (session.user as any)?.microredId;
+
+    // Filtro base: Solo trabajadores con licencias ENFERMEDAD_COMUN
+    const whereClause: any = {
+      licencias: {
+        some: {
+          tipoLicencia: 'ENFERMEDAD_COMUN'
         }
-      },
+      }
+    };
+
+    // Si NO es SUPER_ADMIN, restringir obligatoriamente a su Microred asignada
+    if (!isSuperAdmin && userMicroredId) {
+      whereClause.establecimiento = {
+        microredId: Number(userMicroredId)
+      };
+    }
+
+    // Obtenemos los trabajadores
+    const trabajadores = await prisma.trabajador.findMany({
+      where: whereClause,
       include: {
         establecimiento: {
           include: { microred: true }
@@ -30,7 +50,7 @@ export async function GET(request: Request) {
 
       // Sumamos los días según el origen del certificado
       t.licencias.forEach(lic => {
-        if (lic.origen === 'ESSALUD') diasEssalud += lic.diasOtorgados;
+        if (lic.origen === 'ESSALUD_CITT') diasEssalud += lic.diasOtorgados;
         else if (lic.origen === 'PARTICULAR') diasParticulares += lic.diasOtorgados;
         else diasLey30012 += lic.diasOtorgados;
       });
@@ -50,6 +70,7 @@ export async function GET(request: Request) {
         dni: t.dni,
         apellidosNombres: apellidosNombres.trim(),
         cargo: t.cargo,
+        condicionLaboral: t.condicionLaboral || '',
         establecimiento: t.establecimiento?.nombre || 'NO ASIGNADO',
         microred: t.establecimiento?.microred?.nombre || 'NO ASIGNADA',
         essalud: diasEssalud,
@@ -57,7 +78,8 @@ export async function GET(request: Request) {
         ley30012: diasLey30012,
         totalDias,
         diasRed,
-        diasSubsidioEsSalud
+        diasSubsidioEsSalud,
+        licencias: t.licencias
       };
     });
 

@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   description: "Red de Salud Huánuco",
 };
 
+import { Providers } from "./Providers";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -25,7 +27,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-screen overflow-hidden`}>
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

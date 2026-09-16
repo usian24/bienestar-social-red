@@ -16,7 +16,7 @@ export interface FilaExcelAsistencia {
   diasOtorgados: number;
 }
 
-export async function parsearMatrizAsistencias(buffer: Buffer): Promise<FilaExcelAsistencia[]> {
+export async function parsearMatrizAsistencias(buffer: any): Promise<FilaExcelAsistencia[]> {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
   

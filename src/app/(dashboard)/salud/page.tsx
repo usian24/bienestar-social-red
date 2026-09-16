@@ -2,10 +2,12 @@
 
 import { Eye, FileSpreadsheet, FileText, PlusCircle, Search } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import NuevoCittModal from "@/shared/components/NuevoCittModal";
 import DetallesTrabajadorModal from "@/shared/components/DetallesTrabajadorModal";
 
 export default function SaludPage() {
+  const { data: session } = useSession();
   const [registros, setRegistros] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -14,6 +16,9 @@ export default function SaludPage() {
   const [trabajadorDetalle, setTrabajadorDetalle] = useState<any | null>(null);
 
   // Datos para filtros dinámicos
+  const isSuperAdmin = (session?.user as any)?.rol === 'SUPER_ADMIN';
+  const userMicroredId = (session?.user as any)?.microredId;
+
   const [microredesDb, setMicroredesDb] = useState<any[]>([]);
   
   // Estado de los Filtros
@@ -22,9 +27,8 @@ export default function SaludPage() {
   const [microred, setMicrored] = useState('Todas');
   const [establecimiento, setEstablecimiento] = useState('--Todos--');
   const [condicionLaboral, setCondicionLaboral] = useState('--TODOS--');
-  const [dia, setDia] = useState('Todos');
-  const [mes, setMes] = useState('Todos');
-  const [anio, setAnio] = useState('2026');
+  const [fechaDesde, setFechaDesde] = useState('');
+  const [fechaHasta, setFechaHasta] = useState('');
 
   // Cargar datos de la tabla y filtros
   const fetchInicial = async () => {
@@ -33,12 +37,21 @@ export default function SaludPage() {
       // Cargar registros matemáticos
       const resSalud = await fetch('/api/salud');
       const dataSalud = await resSalud.json();
-      setRegistros(dataSalud);
+      if (Array.isArray(dataSalud)) {
+        setRegistros(dataSalud);
+      } else {
+        console.error("API /api/salud devolvió error:", dataSalud);
+        setRegistros([]);
+      }
 
       // Cargar filtros dinámicos (Microredes y Establecimientos)
       const resFiltros = await fetch('/api/filtros');
       const dataFiltros = await resFiltros.json();
-      setMicroredesDb(dataFiltros);
+      if (Array.isArray(dataFiltros)) {
+        setMicroredesDb(dataFiltros);
+      } else {
+        setMicroredesDb([]);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -55,14 +68,39 @@ export default function SaludPage() {
     const matchDni = r.dni.includes(searchDni) || r.apellidosNombres.toLowerCase().includes(searchDni.toLowerCase());
     const matchMicrored = microred === 'Todas' || r.microred === microred;
     const matchEstablecimiento = establecimiento === '--Todos--' || r.establecimiento === establecimiento;
-    // Condición Laboral, Día, Mes, Año se aplicarán cuando la tabla de Licencias tenga esas fechas.
-    return matchDni && matchMicrored && matchEstablecimiento;
+    const matchCondicion = condicionLaboral === '--TODOS--' || r.condicionLaboral === condicionLaboral;
+    
+    // Filtrado por fecha (si tiene alguna licencia dentro del rango)
+    let matchFechas = true;
+    if (fechaDesde || fechaHasta) {
+      if (r.licencias && r.licencias.length > 0) {
+        matchFechas = r.licencias.some((lic: any) => {
+          const licFecha = new Date(lic.fechaInicio);
+          let cumpleDesde = true;
+          let cumpleHasta = true;
+          
+          if (fechaDesde) {
+            const desde = new Date(fechaDesde + 'T00:00:00');
+            cumpleDesde = licFecha >= desde;
+          }
+          if (fechaHasta) {
+            const hasta = new Date(fechaHasta + 'T23:59:59');
+            cumpleHasta = licFecha <= hasta;
+          }
+          return cumpleDesde && cumpleHasta;
+        });
+      } else {
+        matchFechas = false;
+      }
+    }
+
+    return matchDni && matchMicrored && matchEstablecimiento && matchCondicion && matchFechas;
   });
 
-  // Obtener establecimientos de la microred seleccionada
-  const establecimientosActuales = microred === 'Todas' 
-    ? [] 
-    : microredesDb.find(m => m.nombre === microred)?.establecimientos || [];
+  // Obtener establecimientos de la microred seleccionada (o la asignada si es admin)
+  const establecimientosActuales = isSuperAdmin
+    ? (microred === 'Todas' ? [] : microredesDb.find(m => m.nombre === microred)?.establecimientos || [])
+    : (microredesDb.find(m => Number(m.id) === Number(userMicroredId))?.establecimientos || []);
 
   // Cuando cambia la microred, resetear el establecimiento
   const handleMicroredChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -75,8 +113,8 @@ export default function SaludPage() {
       {/* Cabecera Principal */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Salud (Enfermedad Común)</h1>
-          <p className="text-slate-500 text-sm mt-1">Gestión y cálculo de subsidios de 20 días</p>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Salud (Enfermedad Común)</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Gestión y cálculo de subsidios de 20 días</p>
         </div>
         <div className="flex gap-3 w-full md:w-auto">
           <div className="relative flex-1 md:w-64">
@@ -88,12 +126,12 @@ export default function SaludPage() {
               placeholder="Buscar por DNI o Apellidos..."
               value={searchDni}
               onChange={(e) => setSearchDni(e.target.value)}
-              className="w-full bg-white border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-700 focus:outline-blue-500 shadow-sm"
+              className="w-full bg-white dark:bg-slate-800 border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-blue-500 shadow-sm"
             />
           </div>
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm transition-colors whitespace-nowrap"
+            className="bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm transition-colors whitespace-nowrap"
           >
             <PlusCircle className="w-4 h-4" />
             Nuevo CITT
@@ -102,44 +140,49 @@ export default function SaludPage() {
       </div>
 
       {/* Filtros Originales Restaurados y Conectados */}
-      <div className="bg-white border border-slate-200 rounded-lg shadow-sm mb-6 p-5">
-        <h2 className="text-[14px] font-semibold text-slate-600 uppercase tracking-wide mb-4">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 rounded-lg shadow-sm mb-6 p-5">
+        <h2 className="text-[14px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide mb-4">
           FILTROS DE BÚSQUEDA
         </h2>
         
         {/* Fila 1: Ámbito, Microred, Establecimiento */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className={`grid gap-4 mb-4 ${isSuperAdmin ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-1'}`}>
+          {isSuperAdmin && (
+            <>
+              <div>
+                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">Ámbito</label>
+                <select 
+                  value={ambito} 
+                  onChange={(e) => setAmbito(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-blue-500 focus:bg-white dark:bg-slate-800 transition-colors"
+                >
+                  <option value="Microred">Microred</option>
+                  <option value="Sede Administrativa">Sede Administrativa</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">Microred</label>
+                <select 
+                  value={microred} 
+                  onChange={handleMicroredChange}
+                  disabled={ambito !== 'Microred'}
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-blue-500 focus:bg-white dark:bg-slate-800 transition-colors disabled:opacity-50"
+                >
+                  <option value="Todas">-- Todas las Microredes --</option>
+                  {microredesDb.map(m => (
+                    <option key={m.id} value={m.nombre}>{m.nombre}</option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
           <div>
-            <label className="block text-xs text-slate-500 mb-1.5 font-medium">Ámbito</label>
-            <select 
-              value={ambito} 
-              onChange={(e) => setAmbito(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-blue-500 focus:bg-white transition-colors"
-            >
-              <option value="Microred">Microred</option>
-              <option value="Sede Administrativa">Sede Administrativa</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-slate-500 mb-1.5 font-medium">Microred</label>
-            <select 
-              value={microred} 
-              onChange={handleMicroredChange}
-              className="w-full bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-blue-500 focus:bg-white transition-colors"
-            >
-              <option value="Todas">-- Todas las Microredes --</option>
-              {microredesDb.map(m => (
-                <option key={m.id} value={m.nombre}>{m.nombre}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-slate-500 mb-1.5 font-medium">Establecimiento</label>
+            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">Establecimiento</label>
             <select 
               value={establecimiento} 
               onChange={(e) => setEstablecimiento(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-blue-500 focus:bg-white transition-colors disabled:opacity-50"
-              disabled={microred === 'Todas'}
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-blue-500 focus:bg-white dark:bg-slate-800 transition-colors disabled:opacity-50"
+              disabled={isSuperAdmin && microred === 'Todas'}
             >
               <option value="--Todos--">-- Todos los Establecimientos --</option>
               {establecimientosActuales.map((est: any) => (
@@ -149,73 +192,56 @@ export default function SaludPage() {
           </div>
         </div>
 
-        {/* Fila 2: Condición Laboral, Día, Mes, Año */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Fila 2: Condición Laboral y Rango de Fechas */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div>
-            <label className="block text-xs text-slate-500 mb-1.5 font-medium">Condición Laboral</label>
-            <select 
-              value={condicionLaboral} 
-              onChange={(e) => setCondicionLaboral(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-blue-500 focus:bg-white transition-colors"
-            >
-              <option value="--TODOS--">--TODOS--</option>
-              <option value="NOMB">NOMBRADO 276</option>
-              <option value="CAS">CAS 1057</option>
-              <option value="LEY 30057">SERVIR LEY 30057</option>
-            </select>
+            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">Condición Laboral</label>
+              <select 
+                value={condicionLaboral} 
+                onChange={(e) => setCondicionLaboral(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-blue-500 focus:bg-white dark:bg-slate-800 transition-colors"
+              >
+                <option value="--TODOS--">--TODOS--</option>
+                {Array.from(new Set(registros.map(r => r.condicionLaboral || 'NO ESPECIFICADA'))).sort().map(cond => (
+                  <option key={cond} value={cond}>{cond}</option>
+                ))}
+              </select>
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1.5 font-medium">DÍA</label>
-            <select 
-              value={dia} 
-              onChange={(e) => setDia(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-blue-500 focus:bg-white transition-colors"
-            >
-              <option value="Todos">Todos</option>
-              {Array.from({length: 31}, (_, i) => i + 1).map(d => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
+            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">Fecha Desde</label>
+            <input 
+              type="date"
+              value={fechaDesde} 
+              onChange={(e) => setFechaDesde(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-blue-500 focus:bg-white dark:bg-slate-800 transition-colors"
+            />
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1.5 font-medium">MES</label>
-            <select 
-              value={mes} 
-              onChange={(e) => setMes(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-blue-500 focus:bg-white transition-colors"
-            >
-              <option value="Todos">Todos</option>
-              <option value="1">Enero</option>
-              <option value="2">Febrero</option>
-              <option value="3">Marzo</option>
-              <option value="4">Abril</option>
-              <option value="5">Mayo</option>
-              <option value="6">Junio</option>
-              <option value="7">Julio</option>
-              <option value="8">Agosto</option>
-              <option value="9">Septiembre</option>
-              <option value="10">Octubre</option>
-              <option value="11">Noviembre</option>
-              <option value="12">Diciembre</option>
-            </select>
+            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">Fecha Hasta</label>
+            <input 
+              type="date"
+              value={fechaHasta} 
+              onChange={(e) => setFechaHasta(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-blue-500 focus:bg-white dark:bg-slate-800 transition-colors"
+            />
           </div>
-          <div>
-            <label className="block text-xs text-slate-500 mb-1.5 font-medium">AÑO</label>
-            <select 
-              value={anio} 
-              onChange={(e) => setAnio(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 focus:outline-blue-500 focus:bg-white transition-colors"
-            >
-              <option value="2026">2026</option>
-              <option value="2025">2025</option>
-              <option value="2024">2024</option>
-            </select>
+          <div className="flex justify-end h-full items-end pb-0.5">
+            {isSuperAdmin && (
+              <button 
+                type="button"
+                className="bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 shadow-sm transition-colors w-full md:w-auto"
+                title="Sube múltiples trabajadores desde un archivo Excel"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                Excel Masivo
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       {/* Tabla Matemática */}
-      <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 rounded-lg shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-[13px]">
             <thead>
@@ -229,16 +255,16 @@ export default function SaludPage() {
                 <th className="py-3 px-4 font-semibold text-center w-32">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-10 text-center text-slate-500">
+                  <td colSpan={7} className="py-10 text-center text-slate-500 dark:text-slate-400">
                     Conectando con la Base de Datos...
                   </td>
                 </tr>
               ) : registrosFiltrados.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-10 text-center text-slate-500">
+                  <td colSpan={7} className="py-10 text-center text-slate-500 dark:text-slate-400">
                     No hay trabajadores con licencias de salud registradas aún bajo estos filtros. ¡Ingresa un CITT!
                   </td>
                 </tr>
@@ -248,18 +274,18 @@ export default function SaludPage() {
                   return (
                     <tr 
                       key={item.id} 
-                      className={isSubsidio ? 'bg-red-50 hover:bg-red-100 transition-colors' : 'bg-white hover:bg-slate-50 transition-colors'}
+                      className={isSubsidio ? 'bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors' : 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors'}
                     >
-                      <td className="py-3 px-4 text-slate-600 font-medium">{item.dni}</td>
-                      <td className="py-3 px-4 text-slate-800">
+                      <td className="py-3 px-4 text-slate-600 dark:text-slate-300 font-medium">{item.dni}</td>
+                      <td className="py-3 px-4 text-slate-800 dark:text-slate-100">
                         <div className="font-semibold">{item.apellidosNombres}</div>
                         <div className="text-[11px] text-slate-400">{item.cargo}</div>
                       </td>
-                      <td className="py-3 px-4 text-slate-500 text-xs">
-                        <div className="font-medium text-slate-700">{item.microred}</div>
+                      <td className="py-3 px-4 text-slate-500 dark:text-slate-400 text-xs">
+                        <div className="font-medium text-slate-700 dark:text-slate-200">{item.microred}</div>
                         <div>{item.establecimiento}</div>
                       </td>
-                      <td className="py-3 px-3 text-center text-slate-700 font-medium">{item.totalDias}</td>
+                      <td className="py-3 px-3 text-center text-slate-700 dark:text-slate-200 font-medium">{item.totalDias}</td>
                       <td className="py-3 px-3 text-center font-bold text-emerald-600">{item.diasRed}</td>
                       <td className={`py-3 px-3 text-center font-bold ${isSubsidio ? 'text-red-600 text-lg' : 'text-slate-400'}`}>
                         {item.diasSubsidioEsSalud}
@@ -274,14 +300,16 @@ export default function SaludPage() {
                             <Eye className="w-4 h-4" />
                           </button>
                           
-                          <button 
-                            onClick={() => window.open(`/salud/reporte/${item.id}`, '_blank')}
-                            className="px-2.5 py-1.5 rounded-md text-white shadow-sm transition-colors bg-red-600 hover:bg-red-700 flex items-center gap-1.5 font-bold text-xs"
-                            title="Generar Reporte PDF"
-                          >
-                            <FileText className="w-3.5 h-3.5" />
-                            PDF
-                          </button>
+                          {(session?.user as any)?.rol === "SUPER_ADMIN" && (
+                            <button 
+                              onClick={() => window.open(`/salud/reporte/${item.id}`, '_blank')}
+                              className="px-2.5 py-1.5 rounded-md text-white shadow-sm transition-colors bg-red-600 hover:bg-red-700 flex items-center gap-1.5 font-bold text-xs"
+                              title="Generar Reporte PDF"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              PDF
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -313,3 +341,9 @@ export default function SaludPage() {
     </>
   );
 }
+
+
+
+
+
+

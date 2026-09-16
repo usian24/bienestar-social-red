@@ -8,7 +8,7 @@ export async function POST(request: Request) {
 
     const pdfBytes = await ensamblarExpedienteSubsidio(datosTrabajador, rutasEvidencias || []);
     
-    return new NextResponse(pdfBytes, {
+    return new NextResponse(pdfBytes as any, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': 'attachment; filename="informe_subsidio.pdf"'

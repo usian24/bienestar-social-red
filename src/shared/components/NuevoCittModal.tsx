@@ -173,14 +173,14 @@ export default function NuevoCittModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Cabecera */}
         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-          <h3 className="text-lg font-bold text-slate-800">
+          <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">
             {editData ? 'Editar CITT' : 'Registrar Nuevo CITT'}
           </h3>
-          <button onClick={onClose} className="p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600 rounded-md transition-colors">
+          <button onClick={onClose} className="p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600 dark:text-slate-300 rounded-md transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -195,7 +195,7 @@ export default function NuevoCittModal({
 
           {/* 1. Selección de Trabajador */}
           <div className="mb-8">
-            <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-3">1. Datos del Servidor</h4>
+            <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide mb-3">1. Datos del Servidor</h4>
             
             {!trabajadorSeleccionado ? (
               <div className="relative">
@@ -207,23 +207,23 @@ export default function NuevoCittModal({
                   placeholder="Escribe DNI o Apellidos (Ej. 6079 o Rojas)..." 
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-lg text-slate-700 focus:outline-blue-500"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-lg text-slate-700 dark:text-slate-200 focus:outline-blue-500"
                 />
                 
                 {buscando && <p className="text-xs text-blue-500 mt-2 ml-1">Buscando en la base de datos...</p>}
                 
                 {trabajadores.length > 0 && (
-                  <ul className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
+                  <ul className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 rounded-lg shadow-lg overflow-hidden">
                     {trabajadores.map(t => (
                       <li 
                         key={t.id} 
                         onClick={() => seleccionarTrabajador(t)}
                         className="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-slate-50 last:border-0 flex flex-col"
                       >
-                        <span className="font-semibold text-slate-800">
+                        <span className="font-semibold text-slate-800 dark:text-slate-100">
                           {t.dni} - {t.apellidosNombres ? t.apellidosNombres : `${t.apellidos}, ${t.nombres}`}
                         </span>
-                        <span className="text-xs text-slate-500">{t.establecimiento?.nombre} ({t.establecimiento?.microred?.nombre})</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">{t.establecimiento?.nombre} ({t.establecimiento?.microred?.nombre})</span>
                       </li>
                     ))}
                   </ul>
@@ -233,14 +233,14 @@ export default function NuevoCittModal({
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex justify-between items-center">
                 <div>
                   <p className="text-xs text-blue-500 font-semibold mb-1">TRABAJADOR SELECCIONADO:</p>
-                  <p className="font-bold text-slate-800">
+                  <p className="font-bold text-slate-800 dark:text-slate-100">
                     {trabajadorSeleccionado.dni} - {trabajadorSeleccionado.apellidosNombres ? trabajadorSeleccionado.apellidosNombres : `${trabajadorSeleccionado.apellidos}, ${trabajadorSeleccionado.nombres}`}
                   </p>
-                  <p className="text-sm text-slate-600 mt-0.5">{trabajadorSeleccionado.cargo} en {trabajadorSeleccionado.establecimiento?.nombre}</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">{trabajadorSeleccionado.cargo} en {trabajadorSeleccionado.establecimiento?.nombre}</p>
                 </div>
                 <button 
                   onClick={() => setTrabajadorSeleccionado(null)}
-                  className="text-xs bg-white text-slate-500 hover:text-red-500 px-3 py-1.5 border border-slate-200 rounded shadow-sm"
+                  className="text-xs bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-red-500 px-3 py-1.5 border border-slate-200 rounded shadow-sm"
                 >
                   Cambiar
                 </button>
@@ -250,26 +250,26 @@ export default function NuevoCittModal({
 
           {/* 2. Datos del CITT */}
           <div className={`transition-opacity ${!trabajadorSeleccionado ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
-            <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-3">2. Detalle del Descanso Médico</h4>
+            <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide mb-3">2. Detalle del Descanso Médico</h4>
             
             <form id="citt-form" onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-5">
               
               <div className="md:col-span-2">
-                <label className="block text-xs text-slate-500 mb-1.5 font-medium">Origen del Certificado</label>
+                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">Origen del Certificado</label>
                 <div className="flex gap-4">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="radio" value="ESSALUD_CITT" checked={origen === 'ESSALUD_CITT'} onChange={(e) => setOrigen(e.target.value)} className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm text-slate-700 font-medium">CITT EsSalud</span>
+                    <span className="text-sm text-slate-700 dark:text-slate-200 font-medium">CITT EsSalud</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="radio" value="PARTICULAR" checked={origen === 'PARTICULAR'} onChange={(e) => setOrigen(e.target.value)} className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm text-slate-700 font-medium">Certificado Particular (Especie Valorada)</span>
+                    <span className="text-sm text-slate-700 dark:text-slate-200 font-medium">Certificado Particular (Especie Valorada)</span>
                   </label>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs text-slate-500 mb-1.5 font-medium">Número de Certificado</label>
+                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">Número de Certificado</label>
                 <input 
                   type="text" 
                   required
@@ -281,7 +281,7 @@ export default function NuevoCittModal({
               </div>
 
               <div>
-                <label className="block text-xs text-slate-500 mb-1.5 font-medium">Fecha de Inicio</label>
+                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">Fecha de Inicio</label>
                 <input 
                   type="date" 
                   required
@@ -292,7 +292,7 @@ export default function NuevoCittModal({
               </div>
 
               <div>
-                <label className="block text-xs text-slate-500 mb-1.5 font-medium">Cantidad de Días Otorgados</label>
+                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">Cantidad de Días Otorgados</label>
                 <input 
                   type="number" 
                   min="1"
@@ -305,17 +305,17 @@ export default function NuevoCittModal({
               </div>
 
               <div>
-                <label className="block text-xs text-slate-500 mb-1.5 font-medium">Fecha de Fin (Calculada)</label>
+                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">Fecha de Fin (Calculada)</label>
                 <input 
                   type="date" 
                   disabled
                   value={calcularFechaFin(fechaInicio, parseInt(diasOtorgados || '0'))}
-                  className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-md text-sm text-slate-500"
+                  className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-700 border border-slate-200 rounded-md text-sm text-slate-500 dark:text-slate-400"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-xs text-slate-500 mb-2 font-medium flex items-center gap-2">
+                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-2 font-medium flex items-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                   Evidencia del Descanso (Opcional)
                 </label>
@@ -350,8 +350,8 @@ export default function NuevoCittModal({
                 </div>
 
                 {archivoAdjunto ? (
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded flex justify-between items-center">
-                    <span className="text-sm font-medium text-slate-700 truncate mr-4">📎 {archivoAdjunto.name}</span>
+                  <div className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded flex justify-between items-center">
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate mr-4">📎 {archivoAdjunto.name}</span>
                     <button type="button" onClick={() => setArchivoAdjunto(null)} className="text-red-500 hover:text-red-700 text-xs font-bold">Quitar</button>
                   </div>
                 ) : editData?.archivoRuta ? (
@@ -368,7 +368,7 @@ export default function NuevoCittModal({
           <button 
             type="button" 
             onClick={onClose}
-            className="px-5 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+            className="px-5 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 rounded-lg transition-colors"
           >
             Cancelar
           </button>
@@ -391,4 +391,5 @@ export default function NuevoCittModal({
     </div>
   );
 }
+
 

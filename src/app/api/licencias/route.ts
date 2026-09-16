@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../auth/[...nextauth]/route';
 
 export async function GET(request: Request) {
   try {
@@ -12,7 +14,12 @@ export async function GET(request: Request) {
 
     const licencias = await prisma.licencia.findMany({
       where: { trabajadorId },
-      orderBy: { fechaInicio: 'desc' }
+      orderBy: { fechaInicio: 'desc' },
+      include: {
+        registradoPor: {
+          select: { nombres: true, apellidos: true }
+        }
+      }
     });
 
     return NextResponse.json(licencias);
@@ -24,11 +31,16 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !(session.user as any)?.id) {
+      return NextResponse.json({ error: 'No autorizado. Inicie sesión.' }, { status: 401 });
+    }
+
     const body = await request.json();
     const {
       trabajadorId,
-      tipoLicencia, // 'ENFERMEDAD_COMUN', 'MATERNIDAD', 'PATERNIDAD'
-      origen,       // 'ESSALUD', 'PARTICULAR'
+      tipoLicencia, 
+      origen,       
       numeroCertificado,
       fechaInicio,
       fechaFin,
@@ -38,12 +50,10 @@ export async function POST(request: Request) {
       archivoRuta
     } = body;
 
-    // Validaciones básicas
     if (!trabajadorId || !numeroCertificado || !fechaInicio || !fechaFin || !diasOtorgados) {
       return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
     }
 
-    // Crear la nueva licencia en la base de datos
     const nuevaLicencia = await prisma.licencia.create({
       data: {
         trabajadorId,
@@ -55,7 +65,8 @@ export async function POST(request: Request) {
         diasOtorgados: Number(diasOtorgados),
         anioEjercicio: Number(anioEjercicio),
         mesEjercicio: Number(mesEjercicio),
-        archivoRuta
+        archivoRuta,
+        registradoPorId: (session.user as any).id
       }
     });
 
