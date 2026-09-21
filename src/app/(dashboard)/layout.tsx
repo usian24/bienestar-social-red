@@ -35,7 +35,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className={`flex h-screen bg-[#f4f7fb] dark:bg-slate-900 font-sans text-slate-800 dark:text-slate-200 text-sm antialiased overflow-hidden print:overflow-visible print:bg-white print:h-auto print:block transition-colors duration-300`}>
       {/* Sidebar Lateral */}
       <aside className={`${isSidebarOpen ? 'w-56' : 'w-16'} bg-[#f4f7fb] dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 flex flex-col shrink-0 h-full print:hidden transition-all duration-300 overflow-x-hidden`}>
-        <div className={`h-20 flex items-center px-4 pt-2 ${isSidebarOpen ? 'gap-3' : 'justify-center'}`}>
+        <div className={`py-4 flex items-center px-4 pt-4 ${isSidebarOpen ? 'gap-3' : 'justify-center'}`}>
           <button 
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 shrink-0"
@@ -46,21 +46,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className={`flex-1 flex justify-center mt-2 transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100 w-auto' : 'opacity-0 w-0 overflow-hidden'}`}>
             {!logoError ? (
               <img 
-                src="/images/logo-red-huanuco.jpg" 
+                src="/images/logo-red-huanuco.png" 
                 alt="Logo Red" 
                 onError={() => setLogoError(true)}
-                className="h-12 object-contain"
+                className="h-24 object-contain"
               />
             ) : (
-              <div className="w-[60px] h-[60px] rounded-full border-2 border-blue-300 flex flex-col items-center justify-center bg-[#f4f7fb] dark:bg-slate-800 text-[6px] text-blue-700 dark:text-blue-400 font-bold leading-tight shrink-0">
-                 <Heart className="w-5 h-5 text-blue-600 dark:text-blue-400 mb-0.5" />
+              <div className="w-[80px] h-[80px] rounded-full border-2 border-blue-300 flex flex-col items-center justify-center bg-[#f4f7fb] dark:bg-slate-800 text-[8px] text-blue-700 dark:text-blue-400 font-bold leading-tight shrink-0">
+                 <Heart className="w-6 h-6 text-blue-600 dark:text-blue-400 mb-0.5" />
                  RED DE
               </div>
             )}
           </div>
         </div>
 
-        <div className={`px-4 mt-8 mb-4 transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 hidden'}`}>
+        <div className={`px-4 mt-6 mb-4 transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 hidden'}`}>
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-2 text-slate-400 dark:text-slate-500" />
             <input 

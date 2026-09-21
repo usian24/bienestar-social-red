@@ -28,6 +28,7 @@ export default function NuevoCittModal({
   const [diasOtorgados, setDiasOtorgados] = useState('');
   
   const [guardando, setGuardando] = useState(false);
+  const [exito, setExito] = useState(false);
   const [error, setError] = useState('');
   const [archivoAdjunto, setArchivoAdjunto] = useState<File | null>(null);
 
@@ -106,6 +107,13 @@ export default function NuevoCittModal({
       setError('Por favor completa todos los campos.');
       return;
     }
+    
+    let archivoRutaStr = editData?.archivoRuta || null;
+    
+    if (!archivoRutaStr && !archivoAdjunto) {
+      setError('Es OBLIGATORIO subir o tomar una foto de la evidencia del descanso.');
+      return;
+    }
 
     setGuardando(true);
     setError('');
@@ -117,8 +125,6 @@ export default function NuevoCittModal({
     const anioContable = fechaObj.getFullYear();
 
     try {
-      let archivoRutaStr = editData?.archivoRuta || null;
-
       // Subir archivo si hay uno nuevo
       if (archivoAdjunto) {
         const formData = new FormData();
@@ -154,33 +160,46 @@ export default function NuevoCittModal({
         })
       });
 
-      if (!res.ok) throw new Error('Error al guardar el CITT');
+      if (!res.ok) throw new Error('Error al guardar el Descanso Médico');
 
-      // Limpiar y cerrar
-      setTrabajadorSeleccionado(null);
-      setNumeroCertificado('');
-      setFechaInicio('');
-      setDiasOtorgados('');
-      setArchivoAdjunto(null);
-      onSuccess(); // Avisar a la pantalla principal que recargue
-      onClose(); // Cerrar modal
+      // Mostrar éxito y cerrar
+      setExito(true);
+      setTimeout(() => {
+        setTrabajadorSeleccionado(null);
+        setNumeroCertificado('');
+        setFechaInicio('');
+        setDiasOtorgados('');
+        setArchivoAdjunto(null);
+        setExito(false);
+        onSuccess(); // Avisar a la pantalla principal que recargue
+        onClose(); // Cerrar modal
+      }, 1500);
+      
     } catch (err) {
       setError('Hubo un problema guardando el registro.');
-    } finally {
       setGuardando(false);
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] relative">
         
+        {/* Pantalla de Éxito Flotante */}
+        {exito && (
+          <div className="absolute inset-0 z-10 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm flex flex-col items-center justify-center">
+            <CheckCircle2 className="w-16 h-16 text-emerald-500 mb-4 animate-bounce" />
+            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">¡Registrado con Éxito!</h2>
+            <p className="text-slate-500 mt-2">Guardando en la base de datos...</p>
+          </div>
+        )}
+
         {/* Cabecera */}
-        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-          <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">
-            {editData ? 'Editar CITT' : 'Registrar Nuevo CITT'}
+        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+          <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">
+            {editData ? 'Editar Descanso Médico' : 'Registrar Descanso Médico'}
           </h3>
-          <button onClick={onClose} className="p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600 dark:text-slate-300 rounded-md transition-colors">
+          <button onClick={onClose} className="p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600 dark:text-slate-300 rounded-md transition-colors" disabled={guardando}>
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -315,10 +334,10 @@ export default function NuevoCittModal({
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-2 font-medium flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-                  Evidencia del Descanso (Opcional)
-                </label>
+                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-2 font-medium flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    Evidencia del Descanso <span className="text-red-500 font-bold">(Obligatorio)</span>
+                  </label>
                 
                 <div className="flex flex-wrap gap-3 mb-3">
                   <label className="cursor-pointer px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-md text-sm font-semibold flex items-center gap-2 border border-blue-200 transition-colors">

@@ -17,7 +17,12 @@ export async function GET(request: Request) {
       orderBy: { fechaInicio: 'desc' },
       include: {
         registradoPor: {
-          select: { nombres: true, apellidos: true }
+          select: { 
+            nombres: true, 
+            apellidos: true,
+            rol: true,
+            microred: { select: { nombre: true } }
+          }
         }
       }
     });

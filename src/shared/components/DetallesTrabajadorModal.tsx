@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Pencil, Trash2, Calendar, FileText } from 'lucide-react';
+import { X, Pencil, Trash2, Calendar, FileText, User, Clock } from 'lucide-react';
 import NuevoCittModal from './NuevoCittModal';
 import { useSession } from 'next-auth/react';
 
@@ -206,13 +206,22 @@ export default function DetallesTrabajadorModal({
                                   </>
                                 )}
                               </button>
-                              
-                              {lic.creadoEn && (
-                                <div className="text-xs text-slate-400 font-medium flex items-center gap-1">
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                                  Registrado el: {new Date(lic.creadoEn).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })}
+                              {/* Footer / Meta Info de la Cartilla - Siempre visible */}
+                              <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700 flex flex-col md:flex-row md:justify-between items-start md:items-center text-[11px] text-slate-500 gap-2">
+                                <div className="flex items-center gap-1.5">
+                                  <User className="w-3.5 h-3.5" />
+                                  <span>
+                                    Subido por: <strong className="text-slate-700 dark:text-slate-300 uppercase">{lic.registradoPor?.nombres || 'Administrador'} {lic.registradoPor?.apellidos || ''}</strong> 
+                                    {lic.registradoPor?.microred?.nombre ? ` (${lic.registradoPor.microred.nombre})` : (lic.registradoPor?.rol ? ` (${lic.registradoPor.rol})` : '')}
+                                  </span>
                                 </div>
-                              )}
+                                {lic.creadoEn && (
+                                  <div className="flex items-center gap-1.5 font-medium">
+                                    <Clock className="w-3.5 h-3.5" />
+                                    <span>{new Date(lic.creadoEn).toLocaleString('es-PE', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
 
