@@ -10,11 +10,11 @@ interface DetallesTrabajadorModalProps {
   onClose: () => void;
   trabajadorInfoFijo: any | null;
   onRefreshParent: () => void;
+  tipoLicenciaRestriccion?: string;
+  reporteUrl?: string; // Optional prop for custom PDF report URL
 }
 
-export default function DetallesTrabajadorModal({ 
-  isOpen, onClose, trabajadorInfoFijo, onRefreshParent 
-}: DetallesTrabajadorModalProps) {
+export default function DetallesTrabajadorModal({ isOpen, onClose, trabajadorInfoFijo, onRefreshParent, tipoLicenciaRestriccion, reporteUrl = '/salud/reporte-detallado/' }: DetallesTrabajadorModalProps) {
   
   const { data: session } = useSession();
   const [licencias, setLicencias] = useState<any[]>([]);
@@ -30,7 +30,10 @@ export default function DetallesTrabajadorModal({
     setLoading(true);
     try {
       const res = await fetch(`/api/licencias?trabajadorId=${trabajadorInfoFijo.id}`);
-      const data = await res.json();
+      let data = await res.json();
+      if (tipoLicenciaRestriccion) {
+        data = data.filter((lic: any) => lic.tipoLicencia === tipoLicenciaRestriccion);
+      }
       setLicencias(data);
     } catch (e) {
       console.error(e);
@@ -81,7 +84,7 @@ export default function DetallesTrabajadorModal({
             <div className="flex gap-3 items-center">
               {trabajadorInfoFijo && (
                 <button 
-                  onClick={() => window.open(`/salud/reporte-detallado/${trabajadorInfoFijo.id}`, '_blank')}
+                  onClick={() => window.open(`${reporteUrl}${trabajadorInfoFijo.id}`, '_blank')}
                   className="px-3 py-1.5 bg-red-600 text-white rounded shadow-sm hover:bg-red-700 font-bold text-xs flex items-center gap-1.5"
                 >
                   <FileText className="w-3.5 h-3.5" />

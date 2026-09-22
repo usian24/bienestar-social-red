@@ -26,35 +26,38 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Trabajador no encontrado' }, { status: 404 });
     }
 
-    // Calcular días igual que en el dashboard
-    let totalDiasOtorgados = 0;
-    let diasRed = 0;
-    let diasEsSalud = 0;
+    // Cálculos por módulo
+    let saludTotal = 0;
+    let maternidadTotal = 0;
+    let paternidadTotal = 0;
 
     trabajador.licencias.forEach(lic => {
-      totalDiasOtorgados += lic.diasOtorgados;
+      if (lic.tipoLicencia === 'ENFERMEDAD_COMUN') saludTotal += lic.diasOtorgados;
+      else if (lic.tipoLicencia === 'MATERNIDAD') maternidadTotal += lic.diasOtorgados;
+      else if (lic.tipoLicencia === 'PATERNIDAD') paternidadTotal += lic.diasOtorgados;
     });
 
-    if (totalDiasOtorgados <= 20) {
-      diasRed = totalDiasOtorgados;
-      diasEsSalud = 0;
-    } else {
-      diasRed = 20;
-      diasEsSalud = totalDiasOtorgados - 20;
-    }
+    // Salud: 20 días Red, resto EsSalud
+    const saludRed = Math.min(saludTotal, 20);
+    const saludEsSalud = Math.max(0, saludTotal - 20);
 
-    // Devolver formato amigable sin datos sensibles extra
+    // Maternidad: 100% EsSalud
+    const maternidadEsSalud = maternidadTotal;
+
+    // Paternidad: 100% Red
+    const paternidadRed = paternidadTotal;
+
     return NextResponse.json({
       dni: trabajador.dni,
       apellidosNombres: `${trabajador.apellidos}, ${trabajador.nombres}`,
       cargo: trabajador.cargo,
       condicionLaboral: trabajador.condicionLaboral,
-      establecimiento: trabajador.establecimiento.nombre,
-      microred: trabajador.establecimiento.microred.nombre,
+      establecimiento: trabajador.establecimiento?.nombre || 'No asignado',
+      microred: trabajador.establecimiento?.microred?.nombre || 'No asignada',
       resumen: {
-        totalDiasAcumulados: totalDiasOtorgados,
-        diasCubiertosPorRed: diasRed,
-        diasSubsidioEsSalud: diasEsSalud,
+        salud: { total: saludTotal, red: saludRed, essalud: saludEsSalud },
+        maternidad: { total: maternidadTotal, essalud: maternidadEsSalud },
+        paternidad: { total: paternidadTotal, red: paternidadRed }
       },
       licencias: trabajador.licencias.map(l => ({
         id: l.id,
@@ -67,8 +70,6 @@ export async function GET(request: Request) {
       }))
     });
   } catch (error) {
-    console.error('Error en consulta pública:', error);
-    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
 }
-
