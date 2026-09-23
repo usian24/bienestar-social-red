@@ -1,11 +1,18 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../../auth/[...nextauth]/route';
 
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !(session.user as any)?.id) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
     const resolvedParams = await params;
     const { id } = resolvedParams;
     
@@ -13,9 +20,23 @@ export async function DELETE(
       return NextResponse.json({ error: 'Falta el ID de la licencia' }, { status: 400 });
     }
 
+    const licencia = await prisma.licencia.findUnique({ where: { id } });
+
     await prisma.licencia.delete({
       where: { id }
     });
+
+    if (licencia) {
+      await prisma.auditoria.create({
+        data: {
+          usuarioId: (session.user as any).id,
+          accion: 'ELIMINAR',
+          modulo: 'LICENCIA',
+          entidadId: id,
+          detalles: `Eliminó el certificado ${licencia.numeroCertificado} (${licencia.diasOtorgados} días)`
+        }
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -29,6 +50,11 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !(session.user as any)?.id) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
     const resolvedParams = await params;
     const { id } = resolvedParams;
     
@@ -58,7 +84,17 @@ export async function PUT(
         diasOtorgados: Number(diasOtorgados),
         anioEjercicio: Number(anioEjercicio),
         mesEjercicio: Number(mesEjercicio),
-        archivoRuta
+        ...(archivoRuta !== undefined && { archivoRuta })
+      }
+    });
+
+    await prisma.auditoria.create({
+      data: {
+        usuarioId: (session.user as any).id,
+        accion: 'EDITAR',
+        modulo: 'LICENCIA',
+        entidadId: id,
+        detalles: `Editó el certificado ${numeroCertificado} (${origen})`
       }
     });
 

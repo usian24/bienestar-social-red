@@ -75,6 +75,21 @@ export async function POST(request: Request) {
       }
     });
 
+    await prisma.auditoria.create({
+      data: {
+        usuarioId: (session.user as any).id,
+        accion: 'CREAR',
+        modulo: 'LICENCIA',
+        entidadId: nuevaLicencia.id,
+        detalles: JSON.stringify({
+          tipoLicencia,
+          origen,
+          numeroCertificado,
+          diasOtorgados
+        })
+      }
+    });
+
     return NextResponse.json(nuevaLicencia, { status: 201 });
   } catch (error) {
     console.error('Error al crear licencia:', error);

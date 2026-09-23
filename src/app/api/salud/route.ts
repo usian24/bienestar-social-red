@@ -46,16 +46,16 @@ export async function GET(request: Request) {
     const registros = trabajadores.map(t => {
       let diasEssalud = 0;
       let diasParticulares = 0;
-      let diasLey30012 = 0;
+      let diasPerdidos = 0;
 
       // Sumamos los días según el origen del certificado
       t.licencias.forEach(lic => {
         if (lic.origen === 'ESSALUD_CITT') diasEssalud += lic.diasOtorgados;
         else if (lic.origen === 'PARTICULAR') diasParticulares += lic.diasOtorgados;
-        else diasLey30012 += lic.diasOtorgados;
+        else if (lic.origen === 'PARTICULAR_PERDIDO') diasPerdidos += lic.diasOtorgados;
       });
 
-      const totalDias = diasEssalud + diasParticulares + diasLey30012;
+      const totalDias = diasEssalud + diasParticulares; // Los perdidos no suman para la Red ni para el Subsidio
       
       // LA REGLA DE ORO DE BIENESTAR SOCIAL
       const diasRed = Math.min(totalDias, 20);
@@ -75,7 +75,7 @@ export async function GET(request: Request) {
         microred: t.establecimiento?.microred?.nombre || 'NO ASIGNADA',
         essalud: diasEssalud,
         particulares: diasParticulares,
-        ley30012: diasLey30012,
+        perdidos: diasPerdidos,
         totalDias,
         diasRed,
         diasSubsidioEsSalud,

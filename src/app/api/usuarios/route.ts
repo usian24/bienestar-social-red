@@ -76,6 +76,16 @@ export async function POST(request: Request) {
       }
     });
 
+    await prisma.auditoria.create({
+      data: {
+        usuarioId: (session.user as any).id,
+        accion: 'CREAR',
+        modulo: 'USUARIO',
+        entidadId: nuevoUsuario.id,
+        detalles: `Creó al usuario ${nombres} ${apellidos} (${dni}) con rol ${rol}`
+      }
+    });
+
     return NextResponse.json(nuevoUsuario, { status: 201 });
   } catch (error) {
     console.error('Error creando usuario:', error);

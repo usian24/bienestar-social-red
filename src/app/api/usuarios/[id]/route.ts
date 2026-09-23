@@ -38,6 +38,16 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       data: dataToUpdate
     });
 
+    await prisma.auditoria.create({
+      data: {
+        usuarioId: (session.user as any).id,
+        accion: 'EDITAR',
+        modulo: 'USUARIO',
+        entidadId: id,
+        detalles: `Actualizó datos del usuario ${nombres} ${apellidos}`
+      }
+    });
+
     return NextResponse.json(updatedUser);
   } catch (error) {
     console.error('Error actualizando usuario:', error);
@@ -70,6 +80,16 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     await prisma.usuario.update({
       where: { id },
       data: { activo: false }
+    });
+
+    await prisma.auditoria.create({
+      data: {
+        usuarioId: (session.user as any).id,
+        accion: 'ELIMINAR',
+        modulo: 'USUARIO',
+        entidadId: id,
+        detalles: `Desactivó al usuario ${targetUser.nombres} ${targetUser.apellidos} (${targetUser.dni})`
+      }
     });
 
     return NextResponse.json({ message: 'Usuario desactivado correctamente' });

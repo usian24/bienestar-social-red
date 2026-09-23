@@ -29,6 +29,7 @@ export default function SaludPage() {
   const [condicionLaboral, setCondicionLaboral] = useState('--TODOS--');
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
+  const [orden, setOrden] = useState('alfabetico');
 
   // Cargar datos de la tabla y filtros
   const fetchInicial = async () => {
@@ -66,7 +67,15 @@ export default function SaludPage() {
   // Filtrado de la tabla en tiempo real
   const registrosFiltrados = registros.filter(r => {
     const matchDni = r.dni.includes(searchDni) || r.apellidosNombres.toLowerCase().includes(searchDni.toLowerCase());
-    const matchMicrored = microred === 'Todas' || r.microred === microred;
+    
+    let matchAmbito = true;
+    if (ambito === 'Sede Administrativa') {
+      matchAmbito = r.microred === 'SEDE RED SALUD HUANUCO';
+    } else {
+      matchAmbito = r.microred !== 'SEDE RED SALUD HUANUCO';
+    }
+
+    const matchMicrored = ambito === 'Sede Administrativa' ? true : (microred === 'Todas' || r.microred === microred);
     const matchEstablecimiento = establecimiento === '--Todos--' || r.establecimiento === establecimiento;
     const matchCondicion = condicionLaboral === '--TODOS--' || r.condicionLaboral === condicionLaboral;
     
@@ -94,12 +103,30 @@ export default function SaludPage() {
       }
     }
 
-    return matchDni && matchMicrored && matchEstablecimiento && matchCondicion && matchFechas;
+    return matchAmbito && matchDni && matchMicrored && matchEstablecimiento && matchCondicion && matchFechas;
+  });
+
+  // LOGICA DE ORDENAMIENTO
+  const registrosOrdenados = [...registrosFiltrados].sort((a, b) => {
+    if (orden === 'alfabetico') {
+      return a.apellidosNombres.localeCompare(b.apellidosNombres);
+    } else if (orden === 'dias_red_desc') {
+      return b.diasRed - a.diasRed;
+    } else if (orden === 'dias_subsidio_desc') {
+      return b.diasSubsidioEsSalud - a.diasSubsidioEsSalud;
+    } else if (orden === 'registro_reciente') {
+      const dateA = a.licencias && a.licencias.length > 0 ? new Date(a.licencias[0].creadoEn).getTime() : 0;
+      const dateB = b.licencias && b.licencias.length > 0 ? new Date(b.licencias[0].creadoEn).getTime() : 0;
+      return dateB - dateA;
+    }
+    return 0;
   });
 
   // Obtener establecimientos de la microred seleccionada (o la asignada si es admin)
   const establecimientosActuales = isSuperAdmin
-    ? (microred === 'Todas' ? [] : microredesDb.find(m => m.nombre === microred)?.establecimientos || [])
+    ? (ambito === 'Sede Administrativa' 
+         ? microredesDb.find(m => m.nombre === 'SEDE RED SALUD HUANUCO')?.establecimientos || []
+         : (microred === 'Todas' ? [] : microredesDb.find(m => m.nombre === microred)?.establecimientos || []))
     : (microredesDb.find(m => Number(m.id) === Number(userMicroredId))?.establecimientos || []);
 
   // Cuando cambia la microred, resetear el establecimiento
@@ -169,7 +196,7 @@ export default function SaludPage() {
                   className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-blue-500 focus:bg-white dark:bg-slate-800 transition-colors disabled:opacity-50"
                 >
                   <option value="Todas">-- Todas las Microredes --</option>
-                  {microredesDb.map(m => (
+                  {microredesDb.filter(m => m.nombre !== 'SEDE RED SALUD HUANUCO').map(m => (
                     <option key={m.id} value={m.nombre}>{m.nombre}</option>
                   ))}
                 </select>
@@ -247,6 +274,26 @@ export default function SaludPage() {
         </div>
       </div>
 
+      {/* Barra de Herramientas sobre la tabla */}
+      <div className="flex justify-between items-center mb-3">
+        <div className="text-xs text-slate-500 font-medium">
+          Mostrando {registrosOrdenados.length} registros
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Ordenar:</span>
+          <select 
+            value={orden}
+            onChange={e => setOrden(e.target.value)}
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 focus:outline-blue-500 transition-colors shadow-sm cursor-pointer"
+          >
+            <option value="alfabetico">Alfabético (A-Z)</option>
+            <option value="registro_reciente">Agregados Recientemente</option>
+            <option value="dias_red_desc">Mayor Días de la Red</option>
+            <option value="dias_subsidio_desc">Mayor Días de Subsidio</option>
+          </select>
+        </div>
+      </div>
+
       {/* Tabla Matemática */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 rounded-lg shadow-sm overflow-hidden">
         <div className="overflow-x-auto border-t border-slate-200 dark:border-slate-700">
@@ -278,7 +325,7 @@ export default function SaludPage() {
                     </td>
                   </tr>
                 ) : (
-                  registrosFiltrados.map((item: any, i: number) => {
+                  registrosOrdenados.map((item: any, i: number) => {
                     const isSubsidio = item.diasSubsidioEsSalud > 0;
                     return (
                       <tr 

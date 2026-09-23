@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Menu, Heart, Search, Home, Moon, Sun, Shield, Settings, Users, LogOut, ChevronLeft } from 'lucide-react';
+import { Menu, Heart, Search, Home, Moon, Sun, Shield, Settings, Users, LogOut, ChevronLeft, Bell, Activity } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -9,7 +9,14 @@ import { usePathname } from 'next/navigation';
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [darkMode, setDarkMode] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [busquedaMenu, setBusquedaMenu] = useState('');
+  
+  const showMenu = (name: string) => {
+    if (!busquedaMenu) return true;
+    return name.toLowerCase().includes(busquedaMenu.toLowerCase());
+  };
   const [logoError, setLogoError] = useState(false);
+  const [alertCount, setAlertCount] = useState(0);
   
   const { data: session } = useSession();
   const isSuperAdmin = (session?.user as any)?.rol === 'SUPER_ADMIN';
@@ -19,6 +26,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // Al cargar la app, comprobar si ya está en dark mode
     const isDark = document.documentElement.classList.contains('dark');
     setDarkMode(isDark);
+    
+    // Fetch alertas
+    fetch('/api/alertas').then(res => res.json()).then(data => {
+      if(Array.isArray(data)) setAlertCount(data.length);
+    }).catch(e => console.error(e));
   }, []);
 
   const toggleDarkMode = () => {
@@ -65,45 +77,65 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Search className="w-4 h-4 absolute left-3 top-2 text-slate-400 dark:text-slate-500" />
             <input 
               type="text" 
-              placeholder="UC" 
+              placeholder="Buscar menú..." 
+              value={busquedaMenu}
+              onChange={(e) => setBusquedaMenu(e.target.value)}
               className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded pl-9 pr-2 py-1.5 text-sm focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 shadow-sm dark:text-white transition-colors duration-300"
             />
           </div>
         </div>
 
         <nav className={`space-y-1 mt-2 ${isSidebarOpen ? 'px-3' : 'px-2'}`}>
-          <Link href="/inicio" className={`flex items-center rounded font-medium transition-colors ${isSidebarOpen ? 'gap-3 px-3 py-2' : 'justify-center p-3'} ${pathname === "/inicio" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Inicio">
-            <Home className="w-5 h-5 text-slate-400 dark:text-slate-500 shrink-0" />
-            {isSidebarOpen && <span>Inicio</span>}
-          </Link>
+          {showMenu('Inicio') && (
+            <Link href="/inicio" className={`flex items-center rounded font-medium transition-colors ${isSidebarOpen ? 'gap-3 px-3 py-2' : 'justify-center p-3'} ${pathname === "/inicio" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Inicio">
+              <Home className="w-5 h-5 text-slate-400 dark:text-slate-500 shrink-0" />
+              {isSidebarOpen && <span>Inicio</span>}
+            </Link>
+          )}
+          {showMenu('Personal') && (
+            <Link href="/personal" className={`flex items-center rounded font-medium transition-colors ${isSidebarOpen ? 'gap-3 px-3 py-2' : 'justify-center p-3'} ${pathname === "/personal" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Personal">
+              <Users className="w-5 h-5 text-slate-400 dark:text-slate-500 shrink-0" />
+              {isSidebarOpen && <span>Personal</span>}
+            </Link>
+          )}
         </nav>
 
-        {isSidebarOpen && (
-          <div className="px-6 pt-4 pb-1 text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-2 whitespace-nowrap overflow-hidden text-ellipsis">
-            Reportes
-          </div>
+        {(showMenu('Salud') || showMenu('Maternidad') || showMenu('Paternidad')) && (
+          <>
+            {isSidebarOpen && (
+              <div className="px-6 pt-4 pb-1 text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-2 whitespace-nowrap overflow-hidden text-ellipsis">
+                Reportes
+              </div>
+            )}
+            
+            <nav className={`space-y-1 ${isSidebarOpen ? 'px-3' : 'px-2 mt-4'}`}>
+              <div className={`flex items-center rounded text-slate-900 dark:text-slate-100 font-medium ${isSidebarOpen ? 'gap-3 px-3 py-2' : 'justify-center p-3'}`} title="Licencias">
+                <Heart className="w-5 h-5 text-slate-800 dark:text-slate-200 fill-slate-800 dark:fill-slate-200 shrink-0" />
+                {isSidebarOpen && <span>Licencias</span>}
+              </div>
+              
+              <div className={`${isSidebarOpen ? 'pl-9 pr-3 py-1 space-y-1' : 'flex flex-col gap-2 mt-2'}`}>
+                {showMenu('Salud') && (
+                  <Link href="/salud" className={`block rounded-md text-sm font-medium transition-colors ${isSidebarOpen ? 'px-3 py-2' : 'text-center text-[10px] py-2'} ${pathname === "/salud" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Salud">
+                    {isSidebarOpen ? 'Salud' : 'SAL'}
+                  </Link>
+                )}
+                {showMenu('Maternidad') && (
+                  <Link href="/maternidad" className={`block rounded-md text-sm font-medium transition-colors ${isSidebarOpen ? 'px-3 py-2' : 'text-center text-[10px] py-2'} ${pathname === "/maternidad" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Maternidad">
+                    {isSidebarOpen ? 'Maternidad' : 'MAT'}
+                  </Link>
+                )}
+                {showMenu('Paternidad') && (
+                  <Link href="/paternidad" className={`block rounded-md text-sm font-medium transition-colors ${isSidebarOpen ? 'px-3 py-2' : 'text-center text-[10px] py-2'} ${pathname === "/paternidad" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Paternidad">
+                    {isSidebarOpen ? 'Paternidad' : 'PAT'}
+                  </Link>
+                )}
+              </div>
+            </nav>
+          </>
         )}
-        
-        <nav className={`space-y-1 ${isSidebarOpen ? 'px-3' : 'px-2 mt-4'}`}>
-          <div className={`flex items-center rounded text-slate-900 dark:text-slate-100 font-medium ${isSidebarOpen ? 'gap-3 px-3 py-2' : 'justify-center p-3'}`} title="Licencias">
-            <Heart className="w-5 h-5 text-slate-800 dark:text-slate-200 fill-slate-800 dark:fill-slate-200 shrink-0" />
-            {isSidebarOpen && <span>Licencias</span>}
-          </div>
-          
-          <div className={`${isSidebarOpen ? 'pl-9 pr-3 py-1 space-y-1' : 'flex flex-col gap-2 mt-2'}`}>
-            <Link href="/salud" className={`block rounded-md text-sm font-medium transition-colors ${isSidebarOpen ? 'px-3 py-2' : 'text-center text-[10px] py-2'} ${pathname === "/salud" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Salud">
-              {isSidebarOpen ? 'Salud' : 'SAL'}
-            </Link>
-            <Link href="/maternidad" className={`block rounded-md text-sm font-medium transition-colors ${isSidebarOpen ? 'px-3 py-2' : 'text-center text-[10px] py-2'} ${pathname === "/maternidad" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Maternidad">
-              {isSidebarOpen ? 'Maternidad' : 'MAT'}
-            </Link>
-            <Link href="/paternidad" className={`block rounded-md text-sm font-medium transition-colors ${isSidebarOpen ? 'px-3 py-2' : 'text-center text-[10px] py-2'} ${pathname === "/paternidad" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Paternidad">
-              {isSidebarOpen ? 'Paternidad' : 'PAT'}
-            </Link>
-          </div>
-        </nav>
 
-        {isSuperAdmin && (
+        {isSuperAdmin && (showMenu('Usuarios') || showMenu('Auditoría')) && (
           <>
             {isSidebarOpen ? (
               <div className="px-6 pt-4 pb-1 text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-2 border-t border-slate-200 dark:border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">
@@ -119,9 +151,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {isSidebarOpen && <span>Configuración</span>}
               </div>
               <div className={`${isSidebarOpen ? 'pl-9 pr-3 py-1 space-y-1' : 'flex flex-col gap-2 mt-2'}`}>
-                <Link href="/usuarios" className={`flex items-center rounded-md text-sm font-medium transition-colors ${isSidebarOpen ? 'gap-2 px-3 py-2' : 'justify-center p-2 text-[10px]'} ${pathname === "/usuarios" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Usuarios">
-                  {!isSidebarOpen ? <Users className="w-4 h-4" /> : <><Users className="w-3.5 h-3.5 shrink-0" /> Usuarios</>}
-                </Link>
+                {showMenu('Usuarios') && (
+                  <Link href="/usuarios" className={`flex items-center rounded-md text-sm font-medium transition-colors ${isSidebarOpen ? 'gap-2 px-3 py-2' : 'justify-center p-2 text-[10px]'} ${pathname === "/usuarios" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Usuarios">
+                    {!isSidebarOpen ? <Users className="w-4 h-4" /> : <><Users className="w-3.5 h-3.5 shrink-0" /> Usuarios</>}
+                  </Link>
+                )}
+                {isSuperAdmin && showMenu('Auditoría') && (
+                  <Link href="/auditoria" className={`flex items-center rounded-md text-sm font-medium transition-colors ${isSidebarOpen ? 'gap-2 px-3 py-2' : 'justify-center p-2 text-[10px]'} ${pathname === "/auditoria" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Auditoría">
+                    {!isSidebarOpen ? <Activity className="w-4 h-4" /> : <><Activity className="w-3.5 h-3.5 shrink-0" /> Auditoría</>}
+                  </Link>
+                )}
               </div>
             </nav>
           </>
@@ -154,6 +193,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span className="text-[13px] font-medium text-slate-600 dark:text-slate-300">
               {isSuperAdmin ? 'SEDE RED SALUD' : 'GESTIÓN DE MICRORED'}
             </span>
+
+            <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-2"></div>
+            
+            {/* Campana de Alertas */}
+            <Link href="/inicio" className="relative p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+              <Bell className="w-5 h-5" />
+              {alertCount > 0 && (
+                <span className="absolute top-1 right-1.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+              )}
+            </Link>
             
             {/* Toggle Tema Claro/Oscuro */}
             <button 

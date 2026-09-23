@@ -1,0 +1,48 @@
+====================================================================
+ 🏥 MANUAL DE ARRANQUE - SISTEMA DE SUBSIDIOS (BIENESTAR SOCIAL) 🏥
+====================================================================
+
+Si apagaste tu computadora o cerraste todo por accidente, no te 
+preocupes. Sigue estos pasos en orden para volver a encender el 
+sistema al 100%:
+
+--------------------------------------------------------------------
+ PASO 1: ENCENDER LA BASE DE DATOS (DOCKER)
+--------------------------------------------------------------------
+Abre una terminal nueva en tu proyecto y ejecuta este comando para 
+encender el contenedor de tu base de datos en segundo plano:
+
+    docker-compose up -d
+
+(Nota: Asegúrate de tener la aplicación "Docker Desktop" abierta en 
+tu computadora antes de correr este comando).
+
+
+--------------------------------------------------------------------
+ PASO 2: SINCRONIZAR LA BASE DE DATOS (OPCIONAL PERO RECOMENDADO)
+--------------------------------------------------------------------
+Para asegurarte de que todas las tablas y reglas que programamos 
+estén aplicadas correctamente en la base de datos, ejecuta:
+
+    npx prisma db push
+
+
+--------------------------------------------------------------------
+ PASO 3: INICIAR EL SERVIDOR DE LA PÁGINA WEB
+--------------------------------------------------------------------
+Finalmente, arranca el cerebro del sistema web con este comando:
+
+    npm run dev
+
+¡Y listo! Una vez que cargue, abre tu navegador (Brave, Chrome, etc.) 
+y entra a la siguiente dirección:
+
+👉  http://localhost:3000
+
+====================================================================
+ COMANDOS EXTRA DE EMERGENCIA (Solo si algo falla)
+====================================================================
+- Apagar la base de datos por completo:   docker-compose down
+- Ver los datos de la base de datos:      npx prisma studio
+- Instalar paquetes si borraste algo:     npm install
+
