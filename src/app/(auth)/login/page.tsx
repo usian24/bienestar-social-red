@@ -3,7 +3,8 @@
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, User, Lock, ActivitySquare } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import Image from "next/image";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,13 +12,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    // Llamamos al backend de NextAuth que configuramos antes
     const result = await signIn("credentials", {
       dni,
       password,
@@ -28,89 +29,126 @@ export default function LoginPage() {
       setError(result.error);
       setLoading(false);
     } else {
-      // Si todo sale bien, lo dejamos pasar al Dashboard Principal (Inicio)
       router.push("/inicio");
       router.refresh();
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 md:p-10 font-sans">
+      
+      {/* TARJETA GIGANTE CENTRAL */}
+      <div className="relative w-full max-w-[1100px] h-[650px] bg-[#e1e5f8] rounded-[28px] shadow-2xl overflow-hidden flex flex-row">
         
-        {/* Cabecera del Login */}
-        <div className="bg-blue-600 p-8 text-center">
-          <div className="mx-auto bg-white/20 h-16 w-16 rounded-full flex items-center justify-center mb-4 backdrop-blur-sm">
-            <ActivitySquare className="h-8 w-8 text-white" />
+        {/* DECORACIONES DENTRO DE LA TARJETA */}
+        
+        {/* 1. Círculo pequeño izquierdo */}
+        <div className="absolute left-[7%] bottom-[18%] w-[45px] h-[45px] rounded-full border-[2.5px] border-[#9ba5d3] opacity-60 z-0"></div>
+        
+        {/* 2. Arco grande superior derecho */}
+        <svg className="absolute right-[4%] top-[10%] w-[380px] h-[380px] opacity-80 z-0" viewBox="0 0 100 100">
+          <path 
+            d="M 10 50 A 40 40 0 1 1 82 72" 
+            fill="none" 
+            stroke="#5378ff" 
+            strokeWidth="1.8" 
+            strokeLinecap="round" 
+          />
+        </svg>
+
+        {/* 3. Círculo pequeño derecho (debajo del arco) */}
+        <div className="absolute right-[16%] top-[58%] w-[55px] h-[55px] rounded-full border-[1.5px] border-[#a0aadd] opacity-50 z-0"></div>
+
+
+        {/* CONTENIDO PRINCIPAL */}
+        <div className="flex w-full h-full relative z-10 px-[10%]">
+          
+          {/* COLUMNA IZQUIERDA: Panel Azul */}
+          <div className="w-[340px] h-full flex items-center justify-center relative">
+            <div className="w-[310px] h-[500px] bg-[#4a72fa] relative rounded-[4px] overflow-hidden shadow-lg flex flex-col items-center justify-center">
+              
+              {/* Onda decorativa en el fondo del panel azul */}
+              <div className="absolute -bottom-[20%] -left-[30%] w-[150%] h-[50%] bg-[#5d83fa] rounded-[50%] rotate-12 opacity-80"></div>
+              
+              <div className="w-[220px] h-[220px] relative mb-12 z-10">
+                <Image 
+                  src="/red-salud-logo.svg" 
+                  alt="Logo Red de Salud Huánuco" 
+                  fill
+                  className="object-contain mix-blend-multiply opacity-90"
+                />
+              </div>
+              <div className="absolute bottom-10 w-full text-center z-10">
+                <h2 className="text-[#c1d1ff] text-[11px] tracking-[0.15em] font-medium uppercase">
+                  RED DE SALUD HCO
+                </h2>
+              </div>
+            </div>
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">
-            Red de Salud Huánuco
-          </h1>
-          <p className="text-blue-100 text-sm">
-            Sistema de Gestión de Licencias y Subsidios
-          </p>
-        </div>
 
-        {/* Formulario */}
-        <div className="p-8">
-          <h2 className="text-xl font-semibold text-slate-800 mb-6 text-center">
-            Iniciar Sesión
-          </h2>
+          {/* COLUMNA DERECHA: Formulario */}
+          <div className="flex-1 flex flex-col justify-center pl-[8%]">
+            
+            <h1 className="text-[34px] text-[#2c336b] mb-12 font-medium tracking-tight">
+              Iniciar Sesión
+            </h1>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Usuario (DNI)
-              </label>
+            <form onSubmit={handleSubmit} className="flex flex-col w-[360px] space-y-12">
+              
+              {/* Input Usuario */}
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className="h-5 w-5 text-slate-400" />
-                </div>
                 <input
                   type="text"
                   required
                   value={dni}
                   onChange={(e) => setDni(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-                  placeholder="Ej. admin123"
+                  className="block w-full pb-2 bg-transparent border-0 border-b border-[#a0aadd] appearance-none focus:outline-none focus:ring-0 focus:border-[#4a72fa] text-[#2c336b] placeholder-[#8c94be] text-[14px]"
+                  placeholder="Nombre de Usuario"
                 />
               </div>
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Contraseña
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-slate-400" />
+              {/* Input Contraseña + Ojito */}
+              <div className="flex items-end gap-5 relative">
+                <div className="w-full relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="block w-full pb-2 bg-transparent border-0 border-b border-[#a0aadd] appearance-none focus:outline-none focus:ring-0 focus:border-[#4a72fa] text-[#2c336b] placeholder-[#8c94be] text-[14px]"
+                    placeholder="Contraseña"
+                  />
                 </div>
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
-                  placeholder="••••••••"
-                />
+                
+                {/* Botón Ojito (Cuadrado con borde) */}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="shrink-0 p-[9px] border border-[#a0aadd] rounded-[4px] text-[#8c94be] hover:text-[#4a72fa] hover:border-[#4a72fa] transition-colors focus:outline-none mb-0.5"
+                >
+                  {showPassword ? <EyeOff className="w-[18px] h-[18px]" /> : <Eye className="w-[18px] h-[18px]" />}
+                </button>
               </div>
-            </div>
 
-            {error && (
-              <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4" />
-                {error}
+              {/* Mensaje de Error */}
+              {error && (
+                <div className="text-rose-500 text-sm font-medium">
+                  {error}
+                </div>
+              )}
+
+              {/* Botón Iniciar Sesión */}
+              <div className="pt-1">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-[calc(100%-3rem)] bg-[#5378ff] text-white py-[11px] rounded-[4px] text-[14px] font-medium hover:bg-blue-600 focus:outline-none transition-colors disabled:opacity-70 shadow-sm"
+                >
+                  {loading ? "Iniciando..." : "Iniciar Sesión"}
+                </button>
               </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/20 transition-all disabled:opacity-70 flex justify-center"
-            >
-              {loading ? "Verificando..." : "Ingresar al Sistema"}
-            </button>
-          </form>
+            </form>
+          </div>
         </div>
       </div>
     </div>

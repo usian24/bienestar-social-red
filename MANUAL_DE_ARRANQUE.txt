@@ -46,3 +46,4 @@ y entra a la siguiente dirección:
 - Ver los datos de la base de datos:      npx prisma studio
 - Instalar paquetes si borraste algo:     npm install
 
+

@@ -1,34 +1,51 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { Search, UserPlus } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Search, UserPlus, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function PersonalPage() {
   const [busqueda, setBusqueda] = useState('');
   const [resultados, setResultados] = useState<any[]>([]);
-  const [buscando, setBuscando] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [buscando, setBuscando] = useState(true);
+  
+  // Paginación
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
 
-  // Efecto para buscar automáticamente cuando se escribe
+  const fetchTrabajadores = useCallback(async () => {
+    setBuscando(true);
+    try {
+      const qParams = new URLSearchParams({
+        q: busqueda,
+        page: page.toString(),
+        limit: limit.toString()
+      });
+      const res = await fetch(`/api/trabajadores/buscar?${qParams.toString()}`);
+      const data = await res.json();
+      setResultados(data.trabajadores || []);
+      setTotal(data.total || 0);
+    } catch (error) {
+      console.error("Error buscando", error);
+    } finally {
+      setBuscando(false);
+    }
+  }, [busqueda, page, limit]);
+
+  // Si escriben en el buscador, volvemos a la página 1
   useEffect(() => {
-    const delayDebounceFn = setTimeout(async () => {
-      if (busqueda.length >= 2) {
-        setBuscando(true);
-        try {
-          const res = await fetch(`/api/trabajadores/buscar?q=${encodeURIComponent(busqueda)}`);
-          const data = await res.json();
-          setResultados(data);
-        } catch (error) {
-          console.error("Error buscando", error);
-        } finally {
-          setBuscando(false);
-        }
-      } else {
-        setResultados([]); // Limpiar si borran la búsqueda
-      }
-    }, 500);
-
-    return () => clearTimeout(delayDebounceFn);
+    setPage(1);
   }, [busqueda]);
+
+  // Cada vez que cambia algo, traer data con un pequeño retraso si están escribiendo
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchTrabajadores();
+    }, 400);
+    return () => clearTimeout(delayDebounceFn);
+  }, [fetchTrabajadores]);
+
+  const totalPages = Math.ceil(total / limit);
 
   return (
     <div className="space-y-6">
@@ -61,54 +78,90 @@ export default function PersonalPage() {
         </div>
       </div>
 
-      {/* Resultados de Búsqueda Activa */}
-      {busqueda.length >= 2 && (
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-          <div className="bg-slate-50 px-6 py-4 border-b border-slate-200">
-            <h2 className="text-sm font-semibold text-slate-700">Resultados para "{busqueda}"</h2>
+      {/* Tabla de Resultados */}
+      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+        <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-700">
+            {busqueda.length > 0 ? `Resultados de búsqueda (${total})` : `Listado de Personal (${total})`}
+          </h2>
+          <div className="flex items-center gap-2 text-sm text-slate-600">
+            <span>Mostrar:</span>
+            <select 
+              value={limit} 
+              onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+              className="border border-slate-300 rounded px-2 py-1 bg-white focus:outline-none"
+            >
+              <option value={10}>10</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
           </div>
-          
-          {buscando ? (
-            <div className="p-8 text-center text-slate-500">Buscando en la base de datos...</div>
-          ) : resultados.length === 0 ? (
-            <div className="p-8 text-center text-slate-500">No se encontró ningún trabajador con esos datos.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="bg-white border-b border-slate-200 text-slate-600">
-                    <th className="py-3 px-6 font-medium">DNI</th>
-                    <th className="py-3 px-6 font-medium">Trabajador</th>
-                    <th className="py-3 px-6 font-medium">Cargo</th>
-                    <th className="py-3 px-6 font-medium">Condición Laboral</th>
-                    <th className="py-3 px-6 font-medium">Microred</th>
-                    <th className="py-3 px-6 font-medium">Establecimiento</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {resultados.map((trabajador) => (
-                    <tr key={trabajador.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3 px-6 text-slate-600">{trabajador.dni}</td>
-                      <td className="py-3 px-6 font-medium text-slate-800">
-                        {trabajador.apellidos}, {trabajador.nombres}
-                      </td>
-                      <td className="py-3 px-6 text-slate-500">{trabajador.cargo}</td>
-                      <td className="py-3 px-6 text-slate-500">{trabajador.condicionLaboral || 'NO ESPECIFICADA'}</td>
-                      <td className="py-3 px-6 text-slate-500">
-                        {trabajador.establecimiento?.microred?.nombre || 'NO ASIGNADA'}
-                      </td>
-                      <td className="py-3 px-6 text-slate-500">
-                        {trabajador.establecimiento?.nombre || 'NO ASIGNADO'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
-      )}
+        
+        {buscando ? (
+          <div className="p-8 text-center text-slate-500">Cargando base de datos...</div>
+        ) : resultados.length === 0 ? (
+          <div className="p-8 text-center text-slate-500">No se encontraron trabajadores.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="bg-white border-b border-slate-200 text-slate-600">
+                  <th className="py-3 px-6 font-medium">DNI</th>
+                  <th className="py-3 px-6 font-medium">Trabajador</th>
+                  <th className="py-3 px-6 font-medium">Cargo</th>
+                  <th className="py-3 px-6 font-medium">Condición Laboral</th>
+                  <th className="py-3 px-6 font-medium">Microred</th>
+                  <th className="py-3 px-6 font-medium">Establecimiento</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {resultados.map((trabajador) => (
+                  <tr key={trabajador.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="py-3 px-6 text-slate-600 font-medium">{trabajador.dni}</td>
+                    <td className="py-3 px-6 font-medium text-slate-800">
+                      {trabajador.apellidos}, {trabajador.nombres}
+                    </td>
+                    <td className="py-3 px-6 text-slate-500">{trabajador.cargo}</td>
+                    <td className="py-3 px-6 text-slate-500">{trabajador.condicionLaboral || 'NO ESPECIFICADA'}</td>
+                    <td className="py-3 px-6 text-slate-500">
+                      {trabajador.establecimiento?.microred?.nombre || 'NO ASIGNADA'}
+                    </td>
+                    <td className="py-3 px-6 text-slate-500">
+                      {trabajador.establecimiento?.nombre || 'NO ASIGNADO'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Paginación */}
+        {total > 0 && totalPages > 1 && (
+          <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50/50">
+            <div className="text-sm text-slate-500">
+              Mostrando {(page - 1) * limit + 1} a {Math.min(page * limit, total)} de {total}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="p-2 border border-slate-300 rounded bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="p-2 border border-slate-300 rounded bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
-

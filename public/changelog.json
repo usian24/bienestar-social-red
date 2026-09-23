@@ -1,0 +1,16 @@
+[
+  {
+    "version": "1.2.0",
+    "fecha": "2026-09-23",
+    "titulo": "Paginación de Personal y Nuevos Módulos",
+    "descripcion": "Se implementó paginación automática en el Directorio de Personal. Se agregaron los módulos de Reportes y Archivo Histórico. Se rediseñó el inicio de sesión.",
+    "imagen": "/images/changelog-1.2.png"
+  },
+  {
+    "version": "1.1.0",
+    "fecha": "2026-09-21",
+    "titulo": "Implementación Base de Datos Real",
+    "descripcion": "Se migró la base de datos de prueba a los datos de producción con más de 1500 trabajadores activos. Filtro de ámbito corregido.",
+    "imagen": ""
+  }
+]

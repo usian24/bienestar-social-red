@@ -11,22 +11,22 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const q = searchParams.get('q');
-
-    if (!q || q.length < 2) {
-      return NextResponse.json([]); // No buscar si hay menos de 2 letras
-    }
+    const q = searchParams.get('q') || '';
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '10', 10);
 
     const isSuperAdmin = (session.user as any)?.rol === 'SUPER_ADMIN';
     const userMicroredId = (session.user as any)?.microredId;
 
-    const whereClause: any = {
-      OR: [
+    const whereClause: any = {};
+
+    if (q.length > 0) {
+      whereClause.OR = [
         { dni: { contains: q, mode: 'insensitive' } },
         { apellidos: { contains: q, mode: 'insensitive' } },
         { nombres: { contains: q, mode: 'insensitive' } }
-      ]
-    };
+      ];
+    }
 
     if (!isSuperAdmin && userMicroredId) {
       whereClause.establecimiento = {
@@ -34,18 +34,28 @@ export async function GET(request: Request) {
       };
     }
 
-    // Buscar trabajadores por DNI o Apellidos/Nombres
-    const trabajadores = await prisma.trabajador.findMany({
-      where: whereClause,
-      include: {
-        establecimiento: {
-          include: { microred: true }
-        }
-      },
-      take: 15 // Límite para no saturar la pantalla
-    });
+    const skip = (page - 1) * limit;
 
-    return NextResponse.json(trabajadores);
+    // Buscar trabajadores y contar el total para paginación
+    const [trabajadores, total] = await Promise.all([
+      prisma.trabajador.findMany({
+        where: whereClause,
+        include: {
+          establecimiento: {
+            include: { microred: true }
+          }
+        },
+        skip,
+        take: limit,
+        orderBy: [
+          { apellidos: 'asc' },
+          { nombres: 'asc' }
+        ]
+      }),
+      prisma.trabajador.count({ where: whereClause })
+    ]);
+
+    return NextResponse.json({ trabajadores, total });
   } catch (error) {
     console.error('Error buscando trabajadores:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
