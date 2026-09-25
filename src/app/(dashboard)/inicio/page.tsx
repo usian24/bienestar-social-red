@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Users, Activity, FileCheck, Bell, CheckCircle2, CheckCircle, Calendar } from 'lucide-react';
+import { Users, Activity, FileCheck, Bell, CheckCircle2, CheckCircle, Calendar, BookOpen, History, ExternalLink } from 'lucide-react';
 
 export default function InicioPage() {
   const [kpis, setKpis] = useState({ totalTrabajadores: 0, licenciasActivas: 0, subsidiosPendientes: 0 });
@@ -16,6 +16,20 @@ export default function InicioPage() {
   const [nuevoCitt, setNuevoCitt] = useState('');
   const [guardandoCanje, setGuardandoCanje] = useState(false);
   const [esModoPerdido, setEsModoPerdido] = useState(false);
+
+  const [changelog, setChangelog] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function loadChangelog() {
+      try {
+        const res = await fetch('/changelog.json');
+        if (res.ok) setChangelog(await res.json());
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    loadChangelog();
+  }, []);
 
   useEffect(() => {
     async function loadData() {
@@ -114,8 +128,11 @@ export default function InicioPage() {
           </div>
         </div>
 
-      {/* Semáforo de Trámites */}
-        <div className="mt-8">
+      {/* Layout de Contenido: Semáforo (Izquierda) + Manual y Changelog (Derecha) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+        
+        {/* COLUMNA IZQUIERDA (2/3) - Semáforo */}
+        <div className="lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
               <Bell className="w-5 h-5 text-amber-500" /> Semáforo de Canjes Particulares
@@ -189,6 +206,51 @@ export default function InicioPage() {
             )}
           </div>
         </div>
+
+        {/* COLUMNA DERECHA (1/3) - Manual y Changelog */}
+        <div className="space-y-6">
+          {/* Manual de Uso */}
+          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl p-6 text-white shadow-md">
+            <h3 className="text-lg font-bold flex items-center gap-2 mb-2">
+              <BookOpen className="w-5 h-5" /> Manual de Uso
+            </h3>
+            <p className="text-blue-100 text-sm mb-4">
+              Aprende a sacar el máximo provecho al sistema. Conoce el flujo de subsidios, canjes y registro de expedientes.
+            </p>
+            <a href="/manual_de_uso.pdf" target="_blank" className="inline-flex items-center gap-2 bg-white text-blue-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-50 transition-colors">
+              Descargar PDF <ExternalLink className="w-4 h-4" />
+            </a>
+          </div>
+
+          {/* Historial de Cambios */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-slate-50 px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                <History className="w-5 h-5 text-slate-500" /> Historial de Cambios
+              </h3>
+            </div>
+            <div className="p-5 space-y-6 max-h-[400px] overflow-y-auto">
+              {changelog.length === 0 ? (
+                <div className="text-slate-400 text-sm text-center">No hay actualizaciones.</div>
+              ) : (
+                changelog.map((log) => (
+                  <div key={log.id} className="relative pl-4 border-l-2 border-slate-200">
+                    <div className="absolute w-2.5 h-2.5 bg-blue-500 rounded-full -left-[6px] top-1.5 ring-4 ring-white"></div>
+                    <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider bg-blue-50 px-2 py-0.5 rounded">{log.fecha}</span>
+                    <h4 className="font-bold text-slate-800 text-sm mt-1 mb-1">{log.titulo}</h4>
+                    <p className="text-xs text-slate-500 leading-relaxed mb-2">{log.descripcion}</p>
+                    {log.imagen && (
+                      <div className="mt-2 rounded overflow-hidden border border-slate-200">
+                        <img src={log.imagen} alt={log.titulo} className="w-full h-auto object-cover" />
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Modal de Canje Rápido */}
       {alertaSeleccionada && (

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Menu, Heart, Search, Home, Moon, Sun, Shield, Settings, Users, LogOut, ChevronLeft, Bell, Activity } from 'lucide-react';
+import { Menu, Heart, Search, Home, Moon, Sun, Shield, Settings, Users, LogOut, ChevronLeft, Bell, Activity, FileText, FolderOpen } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -161,6 +161,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     {!isSidebarOpen ? <Activity className="w-4 h-4" /> : <><Activity className="w-3.5 h-3.5 shrink-0" /> Auditoría</>}
                   </Link>
                 )}
+                
+                <Link href="/reportes" className={`flex items-center rounded-md text-sm font-medium transition-colors ${isSidebarOpen ? 'gap-2 px-3 py-2' : 'justify-center p-2 text-[10px]'} ${pathname === "/reportes" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Reportes">
+                  {!isSidebarOpen ? <FileText className="w-4 h-4" /> : <><FileText className="w-3.5 h-3.5 shrink-0" /> Reportes</>}
+                </Link>
+
+                <Link href="/archivo" className={`flex items-center rounded-md text-sm font-medium transition-colors ${isSidebarOpen ? 'gap-2 px-3 py-2' : 'justify-center p-2 text-[10px]'} ${pathname === "/archivo" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Archivo">
+                  {!isSidebarOpen ? <FolderOpen className="w-4 h-4" /> : <><FolderOpen className="w-3.5 h-3.5 shrink-0" /> Archivo</>}
+                </Link>
               </div>
             </nav>
           </>
