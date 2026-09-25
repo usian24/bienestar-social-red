@@ -92,19 +92,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {isSidebarOpen && <span>Inicio</span>}
             </Link>
           )}
-          {showMenu('Personal') && (
-            <Link href="/personal" className={`flex items-center rounded font-medium transition-colors ${isSidebarOpen ? 'gap-3 px-3 py-2' : 'justify-center p-3'} ${pathname === "/personal" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Personal">
-              <Users className="w-5 h-5 text-slate-400 dark:text-slate-500 shrink-0" />
-              {isSidebarOpen && <span>Personal</span>}
-            </Link>
-          )}
         </nav>
+
+        {showMenu('Personal') && (
+          <>
+            {isSidebarOpen && (
+              <div className="px-6 pt-4 pb-1 text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-2 whitespace-nowrap overflow-hidden text-ellipsis">
+                Recursos Humanos
+              </div>
+            )}
+            <nav className={`space-y-1 ${isSidebarOpen ? 'px-3' : 'px-2 mt-4'}`}>
+              <div className={`flex items-center rounded text-slate-900 dark:text-slate-100 font-medium ${isSidebarOpen ? 'gap-3 px-3 py-2' : 'justify-center p-3'}`} title="Directorio">
+                <Users className="w-5 h-5 text-slate-800 dark:text-slate-200 fill-slate-800 dark:fill-slate-200 shrink-0" />
+                {isSidebarOpen && <span>Directorio</span>}
+              </div>
+              <div className={`${isSidebarOpen ? 'pl-9 pr-3 py-1 space-y-1' : 'flex flex-col gap-2 mt-2'}`}>
+                <Link href="/personal" className={`block rounded-md text-sm font-medium transition-colors ${isSidebarOpen ? 'px-3 py-2' : 'text-center text-[10px] py-2'} ${pathname === "/personal" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Personal Activo">
+                  {isSidebarOpen ? 'Personal Activo' : 'PER'}
+                </Link>
+              </div>
+            </nav>
+          </>
+        )}
 
         {(showMenu('Salud') || showMenu('Maternidad') || showMenu('Paternidad')) && (
           <>
             {isSidebarOpen && (
               <div className="px-6 pt-4 pb-1 text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-2 whitespace-nowrap overflow-hidden text-ellipsis">
-                Reportes
+                Trámites Essalud
               </div>
             )}
             
@@ -161,18 +176,49 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     {!isSidebarOpen ? <Activity className="w-4 h-4" /> : <><Activity className="w-3.5 h-3.5 shrink-0" /> Auditoría</>}
                   </Link>
                 )}
-                
-                <Link href="/reportes" className={`flex items-center rounded-md text-sm font-medium transition-colors ${isSidebarOpen ? 'gap-2 px-3 py-2' : 'justify-center p-2 text-[10px]'} ${pathname === "/reportes" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Reportes">
-                  {!isSidebarOpen ? <FileText className="w-4 h-4" /> : <><FileText className="w-3.5 h-3.5 shrink-0" /> Reportes</>}
-                </Link>
-
-                <Link href="/archivo" className={`flex items-center rounded-md text-sm font-medium transition-colors ${isSidebarOpen ? 'gap-2 px-3 py-2' : 'justify-center p-2 text-[10px]'} ${pathname === "/archivo" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Archivo">
-                  {!isSidebarOpen ? <FolderOpen className="w-4 h-4" /> : <><FolderOpen className="w-3.5 h-3.5 shrink-0" /> Archivo</>}
-                </Link>
               </div>
             </nav>
           </>
         )}
+
+        <>
+          {isSidebarOpen && (
+            <div className="px-6 pt-4 pb-1 text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-2 border-t border-slate-200 dark:border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">
+              Estadísticas
+            </div>
+          )}
+          {!isSidebarOpen && <div className="border-t border-slate-200 dark:border-slate-700 mx-3 mt-4 pt-4"></div>}
+          <nav className={`space-y-1 ${isSidebarOpen ? 'px-3' : 'px-2'}`}>
+            <div className={`flex items-center rounded text-slate-900 dark:text-slate-100 font-medium ${isSidebarOpen ? 'gap-3 px-3 py-2' : 'justify-center p-3'}`} title="Reportes">
+              <FileText className="w-5 h-5 text-slate-800 dark:text-slate-200 shrink-0" />
+              {isSidebarOpen && <span>Reportes</span>}
+            </div>
+            <div className={`${isSidebarOpen ? 'pl-9 pr-3 py-1 space-y-1' : 'flex flex-col gap-2 mt-2'}`}>
+              <Link href="/reportes" className={`block rounded-md text-sm font-medium transition-colors ${isSidebarOpen ? 'px-3 py-2' : 'text-center text-[10px] py-2'} ${pathname === "/reportes" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Generales">
+                {isSidebarOpen ? 'Generales' : 'REP'}
+              </Link>
+            </div>
+          </nav>
+        </>
+
+        <>
+          {isSidebarOpen && (
+            <div className="px-6 pt-4 pb-1 text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-2 whitespace-nowrap overflow-hidden text-ellipsis">
+              Documentación
+            </div>
+          )}
+          <nav className={`space-y-1 ${isSidebarOpen ? 'px-3' : 'px-2 mt-4'}`}>
+            <div className={`flex items-center rounded text-slate-900 dark:text-slate-100 font-medium ${isSidebarOpen ? 'gap-3 px-3 py-2' : 'justify-center p-3'}`} title="Archivo">
+              <FolderOpen className="w-5 h-5 text-slate-800 dark:text-slate-200 shrink-0" />
+              {isSidebarOpen && <span>Archivo</span>}
+            </div>
+            <div className={`${isSidebarOpen ? 'pl-9 pr-3 py-1 space-y-1' : 'flex flex-col gap-2 mt-2'}`}>
+              <Link href="/archivo" className={`block rounded-md text-sm font-medium transition-colors ${isSidebarOpen ? 'px-3 py-2' : 'text-center text-[10px] py-2'} ${pathname === "/archivo" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Histórico">
+                {isSidebarOpen ? 'Histórico' : 'ARC'}
+              </Link>
+            </div>
+          </nav>
+        </>
 
         <div className={`mt-auto mb-2 ${isSidebarOpen ? 'p-4' : 'p-2'}`}>
           <button 
