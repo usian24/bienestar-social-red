@@ -68,7 +68,7 @@ export default function NuevoCittModal({
         try {
           const res = await fetch(`/api/trabajadores/buscar?q=${encodeURIComponent(q)}`);
           const data = await res.json();
-          setTrabajadores(data);
+          setTrabajadores(Array.isArray(data) ? data : (data.trabajadores || []));
         } catch (e) {
           console.error(e);
         } finally {
