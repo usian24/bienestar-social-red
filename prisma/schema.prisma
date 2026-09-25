@@ -34,6 +34,7 @@ model Usuario {
   apellidos       String
   passwordHash    String
   rol             Rol            @default(ADMIN_MICRORED)
+  permisos        String[]       @default([])
   microredId      Int?
   microred        Microred?      @relation(fields: [microredId], references: [id])
   activo          Boolean        @default(true)
