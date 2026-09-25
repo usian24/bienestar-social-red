@@ -5,7 +5,6 @@ import { Menu, Heart, Search, Home, Moon, Sun, Shield, Settings, Users, LogOut, 
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { tienePermiso } from '@/shared/utils/permisos';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [darkMode, setDarkMode] = useState(false);
@@ -20,9 +19,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [alertCount, setAlertCount] = useState(0);
   
   const { data: session } = useSession();
-  const rol = (session?.user as any)?.rol || 'CONSULTA';
-  const permisos = (session?.user as any)?.permisos || [];
-  const isSuperAdmin = rol === 'SUPER_ADMIN';
+  const isSuperAdmin = (session?.user as any)?.rol === 'SUPER_ADMIN';
   const pathname = usePathname();
 
   useEffect(() => {
@@ -97,7 +94,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           )}
         </nav>
 
-        {showMenu('Personal') && tienePermiso(permisos, rol, 'VER_TRABAJADORES') && (
+        {showMenu('Personal') && (
           <>
             {isSidebarOpen && (
               <div className="px-6 pt-4 pb-1 text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-2 whitespace-nowrap overflow-hidden text-ellipsis">
@@ -118,7 +115,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </>
         )}
 
-        {(showMenu('Salud') || showMenu('Maternidad') || showMenu('Paternidad')) && (tienePermiso(permisos, rol, 'VER_LICENCIAS') || tienePermiso(permisos, rol, 'GESTIONAR_LICENCIAS')) && (
+        {(showMenu('Salud') || showMenu('Maternidad') || showMenu('Paternidad')) && (
           <>
             {isSidebarOpen && (
               <div className="px-6 pt-4 pb-1 text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-2 whitespace-nowrap overflow-hidden text-ellipsis">
@@ -153,7 +150,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </>
         )}
 
-        {tienePermiso(permisos, rol, 'ADMINISTRAR_USUARIOS') && (showMenu('Usuarios') || showMenu('Auditoría')) && (
+        {isSuperAdmin && (showMenu('Usuarios') || showMenu('Auditoría')) && (
           <>
             {isSidebarOpen ? (
               <div className="px-6 pt-4 pb-1 text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-2 border-t border-slate-200 dark:border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">
@@ -174,7 +171,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     {!isSidebarOpen ? <Users className="w-4 h-4" /> : <><Users className="w-3.5 h-3.5 shrink-0" /> Usuarios</>}
                   </Link>
                 )}
-                {showMenu('Auditoría') && (
+                {isSuperAdmin && showMenu('Auditoría') && (
                   <Link href="/auditoria" className={`flex items-center rounded-md text-sm font-medium transition-colors ${isSidebarOpen ? 'gap-2 px-3 py-2' : 'justify-center p-2 text-[10px]'} ${pathname === "/auditoria" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Auditoría">
                     {!isSidebarOpen ? <Activity className="w-4 h-4" /> : <><Activity className="w-3.5 h-3.5 shrink-0" /> Auditoría</>}
                   </Link>
@@ -184,7 +181,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </>
         )}
 
-        {tienePermiso(permisos, rol, 'VER_REPORTES') && showMenu('Reportes') && (
         <>
           {isSidebarOpen && (
             <div className="px-6 pt-4 pb-1 text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-2 border-t border-slate-200 dark:border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">
@@ -204,9 +200,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </nav>
         </>
-        )}
 
-        {tienePermiso(permisos, rol, 'VER_ARCHIVO_HISTORICO') && showMenu('Archivo') && (
         <>
           {isSidebarOpen && (
             <div className="px-6 pt-4 pb-1 text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-2 whitespace-nowrap overflow-hidden text-ellipsis">
@@ -225,7 +219,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </nav>
         </>
-        )}
 
         <div className={`mt-auto mb-2 ${isSidebarOpen ? 'p-4' : 'p-2'}`}>
           <button 

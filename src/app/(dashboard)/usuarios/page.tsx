@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { Users, PlusCircle, Shield, Trash2, X, Eye, EyeOff, Pencil } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { PERMISOS, PERMISOS_DESCRIPCION, Permiso } from '@/shared/utils/permisos';
 
 export default function UsuariosPage() {
   const { data: session } = useSession();
@@ -15,10 +14,8 @@ export default function UsuariosPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState<{
-    dni: string; nombres: string; apellidos: string; password: string; rol: string; microredId: string; permisos: string[]
-  }>({
-    dni: '', nombres: '', apellidos: '', password: '', rol: 'ADMIN_MICRORED', microredId: '', permisos: []
+  const [formData, setFormData] = useState({
+    dni: '', nombres: '', apellidos: '', password: '', rol: 'ADMIN_MICRORED', microredId: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -56,7 +53,7 @@ export default function UsuariosPage() {
   const handleOpenCreate = () => {
     setIsEditing(false);
     setEditId(null);
-    setFormData({ dni: '', nombres: '', apellidos: '', password: '', rol: 'ADMIN_MICRORED', microredId: '', permisos: [] });
+    setFormData({ dni: '', nombres: '', apellidos: '', password: '', rol: 'ADMIN_MICRORED', microredId: '' });
     setIsModalOpen(true);
     setErrorMsg('');
   };
@@ -70,8 +67,7 @@ export default function UsuariosPage() {
       apellidos: u.apellidos, 
       password: '', // En blanco por seguridad, si escriben se cambia
       rol: u.rol, 
-      microredId: u.microred?.id?.toString() || '',
-      permisos: u.permisos || []
+      microredId: u.microred?.id?.toString() || '' 
     });
     setIsModalOpen(true);
     setErrorMsg('');
@@ -290,49 +286,6 @@ export default function UsuariosPage() {
                     ))}
                   </select>
                 </div>
-
-                {/* Bloque de Permisos Avanzados */}
-                <div className="col-span-1 md:col-span-2 mt-4">
-                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">
-                    Permisos Específicos (RBAC)
-                  </label>
-                  {formData.rol === 'SUPER_ADMIN' ? (
-                    <div className="text-xs text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 p-3 rounded-md font-medium">
-                      🛡️ Los Súper Administradores tienen acceso total al sistema por defecto.
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[320px] overflow-y-auto pr-2">
-                      {Object.entries(PERMISOS_DESCRIPCION).map(([clave, rawInfo]) => {
-                        const info = rawInfo as { titulo: string, descripcion: string };
-                        const isChecked = formData.permisos.includes(clave);
-                        return (
-                          <div key={clave} className="flex items-start gap-3 p-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 hover:border-blue-300 transition-colors">
-                            <div className="flex items-center h-5 mt-0.5">
-                              <input
-                                type="checkbox"
-                                id={`perm-${clave}`}
-                                checked={isChecked}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setFormData({ ...formData, permisos: [...formData.permisos, clave] });
-                                  } else {
-                                    setFormData({ ...formData, permisos: formData.permisos.filter(p => p !== clave) });
-                                  }
-                                }}
-                                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
-                              />
-                            </div>
-                            <label htmlFor={`perm-${clave}`} className="flex flex-col cursor-pointer flex-1 select-none">
-                              <span className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-0.5">{info.titulo}</span>
-                              <span className="text-xs text-slate-500 dark:text-slate-400 leading-tight">{info.descripcion}</span>
-                            </label>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
               </div>
 
               <div className="flex justify-end gap-3 pt-4 mt-4 border-t border-slate-100 dark:border-slate-700">

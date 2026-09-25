@@ -8,9 +8,7 @@ import { Rol } from '@prisma/client';
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    const isAdmin = (session?.user as any)?.rol === 'SUPER_ADMIN';
-    const canManage = (session?.user as any)?.permisos?.includes('ADMINISTRAR_USUARIOS');
-    if (!session || (!isAdmin && !canManage)) {
+    if (!session || (session.user as any)?.rol !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
@@ -21,7 +19,6 @@ export async function GET(request: Request) {
         nombres: true,
         apellidos: true,
         rol: true,
-        permisos: true,
         activo: true,
         creadoEn: true,
         microred: {
@@ -41,14 +38,12 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    const isAdmin = (session?.user as any)?.rol === 'SUPER_ADMIN';
-    const canManage = (session?.user as any)?.permisos?.includes('ADMINISTRAR_USUARIOS');
-    if (!session || (!isAdmin && !canManage)) {
+    if (!session || (session.user as any)?.rol !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
     const body = await request.json();
-    const { dni, nombres, apellidos, password, rol, microredId, permisos } = body;
+    const { dni, nombres, apellidos, password, rol, microredId } = body;
 
     if (!dni || !nombres || !apellidos || !password || !rol) {
       return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
@@ -69,7 +64,6 @@ export async function POST(request: Request) {
         apellidos,
         passwordHash,
         rol: rol as Rol,
-        permisos: permisos || [],
         microredId: microredId ? Number(microredId) : null
       },
       select: {
@@ -78,7 +72,6 @@ export async function POST(request: Request) {
         nombres: true,
         apellidos: true,
         rol: true,
-        permisos: true,
         activo: true
       }
     });
@@ -99,3 +92,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Error del servidor al crear usuario' }, { status: 500 });
   }
 }
+

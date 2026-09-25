@@ -8,21 +8,18 @@ import { Rol } from '@prisma/client';
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
-    const isAdmin = (session?.user as any)?.rol === 'SUPER_ADMIN';
-    const canManage = (session?.user as any)?.permisos?.includes('ADMINISTRAR_USUARIOS');
-    if (!session || (!isAdmin && !canManage)) {
+    if (!session || (session.user as any)?.rol !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
     const { id } = await params;
     const body = await request.json();
-    const { nombres, apellidos, password, rol, microredId, permisos } = body;
+    const { nombres, apellidos, password, rol, microredId } = body;
 
     const dataToUpdate: any = {
       nombres,
       apellidos,
       rol: rol as Rol,
-      permisos: permisos || [],
       microredId: microredId ? Number(microredId) : null,
     };
 
@@ -47,7 +44,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         accion: 'EDITAR',
         modulo: 'USUARIO',
         entidadId: id,
-        detalles: `Actualizó datos y permisos del usuario ${nombres} ${apellidos}`
+        detalles: `Actualizó datos del usuario ${nombres} ${apellidos}`
       }
     });
 
@@ -61,9 +58,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
-    const isAdmin = (session?.user as any)?.rol === 'SUPER_ADMIN';
-    const canManage = (session?.user as any)?.permisos?.includes('ADMINISTRAR_USUARIOS');
-    if (!session || (!isAdmin && !canManage)) {
+    if (!session || (session.user as any)?.rol !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
@@ -78,7 +73,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     // Regla de negocio: Un SUPER_ADMIN no puede eliminar a otro SUPER_ADMIN
     if (targetUser.rol === 'SUPER_ADMIN') {
-       return NextResponse.json({ error: 'Por seguridad, no se puede desactivar a un usuario con rango de Súper Administrador' }, { status: 403 });
+       return NextResponse.json({ error: 'Por seguridad, no se puede eliminar a un usuario con rango de Súper Administrador' }, { status: 403 });
     }
 
     // En lugar de borrar (delete), desactivamos la cuenta (soft delete) por integridad de la base de datos
