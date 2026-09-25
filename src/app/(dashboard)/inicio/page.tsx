@@ -234,7 +234,7 @@ export default function InicioPage() {
                 <div className="text-slate-400 text-sm text-center">No hay actualizaciones.</div>
               ) : (
                 changelog.map((log) => (
-                  <div key={log.id} className="relative pl-4 border-l-2 border-slate-200">
+                  <div key={log.version} className="relative pl-4 border-l-2 border-slate-200">
                     <div className="absolute w-2.5 h-2.5 bg-blue-500 rounded-full -left-[6px] top-1.5 ring-4 ring-white"></div>
                     <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider bg-blue-50 px-2 py-0.5 rounded">{log.fecha}</span>
                     <h4 className="font-bold text-slate-800 text-sm mt-1 mb-1">{log.titulo}</h4>
