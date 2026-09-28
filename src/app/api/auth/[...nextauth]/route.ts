@@ -29,6 +29,7 @@ export const authOptions: NextAuthOptions = {
             name: user.nombres + ' ' + user.apellidos, 
             email: user.dni,
             rol: user.rol,
+            permisos: user.permisos,
             microredId: user.microredId?.toString()
         };
       }
@@ -38,6 +39,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.rol = (user as any).rol;
+        token.permisos = (user as any).permisos;
         token.microredId = (user as any).microredId;
       }
       return token;
@@ -45,6 +47,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).rol = token.rol;
+        (session.user as any).permisos = token.permisos || [];
         (session.user as any).microredId = token.microredId;
         (session.user as any).id = token.sub;
       }
