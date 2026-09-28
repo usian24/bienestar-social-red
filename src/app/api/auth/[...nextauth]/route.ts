@@ -15,7 +15,8 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.dni || !credentials?.password) return null;
         
         const user = await prisma.usuario.findUnique({
-          where: { dni: credentials.dni }
+          where: { dni: credentials.dni },
+          include: { rol: true }
         });
         
         if (!user || !user.activo) throw new Error("Usuario no encontrado o inactivo");
@@ -24,12 +25,18 @@ export const authOptions: NextAuthOptions = {
         
         if (!isPasswordValid) throw new Error("Contraseña incorrecta");
         
+        // Unificar los permisos del rol con los permisos excepcionales de este usuario
+        const todosLosPermisos = Array.from(new Set([
+          ...(user.rol?.permisos || []),
+          ...(user.permisosExtra || [])
+        ]));
+        
         return { 
             id: user.id, 
             name: user.nombres + ' ' + user.apellidos, 
             email: user.dni,
-            rol: user.rol,
-            permisos: user.permisos,
+            rol: user.rol?.nombre || 'VISUALIZADOR', // Fallback si no tiene rol
+            permisos: todosLosPermisos,
             microredId: user.microredId?.toString()
         };
       }

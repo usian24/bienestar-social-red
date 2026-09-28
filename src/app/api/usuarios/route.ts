@@ -3,7 +3,6 @@ import prisma from '@/core/db/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
 import bcrypt from 'bcryptjs';
-import { Rol } from '@prisma/client';
 
 export async function GET(request: Request) {
   try {
@@ -20,8 +19,8 @@ export async function GET(request: Request) {
         dni: true,
         nombres: true,
         apellidos: true,
-        rol: true,
-        permisos: true,
+        rol: { select: { id: true, nombre: true } },
+        permisosExtra: true,
         activo: true,
         creadoEn: true,
         microred: {
@@ -48,9 +47,9 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { dni, nombres, apellidos, password, rol, microredId, permisos } = body;
+    const { dni, nombres, apellidos, password, rolId, microredId, permisosExtra } = body;
 
-    if (!dni || !nombres || !apellidos || !password || !rol) {
+    if (!dni || !nombres || !apellidos || !password || !rolId) {
       return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
     }
 
@@ -68,8 +67,8 @@ export async function POST(request: Request) {
         nombres,
         apellidos,
         passwordHash,
-        rol: rol as Rol,
-        permisos: permisos || [],
+        rolId: rolId,
+        permisosExtra: permisosExtra || [],
         microredId: microredId ? Number(microredId) : null
       },
       select: {
@@ -77,8 +76,8 @@ export async function POST(request: Request) {
         dni: true,
         nombres: true,
         apellidos: true,
-        rol: true,
-        permisos: true,
+        rol: { select: { id: true, nombre: true } },
+        permisosExtra: true,
         activo: true
       }
     });
@@ -89,7 +88,7 @@ export async function POST(request: Request) {
         accion: 'CREAR',
         modulo: 'USUARIO',
         entidadId: nuevoUsuario.id,
-        detalles: `Creó al usuario ${nombres} ${apellidos} (${dni}) con rol ${rol}`
+        detalles: `Creó al usuario ${nombres} ${apellidos} (${dni})`
       }
     });
 

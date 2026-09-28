@@ -10,15 +10,16 @@ export default function UsuariosPage() {
   const [usuarios, setUsuarios] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [microredes, setMicroredes] = useState<any[]>([]);
+  const [roles, setRoles] = useState<any[]>([]);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<{
-    dni: string; nombres: string; apellidos: string; password: string; rol: string; microredId: string; permisos: string[]
+    dni: string; nombres: string; apellidos: string; password: string; rolId: string; microredId: string; permisosExtra: string[]
   }>({
-    dni: '', nombres: '', apellidos: '', password: '', rol: 'ADMIN_MICRORED', microredId: '', permisos: []
+    dni: '', nombres: '', apellidos: '', password: '', rolId: '', microredId: '', permisosExtra: []
   });
   const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -27,7 +28,17 @@ export default function UsuariosPage() {
   useEffect(() => {
     fetchUsuarios();
     fetchMicroredes();
+    fetchRoles();
   }, []);
+
+  const fetchRoles = async () => {
+    try {
+      const res = await fetch('/api/roles');
+      if (res.ok) setRoles(await res.json());
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchUsuarios = async () => {
     try {
@@ -56,7 +67,7 @@ export default function UsuariosPage() {
   const handleOpenCreate = () => {
     setIsEditing(false);
     setEditId(null);
-    setFormData({ dni: '', nombres: '', apellidos: '', password: '', rol: 'ADMIN_MICRORED', microredId: '', permisos: [] });
+    setFormData({ dni: '', nombres: '', apellidos: '', password: '', rolId: '', microredId: '', permisosExtra: [] });
     setIsModalOpen(true);
     setErrorMsg('');
   };
@@ -69,9 +80,9 @@ export default function UsuariosPage() {
       nombres: u.nombres, 
       apellidos: u.apellidos, 
       password: '', // En blanco por seguridad, si escriben se cambia
-      rol: u.rol, 
+      rolId: u.rol?.id || '', 
       microredId: u.microred?.id?.toString() || '',
-      permisos: u.permisos || []
+      permisosExtra: u.permisosExtra || []
     });
     setIsModalOpen(true);
     setErrorMsg('');
@@ -165,13 +176,13 @@ export default function UsuariosPage() {
                     {u.nombres} {u.apellidos}
                   </td>
                   <td className="py-3 px-4">
-                    <span className={`px-2 py-1 text-[10px] font-bold rounded flex w-fit items-center gap-1 ${u.rol === 'SUPER_ADMIN' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'}`}>
+                    <span className={`px-2 py-1 text-[10px] font-bold rounded flex w-fit items-center gap-1 ${u.rol?.nombre === 'SUPER_ADMIN' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'}`}>
                       <Shield className="w-3 h-3" />
-                      {u.rol}
+                      {u.rol?.nombre || 'SIN ROL'}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-slate-500 dark:text-slate-400 font-medium text-xs">
-                    {u.microred?.nombre || (u.rol === 'SUPER_ADMIN' ? 'SEDE RED SALUD (TODAS)' : '-')}
+                    {u.microred?.nombre || (u.rol?.nombre === 'SUPER_ADMIN' ? 'SEDE RED SALUD (TODAS)' : '-')}
                   </td>
                   <td className="py-3 px-4 text-center">
                     <div className="flex items-center justify-center gap-2">
@@ -182,7 +193,7 @@ export default function UsuariosPage() {
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
-                      {u.rol !== 'SUPER_ADMIN' && (
+                      {u.rol?.nombre !== 'SUPER_ADMIN' && (
                         <button 
                           onClick={() => handleDelete(u.id)}
                           className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
@@ -270,7 +281,7 @@ export default function UsuariosPage() {
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Rol</label>
                   <select 
-                    value={formData.rol} onChange={e => setFormData({...formData, rol: e.target.value})}
+                    value={formData.rolId} onChange={e => setFormData({...formData, rolId: e.target.value})}
                     className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-blue-500 text-slate-800 dark:text-slate-100"
                   >
                     <option value="ADMIN_MICRORED">Administrador</option>
@@ -281,7 +292,7 @@ export default function UsuariosPage() {
                   <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Microred Asignada</label>
                   <select 
                     value={formData.microredId} onChange={e => setFormData({...formData, microredId: e.target.value})}
-                    disabled={formData.rol === 'SUPER_ADMIN'}
+                    disabled={roles.find(r => r.id === formData.rolId)?.nombre === 'SUPER_ADMIN'}
                     className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-blue-500 disabled:opacity-50 text-slate-800 dark:text-slate-100"
                   >
                     <option value="">Seleccione Microred...</option>
@@ -294,9 +305,9 @@ export default function UsuariosPage() {
                 {/* Bloque de Permisos Avanzados */}
                 <div className="col-span-1 md:col-span-2 mt-4">
                   <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">
-                    Permisos Específicos (RBAC)
+                    Permisos Excepcionales (Solo para este usuario)
                   </label>
-                  {formData.rol === 'SUPER_ADMIN' ? (
+                  {roles.find(r => r.id === formData.rolId)?.nombre === 'SUPER_ADMIN' ? (
                     <div className="text-xs text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 p-3 rounded-md font-medium">
                       🛡️ Los Súper Administradores tienen acceso total al sistema por defecto.
                     </div>
@@ -304,7 +315,7 @@ export default function UsuariosPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[320px] overflow-y-auto pr-2">
                       {Object.entries(PERMISOS_DESCRIPCION).map(([clave, rawInfo]) => {
                         const info = rawInfo as { titulo: string, descripcion: string };
-                        const isChecked = formData.permisos.includes(clave);
+                        const isChecked = formData.permisosExtra.includes(clave);
                         return (
                           <div key={clave} className="flex items-start gap-3 p-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 hover:border-blue-300 transition-colors">
                             <div className="flex items-center h-5 mt-0.5">
@@ -314,9 +325,9 @@ export default function UsuariosPage() {
                                 checked={isChecked}
                                 onChange={(e) => {
                                   if (e.target.checked) {
-                                    setFormData({ ...formData, permisos: [...formData.permisos, clave] });
+                                    setFormData({ ...formData, permisosExtra: [...formData.permisosExtra, clave] });
                                   } else {
-                                    setFormData({ ...formData, permisos: formData.permisos.filter(p => p !== clave) });
+                                    setFormData({ ...formData, permisosExtra: formData.permisosExtra.filter(p => p !== clave) });
                                   }
                                 }}
                                 className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"

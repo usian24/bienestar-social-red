@@ -7,10 +7,14 @@ generator client {
   provider = "prisma-client-js"
 }
 
-enum Rol {
-  SUPER_ADMIN
-  ADMIN_MICRORED
-  CONSULTA
+model Rol {
+  id          String    @id @default(uuid())
+  nombre      String    @unique // ej: SUPER_ADMIN, SEDE_ADMIN, VISUALIZADOR, TRABAJADOR
+  descripcion String?
+  permisos    String[]  @default([])
+  esFijo      Boolean   @default(false)
+  creadoEn    DateTime  @default(now())
+  usuarios    Usuario[]
 }
 
 enum TipoLicencia {
@@ -33,8 +37,11 @@ model Usuario {
   nombres         String
   apellidos       String
   passwordHash    String
-  rol             Rol            @default(ADMIN_MICRORED)
-  permisos        String[]       @default([])
+  
+  rolId           String
+  rol             Rol            @relation(fields: [rolId], references: [id])
+  permisosExtra   String[]       @default([]) // Permisos excepcionales
+  
   microredId      Int?
   microred        Microred?      @relation(fields: [microredId], references: [id])
   activo          Boolean        @default(true)
