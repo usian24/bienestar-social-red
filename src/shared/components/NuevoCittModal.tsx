@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Search, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import { tienePermiso } from '@/shared/utils/permisos';
 
 interface NuevoCittModalProps {
   isOpen: boolean;
@@ -15,6 +17,10 @@ interface NuevoCittModalProps {
 export default function NuevoCittModal({ 
   isOpen, onClose, onSuccess, tipoPorDefecto = 'ENFERMEDAD_COMUN', editData, trabajadorFijo 
 }: NuevoCittModalProps) {
+  const { data: session } = useSession();
+  const rol = (session?.user as any)?.rol || 'CONSULTA';
+  const permisos = (session?.user as any)?.permisos || [];
+  const puedeSubirArchivo = tienePermiso(permisos, rol, 'SUBIR_ARCHIVOS');
   // Estados del Buscador de Trabajador
   const [busqueda, setBusqueda] = useState('');
   const [trabajadores, setTrabajadores] = useState<any[]>([]);
@@ -340,32 +346,40 @@ export default function NuevoCittModal({
                   </label>
                 
                 <div className="flex flex-wrap gap-3 mb-3">
-                  <label className="cursor-pointer px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-md text-sm font-semibold flex items-center gap-2 border border-blue-200 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                    Subir Archivo
-                    <input 
-                      type="file" 
-                      accept="image/*,application/pdf"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) setArchivoAdjunto(e.target.files[0]);
-                      }}
-                      className="hidden"
-                    />
-                  </label>
+                  {puedeSubirArchivo ? (
+                    <>
+                      <label className="cursor-pointer px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-md text-sm font-semibold flex items-center gap-2 border border-blue-200 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                        Subir Archivo
+                        <input 
+                          type="file" 
+                          accept="image/*,application/pdf"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) setArchivoAdjunto(e.target.files[0]);
+                          }}
+                          className="hidden"
+                        />
+                      </label>
 
-                  <label className="cursor-pointer px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-md text-sm font-semibold flex items-center gap-2 border border-emerald-200 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                    Tomar Foto
-                    <input 
-                      type="file" 
-                      accept="image/*"
-                      capture="environment"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) setArchivoAdjunto(e.target.files[0]);
-                      }}
-                      className="hidden"
-                    />
-                  </label>
+                      <label className="cursor-pointer px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-md text-sm font-semibold flex items-center gap-2 border border-emerald-200 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                        Tomar Foto
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          capture="environment"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) setArchivoAdjunto(e.target.files[0]);
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                    </>
+                  ) : (
+                    <div className="text-xs text-amber-700 bg-amber-50 p-2 rounded border border-amber-200 flex items-center gap-2 w-full">
+                      <AlertCircle className="w-4 h-4" /> No tienes permisos para adjuntar archivos a los trámites.
+                    </div>
+                  )}
                 </div>
 
                 {archivoAdjunto ? (
