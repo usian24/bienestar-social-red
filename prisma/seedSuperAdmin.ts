@@ -13,14 +13,24 @@ async function main() {
     where: { dni: superAdminDni },
     update: {
       passwordHash: superAdminPassword,
-      rol: Rol.SUPER_ADMIN,
+      rol: {
+        connectOrCreate: {
+          where: { nombre: 'SUPER_ADMIN' },
+          create: { nombre: 'SUPER_ADMIN', esFijo: true, permisos: ['SUPER_ADMIN'] }
+        }
+      },
     },
     create: {
       dni: superAdminDni,
       nombres: 'Super Administrador',
       apellidos: 'Bienestar Social',
       passwordHash: superAdminPassword,
-      rol: Rol.SUPER_ADMIN,
+      rol: {
+        connectOrCreate: {
+          where: { nombre: 'SUPER_ADMIN' },
+          create: { nombre: 'SUPER_ADMIN', esFijo: true, permisos: ['SUPER_ADMIN'] }
+        }
+      },
     }
   });
 

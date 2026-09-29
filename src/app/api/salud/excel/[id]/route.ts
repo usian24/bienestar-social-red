@@ -22,18 +22,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Trabajador no encontrado' }, { status: 404 });
     }
 
-    // Cálculos de días
-    let diasEssalud = 0;
-    let diasParticulares = 0;
-
-    trabajador.licencias.forEach(lic => {
-      if (lic.origen === 'ESSALUD_CITT') diasEssalud += lic.diasOtorgados;
-      else if (lic.origen === 'PARTICULAR') diasParticulares += lic.diasOtorgados;
-    });
-
-    const totalDias = diasEssalud + diasParticulares;
-    const diasSubsidioEsSalud = Math.max(0, totalDias - 20);
-
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Sistema Bienestar Social - Red Huánuco';
     const worksheet = workbook.addWorksheet('Historial de CITTs');
@@ -42,10 +30,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const headerStyle = {
       font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 },
       fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F81BD' } }, // Azul acero
-      alignment: { horizontal: 'center', vertical: 'middle', wrapText: true },
+      alignment: { horizontal: 'center' as any, vertical: 'middle' as any, wrapText: true },
       border: {
-        top: { style: 'thin' }, left: { style: 'thin' },
-        bottom: { style: 'thin' }, right: { style: 'thin' }
+        top: { style: 'thin' as any }, left: { style: 'thin' as any },
+        bottom: { style: 'thin' as any }, right: { style: 'thin' as any }
       }
     };
 
@@ -54,11 +42,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       { header: 'N°', key: 'nro', width: 5 },
       { header: 'APELLIDOS Y NOMBRES', key: 'nombres', width: 35 },
       { header: 'CARGO', key: 'cargo', width: 25 },
+      { header: 'CONDICIÓN LABORAL', key: 'condicion', width: 15 },
       { header: 'ESTABLECIMIENTO', key: 'establecimiento', width: 25 },
       { header: 'DNI', key: 'dni', width: 12 },
       { header: 'CITT O CMP', key: 'citt', width: 18 },
       { header: 'FECHA DE INICIO', key: 'inicio', width: 15 },
       { header: 'FECHA FIN', key: 'fin', width: 15 },
+      { header: 'FIN 20 DÍAS (RED)', key: 'fin20', width: 15 },
       { header: 'FECHA SUBSIDIO', key: 'subsidio', width: 15 },
       { header: 'TOTAL DE DIAS', key: 'totalCitt', width: 12 },
       { header: 'DIAS SUBSIDIOS', key: 'diasSubsidios', width: 15 },
@@ -79,31 +69,81 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     // Si no hay licencias, poner una fila vacía
     if (trabajador.licencias.length === 0) {
       worksheet.addRow({
-        nro: 1, nombres: apellidosNombres, cargo: trabajador.cargo,
+        nro: 1, nombres: apellidosNombres, cargo: trabajador.cargo, condicion: trabajador.condicionLaboral,
         establecimiento: trabajador.establecimiento.nombre, dni: trabajador.dni,
-        citt: 'SIN REGISTROS', inicio: '-', fin: '-', subsidio: '-', totalCitt: 0, diasSubsidios: 0
+        citt: 'SIN REGISTROS', inicio: '-', fin: '-', fin20: '-', subsidio: '-', totalCitt: 0, diasSubsidios: 0
       });
     } else {
-      // Agregar filas
-      trabajador.licencias.forEach((lic, idx) => {
+      let diasRedRestantes = 20;
+      let totalSubsidioGlobal = 0;
+
+      // Pre-calcular el subsidio global
+      trabajador.licencias.forEach((lic) => {
+        if (lic.origen === 'ESSALUD_CITT') {
+           const redDays = Math.min(lic.diasOtorgados, diasRedRestantes);
+           const subDays = lic.diasOtorgados - redDays;
+           diasRedRestantes -= redDays;
+           totalSubsidioGlobal += subDays;
+        }
+      });
+
+      diasRedRestantes = 20; // Reiniciar para el renderizado
+      let historicFin20Str = '';
+
+      // Calcular filas
+      trabajador.licencias.forEach((lic) => {
         const dateInicio = new Date(lic.fechaInicio);
         const dateFin = new Date(lic.fechaFin);
-        const fInicio = new Date(dateInicio.toLocaleString('en-US', { timeZone: 'America/Lima' })).toLocaleDateString('es-PE');
-        const fFin = new Date(dateFin.toLocaleString('en-US', { timeZone: 'America/Lima' })).toLocaleDateString('es-PE');
+
+        // Mantener las fechas locales correctas usando UTC
+        const fInicio = dateInicio.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
+        const fFin = dateFin.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
         
-        worksheet.addRow({
-          nro: 1, // Siempre 1 porque es 1 solo trabajador en este reporte, o el usuario quería un correlativo general. Asumimos 1.
+        let redDaysUsed = 0;
+        let subsidioDays = 0;
+        let fin20Str = '';
+        let subsidioInicioStr = '';
+
+        if (lic.origen === 'ESSALUD_CITT') {
+           redDaysUsed = Math.min(lic.diasOtorgados, diasRedRestantes);
+           subsidioDays = lic.diasOtorgados - redDaysUsed;
+           diasRedRestantes -= redDaysUsed;
+           
+           if (redDaysUsed > 0 && diasRedRestantes === 0 && !historicFin20Str) {
+              const fin20Obj = new Date(dateInicio.getTime());
+              fin20Obj.setDate(fin20Obj.getDate() + redDaysUsed - 1);
+              historicFin20Str = fin20Obj.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
+           }
+
+           if (subsidioDays > 0) {
+              const subStartObj = new Date(dateInicio.getTime());
+              subStartObj.setDate(subStartObj.getDate() + redDaysUsed);
+              subsidioInicioStr = subStartObj.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
+              
+              fin20Str = historicFin20Str;
+           }
+        }
+
+        const newRow = worksheet.addRow({
+          nro: 1, // Siempre 1
           nombres: apellidosNombres.toUpperCase(),
           cargo: (trabajador.cargo || '').toUpperCase(),
+          condicion: (trabajador.condicionLaboral || '').toUpperCase(),
           establecimiento: (trabajador.establecimiento.nombre || '').toUpperCase(),
           dni: trabajador.dni,
           citt: lic.numeroCertificado,
           inicio: fInicio,
           fin: fFin,
-          subsidio: fInicio, // Lo igualamos al inicio para seguir el Excel manual
+          fin20: fin20Str,
+          subsidio: subsidioInicioStr, 
           totalCitt: lic.diasOtorgados,
-          diasSubsidios: diasSubsidioEsSalud // Lo pondremos en la primera fila y luego combinaremos
+          diasSubsidios: totalSubsidioGlobal 
         });
+
+        // Pintar de azul clarito ("azito") la celda TOTAL DE DIAS (columna 12) si consumió días de la RED
+        if (redDaysUsed > 0) {
+            newRow.getCell(12).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } } as ExcelJS.Fill;
+        }
       });
 
       // Combinar celdas para el trabajador (solo si hay más de 1 licencia)
@@ -111,18 +151,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         const rowStart = 2; // Fila 1 es cabecera
         const rowEnd = rowStart + trabajador.licencias.length - 1;
         
-        // Merge N°
         worksheet.mergeCells(`A${rowStart}:A${rowEnd}`);
-        // Merge Nombres
         worksheet.mergeCells(`B${rowStart}:B${rowEnd}`);
-        // Merge Cargo
         worksheet.mergeCells(`C${rowStart}:C${rowEnd}`);
-        // Merge Establecimiento
         worksheet.mergeCells(`D${rowStart}:D${rowEnd}`);
-        // Merge DNI
         worksheet.mergeCells(`E${rowStart}:E${rowEnd}`);
-        // Merge Dias Subsidios Totales
-        worksheet.mergeCells(`K${rowStart}:K${rowEnd}`);
+        worksheet.mergeCells(`F${rowStart}:F${rowEnd}`);
+        worksheet.mergeCells(`M${rowStart}:M${rowEnd}`);
       }
     }
 
@@ -132,14 +167,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         row.eachCell({ includeEmpty: true }, (cell) => {
           cell.alignment = { vertical: 'middle', horizontal: 'center' };
           cell.border = {
-            top: { style: 'thin' }, left: { style: 'thin' },
-            bottom: { style: 'thin' }, right: { style: 'thin' }
+            top: { style: 'thin' as any }, left: { style: 'thin' as any },
+            bottom: { style: 'thin' as any }, right: { style: 'thin' as any }
           };
         });
-        // Alinear a la izquierda nombres, cargo, establecimiento
-        const bCell = row.getCell(2); if (bCell.value) bCell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
-        const cCell = row.getCell(3); if (cCell.value) cCell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
-        const dCell = row.getCell(4); if (dCell.value) dCell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+        // Alinear a la izquierda textos largos
+        const colsToLeft = [2, 3, 4, 5];
+        colsToLeft.forEach(colIdx => {
+           const cell = row.getCell(colIdx);
+           if (cell.value) cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+        });
       }
     });
 
@@ -157,4 +194,3 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }
-

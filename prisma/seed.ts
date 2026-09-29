@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 // Iniciamos la conexión con la base de datos
 const prisma = new PrismaClient();
@@ -6,48 +7,100 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Iniciando la siembra (Seed) de datos fundacionales...');
 
-  // 1. Crear Plantillas de Roles Dinámicos
-  console.log('Agregando Roles...');
-  const roles = [
-    { nombre: 'SUPER_ADMIN', descripcion: 'Control total del sistema', permisos: [], esFijo: true },
-    { nombre: 'SEDE_ADMIN', descripcion: 'Administrador de una Microred', permisos: ['VER_TRABAJADORES', 'VER_LICENCIAS', 'GESTIONAR_LICENCIAS', 'SUBIR_ARCHIVOS', 'VER_REPORTES'], esFijo: true },
-    { nombre: 'VISUALIZADOR', descripcion: 'Solo lectura (Auditores)', permisos: ['VER_TRABAJADORES', 'VER_LICENCIAS', 'VER_REPORTES', 'VER_ARCHIVO_HISTORICO'], esFijo: true },
-    { nombre: 'TRABAJADOR', descripcion: 'Trabajador general del hospital', permisos: [], esFijo: true }
+  // 1. Crear las Microredes
+  console.log('Agregando Microredes...');
+  const microredes = [
+    'ACOMAYO',
+    'AMARILIS',
+    'APARICIO POMARES',
+    'CHURUBAMBA',
+    'HUANCAPALLAC',
+    'HUANUCO',
+    'MARGOS',
+    'PILLAO',
+    'PILLCO MARCA',
+    'SAN FCO. DE CAYRAN',
+    'SAN PEDRO DE CHAULAN',
+    'SANTA MARIA DEL VALLE',
+    'YACUS',
+    'YARUMAYO'
   ];
 
-  for (const r of roles) {
-    await prisma.rol.upsert({
-      where: { nombre: r.nombre },
+  for (const nombre of microredes) {
+    await prisma.microred.upsert({
+      where: { nombre },
       update: {},
-      create: r
+      create: { nombre },
     });
   }
 
-  // 2. Crear las Microredes Básicas
-  console.log('Agregando Microredes...');
-  await prisma.microred.upsert({ where: { nombre: 'AMARILIS' }, update: {}, create: { nombre: 'AMARILIS' } });
-  await prisma.microred.upsert({ where: { nombre: 'SANTA MARIA DEL VALLE' }, update: {}, create: { nombre: 'SANTA MARIA DEL VALLE' } });
-  await prisma.microred.upsert({ where: { nombre: 'HUANUCO' }, update: {}, create: { nombre: 'HUANUCO' } });
+  // 2. Crear Roles Fundacionales
+  console.log('Agregando Roles Base (Plantillas)...');
+  const superAdminRol = await prisma.rol.upsert({
+    where: { nombre: 'SUPER_ADMIN' },
+    update: {},
+    create: { 
+      nombre: 'SUPER_ADMIN', 
+      descripcion: 'Control total del sistema',
+      permisos: ['VER_TRABAJADORES', 'EDITAR_TRABAJADORES', 'VER_LICENCIAS', 'GESTIONAR_LICENCIAS', 'SUBIR_ARCHIVOS', 'VER_REPORTES', 'VER_ARCHIVO_HISTORICO', 'ADMINISTRAR_USUARIOS'],
+      esFijo: true 
+    }
+  });
+
+  await prisma.rol.upsert({
+    where: { nombre: 'SEDE_ADMIN' },
+    update: {},
+    create: { 
+      nombre: 'SEDE_ADMIN', 
+      descripcion: 'Administrador de Jefatura / Bienestar Social',
+      permisos: ['VER_TRABAJADORES', 'VER_LICENCIAS', 'GESTIONAR_LICENCIAS', 'SUBIR_ARCHIVOS', 'VER_REPORTES'],
+      esFijo: true 
+    }
+  });
+
+  await prisma.rol.upsert({
+    where: { nombre: 'VISUALIZADOR' },
+    update: {},
+    create: { 
+      nombre: 'VISUALIZADOR', 
+      descripcion: 'Acceso de solo lectura / Auditor',
+      permisos: ['VER_TRABAJADORES', 'VER_LICENCIAS', 'VER_REPORTES'],
+      esFijo: true 
+    }
+  });
+
+  await prisma.rol.upsert({
+    where: { nombre: 'TRABAJADOR' },
+    update: {},
+    create: { 
+      nombre: 'TRABAJADOR', 
+      descripcion: 'Trabajador general (acceso personal)',
+      permisos: [],
+      esFijo: true 
+    }
+  });
 
   // 3. Crear el Usuario Super Administrador
   console.log('Agregando Súper Administrador personalizado...');
-  const superAdminRol = await prisma.rol.findUnique({ where: { nombre: 'SUPER_ADMIN' } });
+  const passwordHash = await bcrypt.hash('60791781', 10);
   
-  if (superAdminRol) {
-    const superAdmin = await prisma.usuario.upsert({
-      where: { dni: 'admin123' },
-      update: {},
-      create: {
-        dni: 'admin123',
-        nombres: 'JHONATAN', 
-        apellidos: 'ADMINISTRADOR',
-        passwordHash: '$2b$10$VrpUIFyOfv4muIqAXEN76.W.Q3/NcIm4ryBOCh7D7X8bUau6nwAgC', // Contraseña '60791781' hasheada
-        rolId: superAdminRol.id, // NUEVA ARQUITECTURA: Vinculación relacional
-      },
-    });
-    console.log('✅ ¡Seed completado con éxito!');
-    console.log('Súper Admin creado:', superAdmin.nombres);
-  }
+  const superAdmin = await prisma.usuario.upsert({
+    where: { dni: 'admin123' },
+    update: {
+      passwordHash: passwordHash,
+      rolId: superAdminRol.id
+    },
+    create: {
+      dni: 'admin123',
+      nombres: 'JHONATAN', 
+      apellidos: 'ADMINISTRADOR',
+      passwordHash: passwordHash, 
+      rolId: superAdminRol.id,
+    },
+  });
+
+  console.log('✅ ¡Seed completado con éxito!');
+  console.log('Súper Admin creado:', superAdmin.nombres);
 }
 
 // Ejecutar la función y cerrar la conexión al terminar

@@ -2,8 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { Users, Activity, FileCheck, Bell, CheckCircle2, CheckCircle, Calendar, BookOpen, History, ExternalLink } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import TrabajadorDashboard from './TrabajadorDashboard';
 
 export default function InicioPage() {
+  const { data: session } = useSession();
+  const rol = (session?.user as any)?.rol;
   const [kpis, setKpis] = useState({ totalTrabajadores: 0, licenciasActivas: 0, subsidiosPendientes: 0 });
   const [loadingKpis, setLoadingKpis] = useState(true);
   
@@ -86,6 +90,10 @@ export default function InicioPage() {
       setGuardandoCanje(false);
     }
   };
+
+  if (rol === 'TRABAJADOR') {
+    return <TrabajadorDashboard />;
+  }
 
   return (
     <div className="space-y-6">

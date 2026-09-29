@@ -5,15 +5,25 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import NuevoCittModal from "@/shared/components/NuevoCittModal";
 import DetallesTrabajadorModal from "@/shared/components/DetallesTrabajadorModal";
+import CargaExcelLicenciasModal from "@/shared/components/CargaExcelLicenciasModal";
+import PrevisualizadorExcelModal from "@/shared/components/PrevisualizadorExcelModal";
+import PrevisualizadorExcelMasivoModal from "@/shared/components/PrevisualizadorExcelMasivoModal";
 
 export default function SaludPage() {
   const { data: session } = useSession();
   const [registros, setRegistros] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   
   // Estado para el Modal de Detalles (Ojo)
   const [trabajadorDetalle, setTrabajadorDetalle] = useState<any | null>(null);
+  
+  // Estado para el Previsualizador de Excel Personal
+  const [trabajadorPreview, setTrabajadorPreview] = useState<any | null>(null);
+  
+  // Estado para el Previsualizador de Excel Masivo
+  const [isPrevisualizadorMasivoOpen, setIsPrevisualizadorMasivoOpen] = useState(false);
 
   // Datos para filtros dinámicos
   const isSuperAdmin = (session?.user as any)?.rol === 'SUPER_ADMIN';
@@ -157,6 +167,13 @@ export default function SaludPage() {
             />
           </div>
           <button 
+            onClick={() => setIsExcelModalOpen(true)}
+            className="bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm transition-colors whitespace-nowrap"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            CITT por Excel
+          </button>
+          <button 
             onClick={() => setIsModalOpen(true)}
             className="bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm transition-colors whitespace-nowrap"
           >
@@ -256,15 +273,9 @@ export default function SaludPage() {
             {isSuperAdmin && (
               <button 
                 type="button"
-                onClick={() => {
-                  const params = new URLSearchParams();
-                  params.append('microred', microred);
-                  params.append('establecimiento', establecimiento);
-                  params.append('condicionLaboral', condicionLaboral);
-                  window.open(`/api/salud/excel-masivo?${params.toString()}`, '_blank');
-                }}
+                onClick={() => setIsPrevisualizadorMasivoOpen(true)}
                 className="bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 shadow-sm transition-colors w-full md:w-auto"
-                title="Descargar Excel Masivo"
+                title="Previsualizar Excel Masivo"
               >
                 <FileSpreadsheet className="w-4 h-4" />
                 Excel Masivo
@@ -370,9 +381,9 @@ export default function SaludPage() {
                             {(session?.user as any)?.rol === "SUPER_ADMIN" && (
                               <>
                                 <button 
-                                  onClick={() => window.open(`/api/salud/excel/${item.id}`, '_blank')}
+                                  onClick={() => setTrabajadorPreview(item)}
                                   className="px-2 py-1.5 rounded-sm text-white shadow-sm transition-colors bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1 font-bold text-[10px] uppercase"
-                                  title="Descargar Historial Excel"
+                                  title="Previsualizar y Descargar Historial Excel"
                                 >
                                   <FileSpreadsheet className="w-3.5 h-3.5" />
                                   EXCEL
@@ -414,6 +425,27 @@ export default function SaludPage() {
           fetchInicial(); // Refrescar la tabla
         }}
         tipoPorDefecto="ENFERMEDAD_COMUN"
+      />
+
+      {/* Modal para Importar CITTs por Excel */}
+      <CargaExcelLicenciasModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        onSuccess={() => fetchInicial()}
+      />
+
+      {/* Modal para Previsualizar Excel Personal */}
+      <PrevisualizadorExcelModal
+        isOpen={!!trabajadorPreview}
+        onClose={() => setTrabajadorPreview(null)}
+        trabajador={trabajadorPreview}
+      />
+
+      {/* Modal para Previsualizar Excel Masivo */}
+      <PrevisualizadorExcelMasivoModal
+        isOpen={isPrevisualizadorMasivoOpen}
+        onClose={() => setIsPrevisualizadorMasivoOpen(false)}
+        filters={{ microred, establecimiento, condicionLaboral }}
       />
     </>
   );

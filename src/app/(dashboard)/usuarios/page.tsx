@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Users, PlusCircle, Shield, Trash2, X, Eye, EyeOff, Pencil } from "lucide-react";
+import { Users, PlusCircle, Shield, Trash2, X, Eye, EyeOff, Pencil, Heart, Settings, FileText, Folder, Terminal } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { PERMISOS, PERMISOS_DESCRIPCION, Permiso } from '@/shared/utils/permisos';
 
@@ -24,6 +24,7 @@ export default function UsuariosPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [showPermisoDropdown, setShowPermisoDropdown] = useState(false);
 
   useEffect(() => {
     fetchUsuarios();
@@ -213,7 +214,7 @@ export default function UsuariosPage() {
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-5xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center p-5 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
               <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                 <Shield className="w-5 h-5 text-blue-600" />
@@ -224,133 +225,300 @@ export default function UsuariosPage() {
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-5 space-y-4">
+            <form onSubmit={handleSubmit} className="p-5 flex flex-col max-h-[85vh]">
               {errorMsg && (
-                <div className="p-3 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm rounded border border-red-200 dark:border-red-800">
+                <div className="p-3 mb-4 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm rounded border border-red-200 dark:border-red-800 shrink-0">
                   {errorMsg}
                 </div>
               )}
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">DNI (Usuario de acceso)</label>
-                <input 
-                  required maxLength={8} type="text"
-                  disabled={isEditing} // No permitir cambiar DNI
-                  value={formData.dni} onChange={e => setFormData({...formData, dni: e.target.value.replace(/\D/g, '')})}
-                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-blue-500 text-slate-800 dark:text-slate-100 disabled:opacity-60"
-                />
-              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 overflow-y-auto p-1">
+                {/* Columna Izquierda: Datos del Usuario (Ocupa 4 de 12) */}
+                <div className="space-y-4 lg:col-span-4 border-b lg:border-b-0 lg:border-r border-slate-100 dark:border-slate-700 pb-6 lg:pb-0 lg:pr-6">
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-700 pb-2">Datos Básicos</h3>
+                  
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">DNI (Usuario de acceso)</label>
+                    <input 
+                      required maxLength={8} type="text"
+                      disabled={isEditing} 
+                      value={formData.dni} onChange={e => setFormData({...formData, dni: e.target.value.replace(/\D/g, '')})}
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-blue-500 text-slate-800 dark:text-slate-100 disabled:opacity-60"
+                    />
+                  </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Nombres</label>
-                  <input 
-                    required type="text"
-                    value={formData.nombres} onChange={e => setFormData({...formData, nombres: e.target.value.toUpperCase()})}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-blue-500 text-slate-800 dark:text-slate-100"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Apellidos</label>
-                  <input 
-                    required type="text"
-                    value={formData.apellidos} onChange={e => setFormData({...formData, apellidos: e.target.value.toUpperCase()})}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-blue-500 text-slate-800 dark:text-slate-100"
-                  />
-                </div>
-              </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Nombres</label>
+                    <input 
+                      required type="text"
+                      value={formData.nombres} onChange={e => setFormData({...formData, nombres: e.target.value.toUpperCase()})}
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-blue-500 text-slate-800 dark:text-slate-100"
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                  {isEditing ? 'Nueva Contraseña (Opcional)' : 'Contraseña'}
-                </label>
-                <div className="relative">
-                  <input 
-                    required={!isEditing} type={showPassword ? "text" : "password"}
-                    value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})}
-                    placeholder={isEditing ? 'Déjalo en blanco para no cambiarla' : ''}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md pl-3 pr-10 py-2 text-sm focus:outline-blue-500 text-slate-800 dark:text-slate-100"
-                  />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600">
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Apellidos</label>
+                    <input 
+                      required type="text"
+                      value={formData.apellidos} onChange={e => setFormData({...formData, apellidos: e.target.value.toUpperCase()})}
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-blue-500 text-slate-800 dark:text-slate-100"
+                    />
+                  </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Rol</label>
-                  <select 
-                    value={formData.rolId} onChange={e => setFormData({...formData, rolId: e.target.value})}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-blue-500 text-slate-800 dark:text-slate-100"
-                  >
-                    <option value="ADMIN_MICRORED">Administrador</option>
-                    <option value="SUPER_ADMIN">Súper Administrador</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Microred Asignada</label>
-                  <select 
-                    value={formData.microredId} onChange={e => setFormData({...formData, microredId: e.target.value})}
-                    disabled={roles.find(r => r.id === formData.rolId)?.nombre === 'SUPER_ADMIN'}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-blue-500 disabled:opacity-50 text-slate-800 dark:text-slate-100"
-                  >
-                    <option value="">Seleccione Microred...</option>
-                    {microredes.map(m => (
-                      <option key={m.id} value={m.id}>{m.nombre}</option>
-                    ))}
-                  </select>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                      {isEditing ? 'Nueva Contraseña (Opcional)' : 'Contraseña'}
+                    </label>
+                    <div className="relative">
+                      <input 
+                        required={!isEditing} type={showPassword ? "text" : "password"}
+                        value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})}
+                        placeholder={isEditing ? 'Déjalo en blanco para no cambiarla' : ''}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md pl-3 pr-10 py-2 text-sm focus:outline-blue-500 text-slate-800 dark:text-slate-100"
+                      />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600">
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-2">
+                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Rol de Acceso</label>
+                    <select 
+                      value={formData.rolId} onChange={e => {
+                        setFormData({...formData, rolId: e.target.value, permisosExtra: []});
+                      }}
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-blue-500 text-slate-800 dark:text-slate-100"
+                    >
+                      <option value="">Seleccione un Rol...</option>
+                      {roles.map(r => (
+                        <option key={r.id} value={r.id}>{r.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Microred Asignada</label>
+                    <select 
+                      value={formData.microredId} onChange={e => setFormData({...formData, microredId: e.target.value})}
+                      disabled={roles.find(r => r.id === formData.rolId)?.nombre === 'SUPER_ADMIN'}
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-blue-500 disabled:opacity-50 text-slate-800 dark:text-slate-100"
+                    >
+                      <option value="">Seleccione...</option>
+                      {microredes.map(m => (
+                        <option key={m.id} value={m.id}>{m.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
-                {/* Bloque de Permisos Avanzados */}
-                <div className="col-span-1 md:col-span-2 mt-4">
-                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">
-                    Permisos Excepcionales (Solo para este usuario)
-                  </label>
+                {/* Columna Derecha: Permisos Excepcionales (Ocupa 8 de 12) */}
+                <div className="space-y-4 lg:col-span-8">
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-700 pb-2">Permisos Excepcionales (Haz clic para activar/desactivar)</h3>
+                  
                   {roles.find(r => r.id === formData.rolId)?.nombre === 'SUPER_ADMIN' ? (
-                    <div className="text-xs text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 p-3 rounded-md font-medium">
-                      🛡️ Los Súper Administradores tienen acceso total al sistema por defecto.
+                    <div className="text-sm text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 p-4 rounded-md font-medium border border-blue-100 dark:border-blue-800">
+                      🛡️ Los Súper Administradores tienen acceso total al sistema. No es necesario asignar permisos excepcionales.
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[320px] overflow-y-auto pr-2">
-                      {Object.entries(PERMISOS_DESCRIPCION).map(([clave, rawInfo]) => {
-                        const info = rawInfo as { titulo: string, descripcion: string };
-                        const isChecked = formData.permisosExtra.includes(clave);
-                        return (
-                          <div key={clave} className="flex items-start gap-3 p-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 hover:border-blue-300 transition-colors">
-                            <div className="flex items-center h-5 mt-0.5">
-                              <input
-                                type="checkbox"
-                                id={`perm-${clave}`}
-                                checked={isChecked}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setFormData({ ...formData, permisosExtra: [...formData.permisosExtra, clave] });
-                                  } else {
-                                    setFormData({ ...formData, permisosExtra: formData.permisosExtra.filter(p => p !== clave) });
-                                  }
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5">
+                      
+                      {/* Grupo 1: Recursos Humanos */}
+                      <div className="space-y-2">
+                        <h4 className="text-[11px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5" /> Recursos Humanos
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {['VER_TRABAJADORES', 'EDITAR_TRABAJADORES', 'EXPORTAR_EXCEL_PERSONAL'].map(clave => {
+                            const info = PERMISOS_DESCRIPCION[clave as Permiso];
+                            if (!info) return null;
+                            const isActive = formData.permisosExtra.includes(clave);
+                            return (
+                              <button
+                                key={clave}
+                                type="button"
+                                onClick={() => {
+                                  if (isActive) setFormData({ ...formData, permisosExtra: formData.permisosExtra.filter(p => p !== clave) });
+                                  else setFormData({ ...formData, permisosExtra: [...formData.permisosExtra, clave] });
                                 }}
-                                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
-                              />
-                            </div>
-                            <label htmlFor={`perm-${clave}`} className="flex flex-col cursor-pointer flex-1 select-none">
-                              <span className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-0.5">{info.titulo}</span>
-                              <span className="text-xs text-slate-500 dark:text-slate-400 leading-tight">{info.descripcion}</span>
-                            </label>
-                          </div>
-                        );
-                      })}
+                                className={`group relative inline-flex items-center px-2.5 py-1.5 rounded-md text-[11px] font-semibold cursor-pointer transition-all ${isActive ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-400 shadow-sm dark:bg-blue-900/50 dark:text-blue-300 dark:ring-blue-500' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:bg-slate-700'}`}
+                              >
+                                {info.titulo}
+                                <div className="absolute opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-[10px] font-normal text-left p-2 rounded-md shadow-xl z-50">
+                                  {info.descripcion}
+                                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800"></div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Grupo 2: Trámites Essalud */}
+                      <div className="space-y-2">
+                        <h4 className="text-[11px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider flex items-center gap-1">
+                          <Heart className="w-3.5 h-3.5" /> Trámites Essalud
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {['VER_LICENCIAS', 'GESTIONAR_LICENCIAS', 'SUBIR_CITT', 'SUBIR_ARCHIVOS', 'EXPORTAR_PDF_TRAMITE'].map(clave => {
+                            const info = PERMISOS_DESCRIPCION[clave as Permiso];
+                            if (!info) return null;
+                            const isActive = formData.permisosExtra.includes(clave);
+                            return (
+                              <button
+                                key={clave}
+                                type="button"
+                                onClick={() => {
+                                  if (isActive) setFormData({ ...formData, permisosExtra: formData.permisosExtra.filter(p => p !== clave) });
+                                  else setFormData({ ...formData, permisosExtra: [...formData.permisosExtra, clave] });
+                                }}
+                                className={`group relative inline-flex items-center px-2.5 py-1.5 rounded-md text-[11px] font-semibold cursor-pointer transition-all ${isActive ? 'bg-indigo-100 text-indigo-700 ring-1 ring-indigo-400 shadow-sm dark:bg-indigo-900/50 dark:text-indigo-300 dark:ring-indigo-500' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:bg-slate-700'}`}
+                              >
+                                {info.titulo}
+                                <div className="absolute opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-[10px] font-normal text-left p-2 rounded-md shadow-xl z-50">
+                                  {info.descripcion}
+                                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800"></div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Grupo 3: Administración */}
+                      <div className="space-y-2">
+                        <h4 className="text-[11px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider flex items-center gap-1">
+                          <Settings className="w-3.5 h-3.5" /> Administración
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {['ADMINISTRAR_USUARIOS', 'VER_AUDITORIA', 'GESTIONAR_ESTABLECIMIENTOS'].map(clave => {
+                            const info = PERMISOS_DESCRIPCION[clave as Permiso];
+                            if (!info) return null;
+                            const isActive = formData.permisosExtra.includes(clave);
+                            return (
+                              <button
+                                key={clave}
+                                type="button"
+                                onClick={() => {
+                                  if (isActive) setFormData({ ...formData, permisosExtra: formData.permisosExtra.filter(p => p !== clave) });
+                                  else setFormData({ ...formData, permisosExtra: [...formData.permisosExtra, clave] });
+                                }}
+                                className={`group relative inline-flex items-center px-2.5 py-1.5 rounded-md text-[11px] font-semibold cursor-pointer transition-all ${isActive ? 'bg-rose-100 text-rose-700 ring-1 ring-rose-400 shadow-sm dark:bg-rose-900/50 dark:text-rose-300 dark:ring-rose-500' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:bg-slate-700'}`}
+                              >
+                                {info.titulo}
+                                <div className="absolute opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-[10px] font-normal text-left p-2 rounded-md shadow-xl z-50">
+                                  {info.descripcion}
+                                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800"></div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Grupo 4: Estadísticas */}
+                      <div className="space-y-2">
+                        <h4 className="text-[11px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider flex items-center gap-1">
+                          <FileText className="w-3.5 h-3.5" /> Estadísticas
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {['VER_REPORTES', 'EXPORTAR_EXCEL_MASIVO'].map(clave => {
+                            const info = PERMISOS_DESCRIPCION[clave as Permiso];
+                            if (!info) return null;
+                            const isActive = formData.permisosExtra.includes(clave);
+                            return (
+                              <button
+                                key={clave}
+                                type="button"
+                                onClick={() => {
+                                  if (isActive) setFormData({ ...formData, permisosExtra: formData.permisosExtra.filter(p => p !== clave) });
+                                  else setFormData({ ...formData, permisosExtra: [...formData.permisosExtra, clave] });
+                                }}
+                                className={`group relative inline-flex items-center px-2.5 py-1.5 rounded-md text-[11px] font-semibold cursor-pointer transition-all ${isActive ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-400 shadow-sm dark:bg-emerald-900/50 dark:text-emerald-300 dark:ring-emerald-500' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:bg-slate-700'}`}
+                              >
+                                {info.titulo}
+                                <div className="absolute opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-[10px] font-normal text-left p-2 rounded-md shadow-xl z-50">
+                                  {info.descripcion}
+                                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800"></div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Grupo 5: Documentación */}
+                      <div className="space-y-2">
+                        <h4 className="text-[11px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider flex items-center gap-1">
+                          <Folder className="w-3.5 h-3.5" /> Documentación
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {['VER_ARCHIVO_HISTORICO', 'ORDENAR_DOCUMENTOS'].map(clave => {
+                            const info = PERMISOS_DESCRIPCION[clave as Permiso];
+                            if (!info) return null;
+                            const isActive = formData.permisosExtra.includes(clave);
+                            return (
+                              <button
+                                key={clave}
+                                type="button"
+                                onClick={() => {
+                                  if (isActive) setFormData({ ...formData, permisosExtra: formData.permisosExtra.filter(p => p !== clave) });
+                                  else setFormData({ ...formData, permisosExtra: [...formData.permisosExtra, clave] });
+                                }}
+                                className={`group relative inline-flex items-center px-2.5 py-1.5 rounded-md text-[11px] font-semibold cursor-pointer transition-all ${isActive ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-400 shadow-sm dark:bg-amber-900/50 dark:text-amber-300 dark:ring-amber-500' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:bg-slate-700'}`}
+                              >
+                                {info.titulo}
+                                <div className="absolute opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-[10px] font-normal text-left p-2 rounded-md shadow-xl z-50">
+                                  {info.descripcion}
+                                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800"></div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Grupo 6: Sistema Developer */}
+                      <div className="space-y-2">
+                        <h4 className="text-[11px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider flex items-center gap-1">
+                          <Terminal className="w-3.5 h-3.5" /> Sistema (Developer)
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {['VER_LOGS'].map(clave => {
+                            const info = PERMISOS_DESCRIPCION[clave as Permiso];
+                            if (!info) return null;
+                            const isActive = formData.permisosExtra.includes(clave);
+                            return (
+                              <button
+                                key={clave}
+                                type="button"
+                                onClick={() => {
+                                  if (isActive) setFormData({ ...formData, permisosExtra: formData.permisosExtra.filter(p => p !== clave) });
+                                  else setFormData({ ...formData, permisosExtra: [...formData.permisosExtra, clave] });
+                                }}
+                                className={`group relative inline-flex items-center px-2.5 py-1.5 rounded-md text-[11px] font-semibold cursor-pointer transition-all ${isActive ? 'bg-purple-100 text-purple-700 ring-1 ring-purple-400 shadow-sm dark:bg-purple-900/50 dark:text-purple-300 dark:ring-purple-500' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:bg-slate-700'}`}
+                              >
+                                {info.titulo}
+                                <div className="absolute opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-[10px] font-normal text-left p-2 rounded-md shadow-xl z-50">
+                                  {info.descripcion}
+                                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800"></div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
                     </div>
                   )}
                 </div>
-
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 mt-4 border-t border-slate-100 dark:border-slate-700">
+              <div className="flex justify-end gap-3 pt-4 mt-6 border-t border-slate-100 dark:border-slate-700 shrink-0">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors">
                   Cancelar
                 </button>
-                <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50 transition-colors">
+                <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50 transition-colors shadow-sm">
                   {saving ? 'Guardando...' : (isEditing ? 'Actualizar Credencial' : 'Crear Credencial')}
                 </button>
               </div>
