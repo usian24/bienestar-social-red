@@ -181,9 +181,9 @@ const ReporteMensualTemplate = forwardRef<HTMLDivElement, ReporteMensualTemplate
                                 <td rowSpan={row.chunks.length} className="border border-slate-300 p-1">{chunk.condicionLaboral}</td>
                                 <td rowSpan={row.chunks.length} className="border border-slate-300 p-1 text-[9px] max-w-[80px] truncate" title={chunk.establecimiento}>{chunk.establecimiento}</td>
                                 <td rowSpan={row.chunks.length} className="border border-slate-300 p-1">{chunk.dni}</td>
-                                <td rowSpan={row.chunks.length} className="border border-slate-300 p-1 whitespace-nowrap">{chunk.cittCmp}</td>
                               </>
                             )}
+                            <td className="border border-slate-300 p-1 whitespace-nowrap">{chunk.cittCmp}</td>
                             <td className="border border-slate-300 p-1">{chunk.fechaInicio}</td>
                             <td className="border border-slate-300 p-1">{chunk.fechaFin}</td>
                             <td className="border border-slate-300 p-1 bg-red-50 text-red-700">{chunk.fin20Dias}</td>

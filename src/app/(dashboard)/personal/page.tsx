@@ -5,6 +5,7 @@ import { Search, UserPlus, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function PersonalPage() {
   const [busqueda, setBusqueda] = useState('');
+  const [condicion, setCondicion] = useState('');
   const [resultados, setResultados] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [buscando, setBuscando] = useState(true);
@@ -18,6 +19,7 @@ export default function PersonalPage() {
     try {
       const qParams = new URLSearchParams({
         q: busqueda,
+        condicion: condicion,
         page: page.toString(),
         limit: limit.toString()
       });
@@ -30,12 +32,12 @@ export default function PersonalPage() {
     } finally {
       setBuscando(false);
     }
-  }, [busqueda, page, limit]);
+  }, [busqueda, condicion, page, limit]);
 
-  // Si escriben en el buscador, volvemos a la página 1
+  // Si escriben en el buscador o cambian el filtro, volvemos a la página 1
   useEffect(() => {
     setPage(1);
-  }, [busqueda]);
+  }, [busqueda, condicion]);
 
   // Cada vez que cambia algo, traer data con un pequeño retraso si están escribiendo
   useEffect(() => {
@@ -56,7 +58,7 @@ export default function PersonalPage() {
           Busca a cualquier trabajador por DNI o Nombres para ver su historial completo o registrar a un nuevo trabajador en el sistema.
         </p>
         
-        <div className="flex gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="w-5 h-5 absolute left-3 top-2.5 text-slate-400" />
             <input 
@@ -67,11 +69,23 @@ export default function PersonalPage() {
               className="w-full bg-slate-50 border border-slate-300 rounded-md pl-10 pr-4 py-2 text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
             />
           </div>
-          <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium shadow-sm transition-colors flex items-center gap-2">
+          <div className="w-full sm:w-64">
+            <select
+              value={condicion}
+              onChange={(e) => setCondicion(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-300 rounded-md px-4 py-2 text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+            >
+              <option value="">Todas las Condiciones</option>
+              <option value="NOMBRADO">Nombrados</option>
+              <option value="CAS">CAS</option>
+              <option value="CAS DIRESA">CAS DIRESA</option>
+            </select>
+          </div>
+          <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium shadow-sm transition-colors flex items-center justify-center gap-2">
             <Search className="w-4 h-4" />
             Buscar
           </button>
-          <button className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-6 py-2 rounded-md font-medium shadow-sm transition-colors flex items-center gap-2">
+          <button className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-6 py-2 rounded-md font-medium shadow-sm transition-colors flex items-center justify-center gap-2">
             <UserPlus className="w-4 h-4" />
             Nuevo Ingreso
           </button>

@@ -74,11 +74,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         citt: 'SIN REGISTROS', inicio: '-', fin: '-', fin20: '-', subsidio: '-', totalCitt: 0, diasSubsidios: 0
       });
     } else {
+      let currentYearForPrecalc = 0;
       let diasRedRestantes = 20;
       let totalSubsidioGlobal = 0;
 
       // Pre-calcular el subsidio global
       trabajador.licencias.forEach((lic) => {
+        const licYear = new Date(lic.fechaInicio).getFullYear();
+        if (licYear !== currentYearForPrecalc) {
+          currentYearForPrecalc = licYear;
+          diasRedRestantes = 20;
+        }
         if (lic.origen === 'ESSALUD_CITT') {
            const redDays = Math.min(lic.diasOtorgados, diasRedRestantes);
            const subDays = lic.diasOtorgados - redDays;
@@ -87,11 +93,19 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         }
       });
 
+      let currentYearForRender = 0;
       diasRedRestantes = 20; // Reiniciar para el renderizado
       let historicFin20Str = '';
 
       // Calcular filas
       trabajador.licencias.forEach((lic) => {
+        const licYear = new Date(lic.fechaInicio).getFullYear();
+        if (licYear !== currentYearForRender) {
+          currentYearForRender = licYear;
+          diasRedRestantes = 20;
+          historicFin20Str = '';
+        }
+
         const dateInicio = new Date(lic.fechaInicio);
         const dateFin = new Date(lic.fechaFin);
 

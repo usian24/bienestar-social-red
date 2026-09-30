@@ -122,6 +122,7 @@ export async function GET(request: Request) {
 
       // Preprocesar chunks por trabajador
       const workersData = workersWithLic.map(t => {
+        let currentYearForRed = 0;
         let diasRedRestantes = 20;
         let historicFin20Str = '';
         const allChunks: any[] = [];
@@ -129,6 +130,13 @@ export async function GET(request: Request) {
         for (const lic of t.licencias) {
           const inicioStr = getPeruDateString(new Date(lic.fechaInicio));
           const finStr = getPeruDateString(new Date(lic.fechaFin));
+          
+          const licYear = new Date(lic.fechaInicio).getFullYear();
+          if (licYear !== currentYearForRed) {
+            currentYearForRed = licYear;
+            diasRedRestantes = 20;
+            historicFin20Str = '';
+          }
           
           const origInicioParts = inicioStr.split('-');
           const origFinParts = finStr.split('-');
@@ -249,22 +257,24 @@ export async function GET(request: Request) {
         workersInMonth.sort((a, b) => (a.apellidos || '').localeCompare(b.apellidos || ''));
 
         for (const t of workersInMonth) {
-          const monthChunks = t.allChunks.filter(c => c.month === m);
-          if (monthChunks.length === 0) continue;
+          // Obtener todos los chunks hasta el mes actual (arrastrar historial del año)
+          const historyChunks = t.allChunks.filter(c => c.month <= m);
+          if (historyChunks.length === 0) continue;
 
           const startRow = currentRowIndex;
           const apellidosNombres = t.apellidos ? `${t.apellidos} ${t.nombres}` : t.nombres;
 
           let totalSubsidioMes = 0;
-          for (const chunk of monthChunks) {
-            if (chunk.lic.origen === 'ESSALUD_CITT') {
+          // El total de subsidios de la última columna es SOLO para el mes actual
+          for (const chunk of historyChunks) {
+            if (chunk.month === m && chunk.lic.origen === 'ESSALUD_CITT') {
               totalSubsidioMes += chunk.subsidioDaysInChunk;
             }
           }
 
           let workerChunksForPreview = [];
 
-          for (const chunk of monthChunks) {
+          for (const chunk of historyChunks) {
             
             let fin20Dias = '';
             if (chunk.subsidioDaysInChunk > 0) {

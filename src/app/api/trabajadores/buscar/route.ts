@@ -12,6 +12,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const q = searchParams.get('q') || '';
+    const condicion = searchParams.get('condicion') || '';
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '10', 10);
 
@@ -26,6 +27,10 @@ export async function GET(request: Request) {
         { apellidos: { contains: q, mode: 'insensitive' } },
         { nombres: { contains: q, mode: 'insensitive' } }
       ];
+    }
+
+    if (condicion.length > 0) {
+      whereClause.condicionLaboral = condicion;
     }
 
     if (!isSuperAdmin && userMicroredId) {
