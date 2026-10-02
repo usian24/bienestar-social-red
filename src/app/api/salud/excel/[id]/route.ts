@@ -12,7 +12,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       include: {
         establecimiento: { include: { microred: true } },
         licencias: {
-          where: { tipoLicencia: 'ENFERMEDAD_COMUN' },
+          where: { tipoLicencia: { in: ['ENFERMEDAD_COMUN', 'ACCIDENTE_COMUN'] } },
           orderBy: { fechaInicio: 'asc' }
         }
       }

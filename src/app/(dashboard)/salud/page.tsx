@@ -3,6 +3,7 @@
 import { Eye, FileSpreadsheet, FileText, PlusCircle, Search } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import NuevoCittModal from "@/shared/components/NuevoCittModal";
 import DetallesTrabajadorModal from "@/shared/components/DetallesTrabajadorModal";
 import CargaExcelLicenciasModal from "@/shared/components/CargaExcelLicenciasModal";
@@ -10,6 +11,7 @@ import PrevisualizadorExcelModal from "@/shared/components/PrevisualizadorExcelM
 import PrevisualizadorExcelMasivoModal from "@/shared/components/PrevisualizadorExcelMasivoModal";
 
 export default function SaludPage() {
+  const router = useRouter();
   const { data: session } = useSession();
   const [registros, setRegistros] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +39,7 @@ export default function SaludPage() {
   const [microred, setMicrored] = useState('Todas');
   const [establecimiento, setEstablecimiento] = useState('--Todos--');
   const [condicionLaboral, setCondicionLaboral] = useState('--TODOS--');
+  const [tipoLicencia, setTipoLicencia] = useState('--TODOS--');
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
   const [orden, setOrden] = useState('alfabetico');
@@ -236,8 +239,8 @@ export default function SaludPage() {
           </div>
         </div>
 
-        {/* Fila 2: Condición Laboral y Rango de Fechas */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        {/* Fila 2: Condición Laboral, Tipo Licencia y Rango de Fechas */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
           <div>
             <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">Condición Laboral</label>
               <select 
@@ -249,6 +252,19 @@ export default function SaludPage() {
                 {Array.from(new Set(registros.map(r => r.condicionLaboral || 'NO ESPECIFICADA'))).sort().map(cond => (
                   <option key={cond} value={cond}>{cond}</option>
                 ))}
+              </select>
+          </div>
+          <div>
+            <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">Tipo de Licencia</label>
+              <select 
+                value={tipoLicencia} 
+                onChange={(e) => setTipoLicencia(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-blue-500 focus:bg-white dark:bg-slate-800 transition-colors"
+              >
+                <option value="--TODOS--">--TODOS--</option>
+                <option value="SALUD">Salud (Enfermedad/Accidente)</option>
+                <option value="MATERNIDAD">Maternidad</option>
+                <option value="PATERNIDAD">Paternidad</option>
               </select>
           </div>
           <div>
@@ -269,7 +285,29 @@ export default function SaludPage() {
               className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-blue-500 focus:bg-white dark:bg-slate-800 transition-colors"
             />
           </div>
-          <div className="flex justify-end h-full items-end pb-0.5">
+          <div className="flex justify-end h-full items-end pb-0.5 gap-2">
+            {fechaDesde && fechaHasta && (
+              <button 
+                type="button"
+                onClick={() => {
+                  const q = new URLSearchParams({
+                    desde: fechaDesde,
+                    hasta: fechaHasta,
+                    condicionLaboral,
+                    microred,
+                    establecimiento,
+                    tipoLicencia
+                  });
+                  router.push(`/salud/reporte-rango?${q.toString()}`);
+                }}
+                className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 shadow-sm transition-colors animate-in fade-in zoom-in duration-300"
+                title="Generar PDF Rango de Fechas"
+              >
+                <FileText className="w-4 h-4" />
+                PDF Rango
+              </button>
+            )}
+            
             {isSuperAdmin && (
               <button 
                 type="button"
@@ -445,7 +483,7 @@ export default function SaludPage() {
       <PrevisualizadorExcelMasivoModal
         isOpen={isPrevisualizadorMasivoOpen}
         onClose={() => setIsPrevisualizadorMasivoOpen(false)}
-        filters={{ microred, establecimiento, condicionLaboral }}
+        filters={{ microred, establecimiento, condicionLaboral, tipoLicencia, desde: fechaDesde, hasta: fechaHasta }}
       />
     </>
   );

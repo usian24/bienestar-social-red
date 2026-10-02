@@ -45,11 +45,11 @@ const Footer = () => (
   </div>
 );
 
-const HojaA4 = ({ children, isEditable }: { children: React.ReactNode, isEditable?: boolean }) => (
+const HojaA4 = ({ children, isEditable, noPadding }: { children: React.ReactNode, isEditable?: boolean, noPadding?: boolean }) => (
   <div className="bg-white shadow-2xl rounded-sm w-[210mm] h-[297mm] relative print:shadow-none print:m-0 print:break-after-page overflow-hidden mb-8 print:mb-0 box-border text-[15px] text-black shrink-0 flex flex-col">
     <Header />
     <div 
-       className="w-full px-[30mm] pr-[27.5mm] flex-1 overflow-hidden outline-none break-words whitespace-pre-wrap mt-[5mm]" 
+       className={`w-full flex-1 outline-none break-words whitespace-pre-wrap mt-[5mm] ${noPadding ? 'px-[10mm] overflow-visible' : 'px-[30mm] pr-[27.5mm] overflow-hidden'}`}
        contentEditable={isEditable} 
        suppressContentEditableWarning={isEditable}
        style={{ fontFamily: 'Arial, Helvetica, sans-serif', lineHeight: '1.5' }}
@@ -134,76 +134,168 @@ const ReporteMensualTemplate = forwardRef<HTMLDivElement, ReporteMensualTemplate
 
           <p className="mb-20">Es cuanto informo para los fines consiguientes.</p>
           
-          <p>Atentamente,</p>
+          <p className="mb-10">Atentamente,</p>
+
+          <div className="flex justify-between items-end mt-20 text-[10px]">
+            <div>
+              <p>Ecp.</p>
+              <p>C.C.</p>
+              <p>09/09/{anio}</p>
+            </div>
+            
+            <table className="border-collapse border border-black text-[10px] w-40 text-center">
+              <tbody>
+                <tr>
+                  <td className="border border-black font-bold py-1 w-1/2">REG. DOC</td>
+                  <td className="border border-black py-1 w-1/2"></td>
+                </tr>
+                <tr>
+                  <td className="border border-black font-bold py-1">REG. EXP</td>
+                  <td className="border border-black py-1"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </HojaA4>
 
-      {/* HOJAS ANEXAS: TABLAS ROTADAS (1 HOJA POR ESTABLECIMIENTO/TABLA) */}
-      {data?.sheets?.map((sheet: any, sIdx: number) => {
-        if (!sheet.rows || sheet.rows.length <= 1) return null;
-        
-        return (
-          <HojaA4 key={sIdx} isEditable={false}>
-            <div className="text-center font-bold text-[14px] mb-4 uppercase">
-              ANEXO: RELACIÓN DE PERSONAL CON LICENCIA POR ENFERMEDAD - {mes} {anio}
-            </div>
+      {/* HOJAS ANEXAS: TABLAS ROTADAS */}
+      {(() => {
+        const pages: any[][] = [];
+        let currentPage: { items: any[], capacity: number } = { items: [], capacity: 0 };
+        const MAX_CAPACITY = 24;
 
-            <div className="relative w-full h-[180mm]">
-              <div className="absolute top-0 left-0" style={{ transform: 'rotate(-90deg) translateX(-100%)', transformOrigin: 'top left', width: 'max-content', minWidth: '200mm', height: '150mm' }}>
-                <div className="font-bold bg-[#4F81BD] text-white p-2 text-center uppercase mb-2 border border-[#4F81BD] text-[12px]">
-                  {sheet.name} - {mes} {anio}
-                </div>
-                <table className="w-full border-collapse text-center text-[10px]">
-                  <thead>
-                    {sheet.rows.filter((r: any) => r.type === 'header').map((hRow: any, hIdx: number) => (
-                      <tr key={`h-${hIdx}`} className="bg-[#D9E1F2] text-black">
-                        {hRow.values.map((v: string, i: number) => {
-                          if (v === '') return null;
-                          return (
-                            <th key={i} className="border border-slate-400 p-1 font-bold" colSpan={v === 'FECHA SUBSIDIO' ? 2 : 1}>
-                              {v}
-                            </th>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </thead>
-                  <tbody>
-                    {sheet.rows.filter((r: any) => r.type === 'worker').map((row: any, rIdx: number) => (
-                      <React.Fragment key={`r-${rIdx}`}>
-                        {row.chunks.map((chunk: any, cIdx: number) => (
-                          <tr key={`c-${cIdx}`}>
-                            {cIdx === 0 && (
-                              <>
-                                <td rowSpan={row.chunks.length} className="border border-slate-300 p-1">{chunk.nro}</td>
-                                <td rowSpan={row.chunks.length} className="border border-slate-300 p-1 text-left whitespace-nowrap">{chunk.apellidosNombres}</td>
-                                <td rowSpan={row.chunks.length} className="border border-slate-300 p-1 text-[9px]">{chunk.cargo}</td>
-                                <td rowSpan={row.chunks.length} className="border border-slate-300 p-1">{chunk.condicionLaboral}</td>
-                                <td rowSpan={row.chunks.length} className="border border-slate-300 p-1 text-[9px] max-w-[80px] truncate" title={chunk.establecimiento}>{chunk.establecimiento}</td>
-                                <td rowSpan={row.chunks.length} className="border border-slate-300 p-1">{chunk.dni}</td>
-                              </>
-                            )}
-                            <td className="border border-slate-300 p-1 whitespace-nowrap">{chunk.cittCmp}</td>
-                            <td className="border border-slate-300 p-1">{chunk.fechaInicio}</td>
-                            <td className="border border-slate-300 p-1">{chunk.fechaFin}</td>
-                            <td className="border border-slate-300 p-1 bg-red-50 text-red-700">{chunk.fin20Dias}</td>
-                            <td className="border border-slate-300 p-1">{chunk.fechaSubsidio1 || ''}</td>
-                            <td className="border border-slate-300 p-1">{chunk.fechaSubsidio2 || ''}</td>
-                            <td className="border border-slate-300 p-1 font-bold">{chunk.totalDias}</td>
-                            {cIdx === 0 && (
-                              <td rowSpan={row.chunks.length} className="border border-slate-300 p-1">{chunk.diasSubsidios}</td>
-                            )}
-                          </tr>
-                        ))}
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
+        const pushPage = () => {
+          if (currentPage.items.length > 0) {
+            pages.push(currentPage.items);
+            currentPage = { items: [], capacity: 0 };
+          }
+        };
+
+        data?.sheets?.forEach((sheet: any) => {
+          if (!sheet.rows || sheet.rows.length <= 1) return;
+          
+          const headers = sheet.rows.filter((r: any) => r.type === 'header');
+          const workers = sheet.rows.filter((r: any) => r.type === 'worker');
+
+          if (workers.length === 0) return;
+
+          let isFirstOfSheet = true;
+
+          const insertHeaders = (isContinuation: boolean) => {
+            currentPage.items.push({ type: 'title', name: sheet.name, isContinuation });
+            currentPage.items.push({ type: 'header', headers });
+            currentPage.capacity += 3;
+          };
+
+          workers.forEach((worker: any) => {
+            const cost = worker.chunks?.length || 1;
+            
+            if (isFirstOfSheet) {
+              if (currentPage.capacity + 3 + cost > MAX_CAPACITY && currentPage.items.length > 0) {
+                pushPage();
+              }
+              insertHeaders(false);
+              isFirstOfSheet = false;
+            } else {
+              if (currentPage.capacity + cost > MAX_CAPACITY) {
+                pushPage();
+                insertHeaders(true);
+              }
+            }
+            
+            currentPage.items.push({ type: 'worker', data: worker });
+            currentPage.capacity += cost;
+          });
+        });
+        
+        pushPage();
+
+        return pages.map((pageItems, pageIdx) => (
+          <HojaA4 key={`page-${pageIdx}`} isEditable={false} noPadding={true}>
+            {pageIdx === 0 && (
+              <div className="text-center font-bold text-[14px] mb-2 uppercase">
+                ANEXO: RELACIÓN DE PERSONAL CON LICENCIA POR ENFERMEDAD - {mes} {anio}
+              </div>
+            )}
+
+            <div className={`relative w-full ${pageIdx === 0 ? 'h-[220mm]' : 'h-[235mm]'}`}>
+              <div className="absolute top-0 left-0" style={{ transform: 'rotate(-90deg) translateX(-100%)', transformOrigin: 'top left', width: pageIdx === 0 ? '220mm' : '235mm', height: '190mm', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {(() => {
+                  const tables: any[] = [];
+                  let currentTable: any = null;
+                  
+                  pageItems.forEach(item => {
+                    if (item.type === 'title') {
+                      if (currentTable) tables.push(currentTable);
+                      currentTable = { title: item, headers: null, workers: [] };
+                    } else if (item.type === 'header') {
+                      currentTable.headers = item.headers;
+                    } else if (item.type === 'worker') {
+                      currentTable.workers.push(item.data);
+                    }
+                  });
+                  if (currentTable) tables.push(currentTable);
+                  
+                  return tables.map((tbl, tIdx) => (
+                    <div key={tIdx} className="w-full shrink-0">
+                      <div className="font-bold bg-[#4F81BD] text-white p-1 text-center uppercase mb-1 border border-[#4F81BD] text-[10px]">
+                        {tbl.title.name} - {mes} {anio} {tbl.title.isContinuation ? '(CONT.)' : ''}
+                      </div>
+                      <table className="w-full border-collapse text-center text-[9px] leading-tight">
+                        <thead>
+                          {tbl.headers?.map((hRow: any, hIdx: number) => (
+                            <tr key={`h-${hIdx}`} className="bg-[#D9E1F2] text-black">
+                              {hRow.values.map((v: string, i: number) => {
+                                if (v === '') return null;
+                                return (
+                                  <th key={i} className="border border-slate-400 px-1 py-0.5 font-bold" colSpan={v === 'FECHA SUBSIDIO' ? 2 : 1}>
+                                    {v}
+                                  </th>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </thead>
+                        <tbody>
+                          {tbl.workers.map((row: any, rIdx: number) => (
+                            <React.Fragment key={`r-${rIdx}`}>
+                              {row.chunks.map((chunk: any, cIdx: number) => (
+                                <tr key={`c-${cIdx}`}>
+                                  {cIdx === 0 && (
+                                    <>
+                                      <td rowSpan={row.chunks.length} className="border border-slate-300 px-1 py-0.5">{chunk.nro}</td>
+                                      <td rowSpan={row.chunks.length} className="border border-slate-300 px-1 py-0.5 text-left max-w-[140px] break-words">{chunk.apellidosNombres}</td>
+                                      <td rowSpan={row.chunks.length} className="border border-slate-300 px-1 py-0.5 text-[8px] max-w-[80px] break-words">{chunk.cargo}</td>
+                                      <td rowSpan={row.chunks.length} className="border border-slate-300 px-1 py-0.5 text-[8px]">{chunk.condicion}</td>
+                                      <td rowSpan={row.chunks.length} className="border border-slate-300 px-1 py-0.5 text-[8px] max-w-[70px] truncate" title={chunk.establecimiento}>{chunk.establecimiento}</td>
+                                      <td rowSpan={row.chunks.length} className="border border-slate-300 px-1 py-0.5">{chunk.dni}</td>
+                                    </>
+                                  )}
+                                  <td className="border border-slate-300 px-1 py-0.5 max-w-[120px] break-words text-[8px]">{chunk.citt}</td>
+                                  <td className="border border-slate-300 px-1 py-0.5">{chunk.inicio}</td>
+                                  <td className="border border-slate-300 px-1 py-0.5">{chunk.fin}</td>
+                                  <td className="border border-slate-300 px-1 py-0.5 bg-red-50 text-red-700 font-medium">{chunk.fin20Dias}</td>
+                                  <td className="border border-slate-300 px-1 py-0.5">{chunk.subsidioStart || ''}</td>
+                                  <td className="border border-slate-300 px-1 py-0.5">{chunk.subsidioEnd || ''}</td>
+                                  <td className="border border-slate-300 px-1 py-0.5 font-bold text-[10px]">{chunk.totalDias}</td>
+                                  {cIdx === 0 && (
+                                    <td rowSpan={row.chunks.length} className="border border-slate-300 px-1 py-0.5 font-bold text-[10px]">{row.totalSubsidioMes}</td>
+                                  )}
+                                </tr>
+                              ))}
+                            </React.Fragment>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ));
+                })()}
               </div>
             </div>
           </HojaA4>
-        );
-      })}
+        ));
+      })()}
     </div>
   );
 });

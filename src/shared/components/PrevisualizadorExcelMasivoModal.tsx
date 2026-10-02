@@ -10,6 +10,9 @@ interface PrevisualizadorExcelMasivoModalProps {
     microred: string;
     establecimiento: string;
     condicionLaboral: string;
+    tipoLicencia?: string;
+    desde?: string;
+    hasta?: string;
   };
 }
 
@@ -29,6 +32,9 @@ export default function PrevisualizadorExcelMasivoModal({ isOpen, onClose, filte
           microred: filters.microred,
           establecimiento: filters.establecimiento,
           condicionLaboral: filters.condicionLaboral,
+          tipoLicencia: filters.tipoLicencia || '--TODOS--',
+          desde: filters.desde || '',
+          hasta: filters.hasta || '',
           preview: 'true'
         });
         const res = await fetch(`/api/salud/excel-masivo?${query.toString()}`);
@@ -46,7 +52,8 @@ export default function PrevisualizadorExcelMasivoModal({ isOpen, onClose, filte
       }
     };
     fetchPreview();
-  }, [isOpen, filters]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, JSON.stringify(filters)]);
 
   if (!isOpen) return null;
 
@@ -54,7 +61,10 @@ export default function PrevisualizadorExcelMasivoModal({ isOpen, onClose, filte
     const query = new URLSearchParams({
       microred: filters.microred,
       establecimiento: filters.establecimiento,
-      condicionLaboral: filters.condicionLaboral
+      condicionLaboral: filters.condicionLaboral,
+      tipoLicencia: filters.tipoLicencia || '--TODOS--',
+      desde: filters.desde || '',
+      hasta: filters.hasta || ''
     });
     window.open(`/api/salud/excel-masivo?${query.toString()}`, '_blank');
     onClose();

@@ -47,11 +47,17 @@ export async function GET(request: Request) {
   const microredNombre = searchParams.get('microred');
   const establecimientoNombre = searchParams.get('establecimiento');
   const condicionLaboral = searchParams.get('condicionLaboral');
+  const tipoLicencia = searchParams.get('tipoLicencia');
   const isPreview = searchParams.get('preview') === 'true';
   const reqMonthStr = searchParams.get('month');
   const reqMonth = reqMonthStr !== null ? parseInt(reqMonthStr, 10) - 1 : null;
   const reqYearStr = searchParams.get('year');
   const anio = reqYearStr !== null ? parseInt(reqYearStr, 10) : new Date().getFullYear();
+
+  const desdeStr = searchParams.get('desde');
+  const hastaStr = searchParams.get('hasta');
+  const desdeDate = desdeStr ? new Date(desdeStr + 'T00:00:00') : null;
+  const hastaDate = hastaStr ? new Date(hastaStr + 'T23:59:59') : null;
 
   try {
     const whereClause: any = {};
@@ -69,12 +75,21 @@ export async function GET(request: Request) {
       whereClause.condicionLaboral = condicionLaboral;
     }
 
+    const licenciasWhere: any = {};
+    if (tipoLicencia && tipoLicencia !== '--TODOS--') {
+      if (tipoLicencia === 'SALUD') {
+        licenciasWhere.tipoLicencia = { in: ['ENFERMEDAD_COMUN', 'ACCIDENTE_COMUN'] };
+      } else {
+        licenciasWhere.tipoLicencia = tipoLicencia;
+      }
+    }
+
     const trabajadores = await prisma.trabajador.findMany({
       where: whereClause,
       include: {
         establecimiento: { include: { microred: true } },
         licencias: {
-          where: { tipoLicencia: 'ENFERMEDAD_COMUN' },
+          where: licenciasWhere,
           orderBy: { fechaInicio: 'asc' }
         }
       }
@@ -115,10 +130,7 @@ export async function GET(request: Request) {
       const workersWithLic = trs.filter(t => t.licencias && t.licencias.length > 0);
       if (workersWithLic.length === 0) continue; // No crear la hoja si está vacía
 
-      const sheetName = `${mrName.substring(0, 25)} ${anio}`;
-      const worksheet = workbook.addWorksheet(sheetName);
-      
-      const sheetPreview: any = { name: sheetName, rows: [] };
+      // sheetName and worksheet creation will happen later
 
       // Preprocesar chunks por trabajador
       const workersData = workersWithLic.map(t => {
@@ -166,6 +178,10 @@ export async function GET(request: Request) {
               subsidioEndStr = chunk.end.toLocaleDateString('es-PE');
             }
 
+            // Filtrar si cae fuera del rango desde/hasta
+            if (desdeDate && chunk.end < desdeDate) continue;
+            if (hastaDate && chunk.start > hastaDate) continue;
+
             allChunks.push({
               ...chunk,
               redDaysInChunk,
@@ -180,6 +196,21 @@ export async function GET(request: Request) {
         }
         return { ...t, allChunks, historicFin20Str };
       });
+
+      const hasAnyDataForAnyMonth = workersData.some(w => {
+         if (reqMonth !== null) {
+            return w.allChunks.some(c => c.month === reqMonth);
+         }
+         return w.allChunks.length > 0;
+      });
+      if (!hasAnyDataForAnyMonth) continue;
+
+      const sheetName = `${mrName.substring(0, 25)} ${anio}`;
+      let worksheet: ExcelJS.Worksheet | null = null;
+      if (!isPreview) {
+        worksheet = workbook.addWorksheet(sheetName);
+      }
+      const sheetPreview: any = { name: sheetName, rows: [] };
 
       let currentRowIndex = 1;
 
@@ -200,8 +231,8 @@ export async function GET(request: Request) {
 
         // Big Header del Mes
         if (!isPreview) {
-          worksheet.mergeCells(`A${currentRowIndex}:L${currentRowIndex}`);
-          const titleCell = worksheet.getCell(`A${currentRowIndex}`);
+          worksheet!.mergeCells(`A${currentRowIndex}:L${currentRowIndex}`);
+          const titleCell = worksheet!.getCell(`A${currentRowIndex}`);
           titleCell.value = titleText;
           titleCell.font = { bold: true, size: 12, color: { argb: 'FF000000' } };
           titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -219,7 +250,7 @@ export async function GET(request: Request) {
 
         if (!isPreview) {
           // Subheaders de la tabla
-          const headerRow = worksheet.getRow(currentRowIndex);
+          const headerRow = worksheet!.getRow(currentRowIndex);
           headerRow.height = 30;
           headers.forEach((h, i) => {
             const cell = headerRow.getCell(i + 1);
@@ -228,12 +259,12 @@ export async function GET(request: Request) {
           });
           
           // Merge para "FECHA SUBSIDIO" que ocupa 2 columnas
-          worksheet.mergeCells(currentRowIndex, 11, currentRowIndex, 12);
+          worksheet!.mergeCells(currentRowIndex, 11, currentRowIndex, 12);
           currentRowIndex++;
 
           // Configurar anchos de columna (solo la primera vez)
-          if (m === 0 || worksheet.columns.length === 0) {
-            worksheet.columns = [
+          if (m === 0 || worksheet!.columns.length === 0) {
+            worksheet!.columns = [
               { key: 'col1', width: 5 },
               { key: 'col2', width: 35 },
               { key: 'col3', width: 25 },
@@ -267,7 +298,7 @@ export async function GET(request: Request) {
           let totalSubsidioMes = 0;
           // El total de subsidios de la última columna es SOLO para el mes actual
           for (const chunk of historyChunks) {
-            if (chunk.month === m && chunk.lic.origen === 'ESSALUD_CITT') {
+            if (chunk.month === m) {
               totalSubsidioMes += chunk.subsidioDaysInChunk;
             }
           }
@@ -299,7 +330,7 @@ export async function GET(request: Request) {
                   isRed: chunk.redDaysInChunk > 0
                });
             } else {
-              const row = worksheet.getRow(currentRowIndex);
+              const row = worksheet!.getRow(currentRowIndex);
               row.getCell(1).value = nro;
               row.getCell(2).value = apellidosNombres.toUpperCase();
               row.getCell(3).value = (t.cargo || '').toUpperCase();
@@ -349,13 +380,13 @@ export async function GET(request: Request) {
           } else {
             const endRow = currentRowIndex - 1;
             if (endRow > startRow) {
-              worksheet.mergeCells(`A${startRow}:A${endRow}`);
-              worksheet.mergeCells(`B${startRow}:B${endRow}`);
-              worksheet.mergeCells(`C${startRow}:C${endRow}`);
-              worksheet.mergeCells(`D${startRow}:D${endRow}`);
-              worksheet.mergeCells(`E${startRow}:E${endRow}`);
-              worksheet.mergeCells(`F${startRow}:F${endRow}`);
-              worksheet.mergeCells(`N${startRow}:N${endRow}`); 
+              worksheet!.mergeCells(`A${startRow}:A${endRow}`);
+              worksheet!.mergeCells(`B${startRow}:B${endRow}`);
+              worksheet!.mergeCells(`C${startRow}:C${endRow}`);
+              worksheet!.mergeCells(`D${startRow}:D${endRow}`);
+              worksheet!.mergeCells(`E${startRow}:E${endRow}`);
+              worksheet!.mergeCells(`F${startRow}:F${endRow}`);
+              worksheet!.mergeCells(`N${startRow}:N${endRow}`); 
             }
           }
           
@@ -367,7 +398,9 @@ export async function GET(request: Request) {
         }
       }
 
-      previewData.sheets.push(sheetPreview);
+      if (sheetPreview.rows.length > 0) {
+        previewData.sheets.push(sheetPreview);
+      }
     }
 
     if (isPreview) {
