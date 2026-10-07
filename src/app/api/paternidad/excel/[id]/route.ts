@@ -22,17 +22,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Trabajador no encontrado' }, { status: 404 });
     }
 
-    // Cálculos de días
-    let diasEssalud = 0;
-    let diasParticulares = 0;
-
+    let totalDiasGlobal = 0;
     trabajador.licencias.forEach(lic => {
-      if (lic.origen === 'ESSALUD_CITT') diasEssalud += lic.diasOtorgados;
-      else if (lic.origen === 'PARTICULAR') diasParticulares += lic.diasOtorgados;
+      totalDiasGlobal += lic.diasOtorgados;
     });
-
-    const totalDias = diasEssalud + diasParticulares;
-    const diasSubsidioEsSalud = 0;
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Sistema Bienestar Social - Red Huánuco';
@@ -40,8 +33,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     // Estilos para encabezados
     const headerStyle = {
-      font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 },
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F81BD' } }, // Azul acero
+      font: { bold: true, color: { argb: 'FF000000' }, size: 10 },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFA9D08E' } }, // Verde Paternidad
       alignment: { horizontal: 'center', vertical: 'middle', wrapText: true },
       border: {
         top: { style: 'thin' }, left: { style: 'thin' },
@@ -59,9 +52,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       { header: 'CITT O CMP', key: 'citt', width: 18 },
       { header: 'FECHA DE INICIO', key: 'inicio', width: 15 },
       { header: 'FECHA FIN', key: 'fin', width: 15 },
-      { header: 'FECHA SUBSIDIO', key: 'subsidio', width: 15 },
-      { header: 'TOTAL DE DIAS', key: 'totalCitt', width: 12 },
-      { header: 'DIAS SUBSIDIOS', key: 'diasSubsidios', width: 15 },
+      { header: 'TOTAL DE DIAS A CARGO RED', key: 'totalCitt', width: 25 },
     ];
 
     // Aplicar estilos a la cabecera
@@ -81,7 +72,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       worksheet.addRow({
         nro: 1, nombres: apellidosNombres, cargo: trabajador.cargo,
         establecimiento: trabajador.establecimiento.nombre, dni: trabajador.dni,
-        citt: 'SIN REGISTROS', inicio: '-', fin: '-', subsidio: '-', totalCitt: 0, diasSubsidios: 0
+        citt: 'SIN REGISTROS', inicio: '-', fin: '-', totalCitt: 0
       });
     } else {
       // Agregar filas
@@ -92,7 +83,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         const fFin = new Date(dateFin.toLocaleString('en-US', { timeZone: 'America/Lima' })).toLocaleDateString('es-PE');
         
         worksheet.addRow({
-          nro: 1, // Siempre 1 porque es 1 solo trabajador en este reporte, o el usuario quería un correlativo general. Asumimos 1.
+          nro: 1,
           nombres: apellidosNombres.toUpperCase(),
           cargo: (trabajador.cargo || '').toUpperCase(),
           establecimiento: (trabajador.establecimiento.nombre || '').toUpperCase(),
@@ -100,10 +91,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           citt: lic.numeroCertificado,
           inicio: fInicio,
           fin: fFin,
-          subsidio: fInicio, // Lo igualamos al inicio para seguir el Excel manual
           totalCitt: lic.diasOtorgados,
-          diasSubsidios: diasSubsidioEsSalud // Lo pondremos en la primera fila y luego combinaremos
         });
+        
+        // Pintar celda total días de gris
+        worksheet.getRow(idx + 2).getCell(9).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } };
       });
 
       // Combinar celdas para el trabajador (solo si hay más de 1 licencia)
@@ -121,8 +113,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         worksheet.mergeCells(`D${rowStart}:D${rowEnd}`);
         // Merge DNI
         worksheet.mergeCells(`E${rowStart}:E${rowEnd}`);
-        // Merge Dias Subsidios Totales
-        worksheet.mergeCells(`K${rowStart}:K${rowEnd}`);
       }
     }
 
