@@ -40,11 +40,21 @@ export async function GET(request: Request) {
     });
 
     const registros = trabajadores.map(t => {
-      let totalDias = 0;
+      let diasEssalud = 0;
+      let diasParticulares = 0;
+      let diasPerdidos = 0;
 
       t.licencias.forEach(lic => {
-        totalDias += lic.diasOtorgados;
+        if (lic.origen === 'ESSALUD_CITT') diasEssalud += lic.diasOtorgados;
+        else if (lic.origen === 'PARTICULAR') diasParticulares += lic.diasOtorgados;
+        else if (lic.origen === 'PARTICULAR_PERDIDO') diasPerdidos += lic.diasOtorgados;
       });
+
+      const totalDias = diasEssalud + diasParticulares;
+      
+      // LOGICA MATERNIDAD: 100% Subsidio desde el día 1
+      const diasRed = 0;
+      const diasSubsidioEsSalud = totalDias;
 
       const apellidosNombres = t.apellidos 
         ? `${t.apellidos}, ${t.nombres}` 
@@ -58,7 +68,12 @@ export async function GET(request: Request) {
         condicionLaboral: t.condicionLaboral || '',
         establecimiento: t.establecimiento?.nombre || 'NO ASIGNADO',
         microred: t.establecimiento?.microred?.nombre || 'NO ASIGNADA',
+        essalud: diasEssalud,
+        particulares: diasParticulares,
+        perdidos: diasPerdidos,
         totalDias,
+        diasRed,
+        diasSubsidioEsSalud,
         licencias: t.licencias
       };
     });

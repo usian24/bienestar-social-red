@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import NuevoCittModal from "@/shared/components/NuevoCittModal";
 import DetallesTrabajadorModal from "@/shared/components/DetallesTrabajadorModal";
+import PrevisualizadorExcelMaternidadModal from "@/shared/components/PrevisualizadorExcelMaternidadModal";
 
 export default function MaternidadPage() {
   const { data: session } = useSession();
@@ -14,6 +15,9 @@ export default function MaternidadPage() {
   
   // Estado para el Modal de Detalles (Ojo)
   const [trabajadorDetalle, setTrabajadorDetalle] = useState<any | null>(null);
+  
+  // Estado para el Modal de Previsualización Excel
+  const [excelPreviewData, setExcelPreviewData] = useState<any | null>(null);
 
   // Datos para filtros dinámicos
   const isSuperAdmin = (session?.user as any)?.rol === 'SUPER_ADMIN';
@@ -314,7 +318,7 @@ export default function MaternidadPage() {
                             {(session?.user as any)?.rol === "SUPER_ADMIN" && (
                               <>
                                 <button 
-                                  onClick={() => window.open(`/api/maternidad/excel/${item.id}`, '_blank')}
+                                  onClick={() => setExcelPreviewData(item)}
                                   className="px-2 py-1.5 rounded-sm text-white shadow-sm transition-colors bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1 font-bold text-[10px] uppercase"
                                   title="Descargar Historial Excel"
                                 >
@@ -350,6 +354,13 @@ export default function MaternidadPage() {
         onRefreshParent={() => fetchInicial()}
         tipoLicenciaRestriccion="MATERNIDAD"
         reporteUrl="/maternidad/reporte/"
+      />
+
+      {/* Modal para Previsualizar Excel (Maternidad) */}
+      <PrevisualizadorExcelMaternidadModal 
+        isOpen={!!excelPreviewData}
+        onClose={() => setExcelPreviewData(null)}
+        trabajador={excelPreviewData}
       />
 
       {/* Modal para Crear CITT */}

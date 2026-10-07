@@ -114,7 +114,6 @@ export async function GET(request: Request) {
 
       // Preprocesar chunks por trabajador
       const workersData = workersWithLic.map(t => {
-        let diasRedRestantes = 20;
         const allChunks: any[] = [];
         
         for (const lic of t.licencias) {
@@ -129,19 +128,12 @@ export async function GET(request: Request) {
           const chunks = splitIntoMonths(inicioStr, finStr);
 
           for (const chunk of chunks) {
-            let redDaysInChunk = Math.min(chunk.days, diasRedRestantes);
-            let subsidioDaysInChunk = chunk.days - redDaysInChunk;
-            diasRedRestantes -= redDaysInChunk;
+            // PATERNIDAD: 100% a cargo de la RED
+            let redDaysInChunk = chunk.days;
+            let subsidioDaysInChunk = 0;
             
             let subsidioStartStr = '';
             let subsidioEndStr = '';
-            
-            if (subsidioDaysInChunk > 0) {
-              const subStart = new Date(chunk.start);
-              subStart.setDate(subStart.getDate() + redDaysInChunk);
-              subsidioStartStr = subStart.toLocaleDateString('es-PE');
-              subsidioEndStr = chunk.end.toLocaleDateString('es-PE');
-            }
 
             allChunks.push({
               ...chunk,
@@ -168,12 +160,12 @@ export async function GET(request: Request) {
         // Big Header del Mes
         worksheet.mergeCells(`A${currentRowIndex}:L${currentRowIndex}`);
         const titleCell = worksheet.getCell(`A${currentRowIndex}`);
-        titleCell.value = `RELACION DEL PERSONAL LICENCIA POR ENFERMEDAD - ${MESES[m]} ${anio} - MICRORED ${mrName}`;
+        titleCell.value = `RELACION DEL PERSONAL LICENCIA POR PATERNIDAD - ${MESES[m]} ${anio} - MICRORED ${mrName}`;
         titleCell.font = { bold: true, size: 12, color: { argb: 'FF000000' } };
         titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
         
-        // Alternar colores de cabecera mensual para que sea muy visual y bonito (Celeste / Rosa)
-        const bgColor = m % 2 === 0 ? 'FF9BC2E6' : 'FFF4B084'; // Alterna entre celeste y naranjita/rosa
+        // Colores de cabecera mensual para Paternidad (Verde y Morado/Gris)
+        const bgColor = m % 2 === 0 ? 'FFC6E0B4' : 'FFD9E1F2'; 
         titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } } as ExcelJS.Fill;
         currentRowIndex++;
 
@@ -182,8 +174,8 @@ export async function GET(request: Request) {
         headerRow.height = 30;
         const headers = [
           'N°', 'APELLIDOS Y NOMBRES', 'CARGO', 'ESTABLECIMIENTO', 'DNI', 
-          'CITT O CMP', 'FECHA DE INICIO', 'FECHA FIN', 'FECHA SUBSIDIO', '', 
-          'TOTAL DE DIAS', 'DIAS DE SUBSIDIOS'
+          'CITT O CMP', 'FECHA DE INICIO', 'FECHA FIN', 
+          'TOTAL DE DIAS A CARGO RED'
         ];
         
         headers.forEach((h, i) => {
@@ -192,8 +184,6 @@ export async function GET(request: Request) {
           cell.style = colHeaderStyle;
         });
         
-        // Merge para "FECHA SUBSIDIO" que ocupa 2 columnas (I y J -> 9 y 10)
-        worksheet.mergeCells(currentRowIndex, 9, currentRowIndex, 10);
         currentRowIndex++;
 
         // Configurar anchos de columna (solo la primera vez)
@@ -207,10 +197,7 @@ export async function GET(request: Request) {
             { key: 'col6', width: 18 },
             { key: 'col7', width: 15 },
             { key: 'col8', width: 15 },
-            { key: 'col9', width: 15 },
-            { key: 'col10', width: 15 },
-            { key: 'col11', width: 15 },
-            { key: 'col12', width: 15 }
+            { key: 'col9', width: 25 },
           ];
         }
 
@@ -242,21 +229,12 @@ export async function GET(request: Request) {
             row.getCell(6).value = chunk.lic.numeroCertificado;
             row.getCell(7).value = chunk.origInicioFormatted;
             row.getCell(8).value = chunk.origFinFormatted;
-            row.getCell(9).value = chunk.subsidioStartStr;
-            row.getCell(10).value = chunk.subsidioEndStr;
             
-            const totalDiasCell = row.getCell(11);
+            const totalDiasCell = row.getCell(9);
             totalDiasCell.value = chunk.days;
             
-            // Pintar la celda 'TOTAL DE DIAS' si es de la RED (los primeros 20 dias)
-            if (chunk.redDaysInChunk > 0) {
-              totalDiasCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } } as ExcelJS.Fill; // Color gris
-            }
-
-            // Escribir el total de subsidios solo en la primera fila del bloque
-            if (currentRowIndex === startRow) {
-              row.getCell(12).value = totalSubsidioMes > 0 ? totalSubsidioMes : '';
-            }
+            // Pintar la celda 'TOTAL DE DIAS A CARGO RED'
+            totalDiasCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } } as ExcelJS.Fill; // Color gris
 
             // Bordes y alineación
             row.eachCell({ includeEmpty: true }, (cell) => {
@@ -283,7 +261,6 @@ export async function GET(request: Request) {
             worksheet.mergeCells(`C${startRow}:C${endRow}`);
             worksheet.mergeCells(`D${startRow}:D${endRow}`);
             worksheet.mergeCells(`E${startRow}:E${endRow}`);
-            worksheet.mergeCells(`L${startRow}:L${endRow}`); // Combinar columna DIAS SUBSIDIOS
           }
           
           nro++;

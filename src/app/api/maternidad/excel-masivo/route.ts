@@ -114,7 +114,6 @@ export async function GET(request: Request) {
 
       // Preprocesar chunks por trabajador
       const workersData = workersWithLic.map(t => {
-        let diasRedRestantes = 20;
         const allChunks: any[] = [];
         
         for (const lic of t.licencias) {
@@ -129,9 +128,9 @@ export async function GET(request: Request) {
           const chunks = splitIntoMonths(inicioStr, finStr);
 
           for (const chunk of chunks) {
-            let redDaysInChunk = Math.min(chunk.days, diasRedRestantes);
-            let subsidioDaysInChunk = chunk.days - redDaysInChunk;
-            diasRedRestantes -= redDaysInChunk;
+            // MATERNIDAD: No hay días de red, 100% subsidio
+            let redDaysInChunk = 0;
+            let subsidioDaysInChunk = chunk.days;
             
             let subsidioStartStr = '';
             let subsidioEndStr = '';
@@ -168,7 +167,7 @@ export async function GET(request: Request) {
         // Big Header del Mes
         worksheet.mergeCells(`A${currentRowIndex}:L${currentRowIndex}`);
         const titleCell = worksheet.getCell(`A${currentRowIndex}`);
-        titleCell.value = `RELACION DEL PERSONAL LICENCIA POR ENFERMEDAD - ${MESES[m]} ${anio} - MICRORED ${mrName}`;
+        titleCell.value = `RELACION DEL PERSONAL LICENCIA POR MATERNIDAD - ${MESES[m]} ${anio} - MICRORED ${mrName}`;
         titleCell.font = { bold: true, size: 12, color: { argb: 'FF000000' } };
         titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
         
@@ -248,10 +247,7 @@ export async function GET(request: Request) {
             const totalDiasCell = row.getCell(11);
             totalDiasCell.value = chunk.days;
             
-            // Pintar la celda 'TOTAL DE DIAS' si es de la RED (los primeros 20 dias)
-            if (chunk.redDaysInChunk > 0) {
-              totalDiasCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } } as ExcelJS.Fill; // Color gris
-            }
+            // Pintar la celda 'TOTAL DE DIAS' (En Maternidad no aplica gris porque no hay días de red)
 
             // Escribir el total de subsidios solo en la primera fila del bloque
             if (currentRowIndex === startRow) {
