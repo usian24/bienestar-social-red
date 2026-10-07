@@ -82,15 +82,7 @@ export default function DetallesTrabajadorModal({ isOpen, onClose, trabajadorInf
               Historial del Servidor
             </h3>
             <div className="flex gap-3 items-center">
-              {trabajadorInfoFijo && (
-                <button 
-                  onClick={() => window.open(`${reporteUrl}${trabajadorInfoFijo.id}`, '_blank')}
-                  className="px-3 py-1.5 bg-red-600 text-white rounded shadow-sm hover:bg-red-700 font-bold text-xs flex items-center gap-1.5"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  PDF DETALLADO
-                </button>
-              )}
+
               <button onClick={onClose} className="p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600 dark:text-slate-300 rounded-md transition-colors">
                 <X className="w-5 h-5" />
               </button>

@@ -12,19 +12,17 @@ interface PrevisualizadorExcelModalProps {
 export default function PrevisualizadorExcelModal({ isOpen, onClose, trabajador }: PrevisualizadorExcelModalProps) {
   
   const rows = useMemo(() => {
-    if (!trabajador || !trabajador.licencias || trabajador.licencias.length === 0) return [];
+    if (!trabajador || !trabajador.licencias || !Array.isArray(trabajador.licencias) || trabajador.licencias.length === 0) return [];
 
     let diasRedRestantes = 20;
     let totalSubsidioGlobal = 0;
 
     // Primer paso: pre-calcular total de subsidio global
     trabajador.licencias.forEach((lic: any) => {
-      if (lic.origen === 'ESSALUD_CITT') {
-         const redDays = Math.min(lic.diasOtorgados, diasRedRestantes);
-         const subDays = lic.diasOtorgados - redDays;
-         diasRedRestantes -= redDays;
-         totalSubsidioGlobal += subDays;
-      }
+      const redDays = Math.min(lic.diasOtorgados, diasRedRestantes);
+      const subDays = lic.diasOtorgados - redDays;
+      diasRedRestantes -= redDays;
+      totalSubsidioGlobal += subDays;
     });
 
     diasRedRestantes = 20; // reset
@@ -45,20 +43,18 @@ export default function PrevisualizadorExcelModal({ isOpen, onClose, trabajador 
       let fin20Str = '';
       let subsidioInicioStr = '';
 
-      if (lic.origen === 'ESSALUD_CITT') {
-         redDaysUsed = Math.min(lic.diasOtorgados, diasRedRestantes);
-         subsidioDays = lic.diasOtorgados - redDaysUsed;
-         diasRedRestantes -= redDaysUsed;
+      redDaysUsed = Math.min(lic.diasOtorgados, diasRedRestantes);
+      subsidioDays = lic.diasOtorgados - redDaysUsed;
+      diasRedRestantes -= redDaysUsed;
 
-         if (subsidioDays > 0) {
-            const subStartObj = new Date(dateInicio.getTime());
-            subStartObj.setDate(subStartObj.getDate() + redDaysUsed);
-            subsidioInicioStr = subStartObj.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
-            
-            const fin20Obj = new Date(subStartObj.getTime());
-            fin20Obj.setDate(fin20Obj.getDate() - 1);
-            fin20Str = fin20Obj.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
-         }
+      if (subsidioDays > 0) {
+        const subStartObj = new Date(dateInicio.getTime());
+        subStartObj.setDate(subStartObj.getDate() + redDaysUsed);
+        subsidioInicioStr = subStartObj.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
+        
+        const fin20Obj = new Date(subStartObj.getTime());
+        fin20Obj.setDate(fin20Obj.getDate() - 1);
+        fin20Str = fin20Obj.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
       }
 
       resultRows.push({
@@ -102,7 +98,7 @@ export default function PrevisualizadorExcelModal({ isOpen, onClose, trabajador 
                 Previsualización de Excel
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Historial de {trabajador.apellidosNombres}
+                Historial de {trabajador?.apellidosNombres || trabajador?.nombres || ''}
               </p>
             </div>
           </div>

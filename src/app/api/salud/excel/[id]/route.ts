@@ -85,12 +85,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           currentYearForPrecalc = licYear;
           diasRedRestantes = 20;
         }
-        if (lic.origen === 'ESSALUD_CITT') {
-           const redDays = Math.min(lic.diasOtorgados, diasRedRestantes);
-           const subDays = lic.diasOtorgados - redDays;
-           diasRedRestantes -= redDays;
-           totalSubsidioGlobal += subDays;
-        }
+        const redDays = Math.min(lic.diasOtorgados, diasRedRestantes);
+        const subDays = lic.diasOtorgados - redDays;
+        diasRedRestantes -= redDays;
+        totalSubsidioGlobal += subDays;
       });
 
       let currentYearForRender = 0;
@@ -118,24 +116,22 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         let fin20Str = '';
         let subsidioInicioStr = '';
 
-        if (lic.origen === 'ESSALUD_CITT') {
-           redDaysUsed = Math.min(lic.diasOtorgados, diasRedRestantes);
-           subsidioDays = lic.diasOtorgados - redDaysUsed;
-           diasRedRestantes -= redDaysUsed;
-           
-           if (redDaysUsed > 0 && diasRedRestantes === 0 && !historicFin20Str) {
-              const fin20Obj = new Date(dateInicio.getTime());
-              fin20Obj.setDate(fin20Obj.getDate() + redDaysUsed - 1);
-              historicFin20Str = fin20Obj.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
-           }
+        redDaysUsed = Math.min(lic.diasOtorgados, diasRedRestantes);
+        subsidioDays = lic.diasOtorgados - redDaysUsed;
+        diasRedRestantes -= redDaysUsed;
+        
+        if (redDaysUsed > 0 && diasRedRestantes === 0 && !historicFin20Str) {
+           const fin20Obj = new Date(dateInicio.getTime());
+           fin20Obj.setDate(fin20Obj.getDate() + redDaysUsed - 1);
+           historicFin20Str = fin20Obj.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
+        }
 
-           if (subsidioDays > 0) {
-              const subStartObj = new Date(dateInicio.getTime());
-              subStartObj.setDate(subStartObj.getDate() + redDaysUsed);
-              subsidioInicioStr = subStartObj.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
-              
-              fin20Str = historicFin20Str;
-           }
+        if (subsidioDays > 0) {
+           const subStartObj = new Date(dateInicio.getTime());
+           subStartObj.setDate(subStartObj.getDate() + redDaysUsed);
+           subsidioInicioStr = subStartObj.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
+           
+           fin20Str = historicFin20Str;
         }
 
         const newRow = worksheet.addRow({

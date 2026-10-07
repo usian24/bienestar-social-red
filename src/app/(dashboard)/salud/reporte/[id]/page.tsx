@@ -23,7 +23,7 @@ export default function ReporteIndividualPage() {
   useEffect(() => {
     const fetchHistorial = async () => {
       try {
-        const res = await fetch(`/api/salud/excel/${id}`);
+        const res = await fetch(`/api/salud/personal-pdf/${id}`);
         if (!res.ok) throw new Error('Error al obtener datos');
         const json = await res.json();
         setData(json);
@@ -44,7 +44,7 @@ export default function ReporteIndividualPage() {
     return <div className="text-center p-10 text-red-500">Error al cargar la información del trabajador.</div>;
   }
 
-  const { trabajador, mesesInfo } = data;
+  const { trabajador, licenciasInfo, totalSubsidioGlobal } = data;
   const mesActualStr = new Date().toLocaleDateString('es-PE', { month: 'long', year: 'numeric' });
 
   return (
@@ -65,7 +65,7 @@ export default function ReporteIndividualPage() {
       <div className="flex flex-col items-center p-2 rounded-xl overflow-auto border border-transparent print:p-0 print:border-none print:shadow-none shadow-inner">
         <EditorToolbar />
         <div 
-          className="bg-white shadow-2xl rounded-sm text-black text-[15px] print:shadow-none print:w-[210mm] print:m-0 outline-none pl-[30mm] pr-[27.5mm] box-border transition-all hover:shadow-blue-900/20" 
+          className="bg-white shadow-2xl rounded-sm text-black text-[15px] print:shadow-none print:w-[210mm] print:m-0 outline-none pl-[20mm] pr-[20mm] box-border transition-all hover:shadow-blue-900/20" 
           style={{ width: '210mm', minHeight: '297mm', fontFamily: 'Arial, Helvetica, sans-serif' }}
           ref={componentRef}
           contentEditable
@@ -81,37 +81,65 @@ export default function ReporteIndividualPage() {
             `}
           </style>
 
+          {/* FIXED HEADER FOR PRINT */}
+          <div className="fixed top-0 left-0 w-full flex flex-col items-center pt-[15mm] z-50 print:block hidden px-[20mm]">
+            <div className="flex items-center justify-center w-full px-2 text-slate-500 font-bold text-[9px] uppercase leading-tight h-16 border-b-2 border-transparent">
+              <img src="/informe/header.jpeg" alt="Gobierno Regional Huanuco" className="h-14 object-contain mr-4" />
+              <div className="h-full w-[1px] bg-slate-300 mx-4"></div>
+              <div className="flex items-center gap-2">
+                <img src="/informe/header2.png" alt="Red de Salud Huanuco" className="h-12 object-contain" />
+                <div className="text-center">RED DE SALUD<br/>HUANUCO</div>
+              </div>
+              <div className="h-full w-[1px] bg-slate-300 mx-4"></div>
+              <div className="text-center px-2">DIRECCION<br/>ADMINISTRATIVA</div>
+              <div className="h-full w-[1px] bg-slate-300 mx-4"></div>
+              <div className="text-center px-2">UNIDAD DE<br/>RECURSOS<br/>HUMANOS</div>
+            </div>
+            <div className="text-center mt-3 font-bold text-[10px] text-slate-500">
+              "Año de la esperanza y fortalecimiento de la democracia"
+            </div>
+          </div>
+
+          {/* FIXED FOOTER FOR PRINT */}
+          <div className="fixed bottom-0 left-0 w-full z-50 print:block hidden">
+            <div className="relative w-full flex items-end overflow-visible text-[10px] text-slate-600 font-medium h-[20mm]">
+              <img src="/informe/footer.png" alt="Fondo" className="absolute left-0 bottom-0 h-16 object-contain z-0" />
+              <div className="relative z-10 flex items-center justify-center w-full gap-4 pl-24 pb-4">
+                <span className="whitespace-nowrap">Área de Bienestar Social</span>
+                <div className="flex items-center gap-1.5 whitespace-nowrap">
+                  <MapPin className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
+                  <span>Av. Carretera Central N° 314 – Llicua Baja Amarilis -Huánuco</span>
+                </div>
+                <div className="flex items-center gap-1.5 whitespace-nowrap">
+                  <Globe className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
+                  <span className="text-blue-500 underline">https://redsaludhuanuco.gob.pe/oficial/index.html</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <table className="w-full border-collapse">
             <thead>
               <tr>
                 <td>
-                  <div className="w-full flex flex-col items-center mb-6 pt-[25mm] border-b-2 border-transparent">
-                    <div className="flex items-center justify-center w-full px-2 text-slate-500 font-bold text-[9px] uppercase leading-tight h-16">
-                      <img src="/informe/header.jpeg" alt="Gobierno Regional Huanuco" className="h-14 object-contain mr-4" />
-                      
-                      <div className="h-full w-[1px] bg-slate-300 mx-4"></div>
-                      
-                      <div className="flex items-center gap-2">
-                        <img src="/informe/header2.png" alt="Red de Salud Huanuco" className="h-12 object-contain" />
-                        <div className="text-center">
-                          RED DE SALUD<br/>HUANUCO
+                  <div className="h-[35mm] print:h-[35mm]">
+                    {/* WEB PREVIEW ONLY */}
+                    <div className="w-full flex flex-col items-center pt-[15mm] print:hidden">
+                      <div className="flex items-center justify-center w-full px-2 text-slate-500 font-bold text-[9px] uppercase leading-tight h-16 border-b-2 border-transparent">
+                        <img src="/informe/header.jpeg" alt="Gobierno Regional Huanuco" className="h-14 object-contain mr-4" />
+                        <div className="h-full w-[1px] bg-slate-300 mx-4"></div>
+                        <div className="flex items-center gap-2">
+                          <img src="/informe/header2.png" alt="Red de Salud Huanuco" className="h-12 object-contain" />
+                          <div className="text-center">RED DE SALUD<br/>HUANUCO</div>
                         </div>
+                        <div className="h-full w-[1px] bg-slate-300 mx-4"></div>
+                        <div className="text-center px-2">DIRECCION<br/>ADMINISTRATIVA</div>
+                        <div className="h-full w-[1px] bg-slate-300 mx-4"></div>
+                        <div className="text-center px-2">UNIDAD DE<br/>RECURSOS<br/>HUMANOS</div>
                       </div>
-
-                      <div className="h-full w-[1px] bg-slate-300 mx-4"></div>
-
-                      <div className="text-center px-2">
-                        DIRECCION<br/>ADMINISTRATIVA
+                      <div className="text-center mt-3 font-bold text-[10px] text-slate-500">
+                        "Año de la esperanza y fortalecimiento de la democracia"
                       </div>
-
-                      <div className="h-full w-[1px] bg-slate-300 mx-4"></div>
-
-                      <div className="text-center px-2">
-                        UNIDAD DE<br/>RECURSOS<br/>HUMANOS
-                      </div>
-                    </div>
-                    <div className="text-center mt-3 font-bold text-[10px] text-slate-500">
-                      "Año de la esperanza y fortalecimiento de la democracia"
                     </div>
                   </div>
                 </td>
@@ -136,55 +164,51 @@ export default function ReporteIndividualPage() {
                     </div>
 
                     <p className="mb-6">
-                      A continuación se detalla el historial de descansos médicos (CITT/CMP) registrados en el sistema, organizados cronológicamente por mes:
+                      A continuación se detalla el historial completo de descansos médicos (CITT/CMP) registrados en el sistema:
                     </p>
 
-                    {mesesInfo && mesesInfo.length > 0 ? mesesInfo.map((mesInfo: any, idx: number) => {
-                       return (
-                         <div key={idx} className="mb-8 break-inside-avoid">
+                    {licenciasInfo && licenciasInfo.length > 0 ? (
+                         <div className="mb-8 break-inside-avoid">
                            <div className="font-bold bg-[#4F81BD] text-white p-2 text-center uppercase mb-2 border border-[#4F81BD]">
-                             {mesInfo.mesStr} - MICRORED {trabajador.establecimiento?.microred?.nombre || 'N/A'}
+                             HISTORIAL COMPLETO DE LICENCIAS - {trabajador.establecimiento?.nombre || 'N/A'}
                            </div>
-                           <table className="w-full border-collapse text-center text-[10px]">
+                           <table className="w-full table-fixed border-collapse text-center text-[9px] sm:text-[10px]">
                               <thead>
                                 <tr className="bg-[#D9E1F2] text-black">
-                                  <th className="border border-slate-400 p-1 font-bold">N°</th>
-                                  <th className="border border-slate-400 p-1 font-bold">CITT O CMP</th>
-                                  <th className="border border-slate-400 p-1 font-bold">FECHA INICIO</th>
-                                  <th className="border border-slate-400 p-1 font-bold">FECHA FIN</th>
-                                  <th className="border border-slate-400 p-1 font-bold">FIN 20 DÍAS (RED)</th>
-                                  <th className="border border-slate-400 p-1 font-bold" colSpan={2}>FECHA SUBSIDIO</th>
-                                  <th className="border border-slate-400 p-1 font-bold">TOTAL DÍAS</th>
-                                  <th className="border border-slate-400 p-1 font-bold">DÍAS SUBSIDIOS</th>
+                                  <th className="border border-slate-400 p-1 font-bold w-[4%]">N°</th>
+                                  <th className="border border-slate-400 p-1 font-bold w-[18%]">CITT O CMP</th>
+                                  <th className="border border-slate-400 p-1 font-bold w-[12%]">FECHA INICIO</th>
+                                  <th className="border border-slate-400 p-1 font-bold w-[12%]">FECHA FIN</th>
+                                  <th className="border border-slate-400 p-1 font-bold w-[13%] leading-tight">FIN 20 DÍAS<br/>(RED)</th>
+                                  <th className="border border-slate-400 p-1 font-bold w-[21%]" colSpan={2}>FECHA SUBSIDIO</th>
+                                  <th className="border border-slate-400 p-1 font-bold w-[10%] leading-tight">TOTAL<br/>DÍAS</th>
+                                  <th className="border border-slate-400 p-1 font-bold w-[10%] leading-tight">DÍAS<br/>SUBSIDIO</th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {mesInfo.licencias.map((lic: any, lIdx: number) => {
-                                   return (
+                                {licenciasInfo.map((lic: any, lIdx: number) => (
                                      <tr key={lIdx}>
-                                        <td className="border border-slate-300 p-1">{lIdx + 1}</td>
-                                        <td className="border border-slate-300 p-1">{lic.origen}</td>
-                                        <td className="border border-slate-300 p-1">{lic.fechaInicio}</td>
-                                        <td className="border border-slate-300 p-1">{lic.fechaFin}</td>
-                                        <td className="border border-slate-300 p-1">{lic.fin20Dias || ''}</td>
-                                        <td className="border border-slate-300 p-1 text-rose-600">{lic.subsidioStart || ''}</td>
-                                        <td className="border border-slate-300 p-1 text-rose-600">{lic.subsidioEnd || ''}</td>
+                                        <td className="border border-slate-300 p-1 overflow-hidden">{lIdx + 1}</td>
+                                        <td className="border border-slate-300 p-1 break-words">{lic.origen}</td>
+                                        <td className="border border-slate-300 p-1 whitespace-nowrap">{lic.fechaInicio}</td>
+                                        <td className="border border-slate-300 p-1 whitespace-nowrap">{lic.fechaFin}</td>
+                                        <td className="border border-slate-300 p-1 font-medium text-emerald-700 whitespace-nowrap">{lic.fin20Dias || ''}</td>
+                                        <td className="border border-slate-300 p-1 text-rose-600 font-medium">{lic.subsidioStart || ''}</td>
+                                        <td className="border border-slate-300 p-1 text-rose-600 font-medium">{lic.subsidioEnd || ''}</td>
                                         <td className={`border border-slate-300 p-1 font-bold ${lic.isRed ? 'bg-[#D9E1F2] !text-black' : ''}`}>
                                           {lic.diasOtorgados}
                                         </td>
                                         {lIdx === 0 && (
-                                           <td rowSpan={mesInfo.licencias.length} className="border border-slate-300 p-1 font-bold align-middle text-center">
-                                             {mesInfo.totalSubsidioMes || ''}
+                                           <td rowSpan={licenciasInfo.length} className="border border-slate-300 p-1 font-bold align-middle text-center text-sm">
+                                             {totalSubsidioGlobal || ''}
                                            </td>
                                         )}
                                      </tr>
-                                   );
-                                })}
+                                ))}
                               </tbody>
                            </table>
                          </div>
-                       );
-                    }) : (
+                    ) : (
                       <div className="text-center text-slate-500 italic p-6">No hay licencias registradas.</div>
                     )}
 
@@ -199,20 +223,23 @@ export default function ReporteIndividualPage() {
             <tfoot>
               <tr>
                 <td>
-                  <div className="relative w-full mt-8 flex items-center overflow-visible text-[10px] text-slate-600 font-medium pb-[25mm]">
-                    <img src="/informe/footer.png" alt="Fondo" className="absolute -left-4 bottom-0 h-16 object-contain z-0" />
-                    
-                    <div className="relative z-10 flex items-center justify-center w-full gap-4 pl-24">
-                      <span className="whitespace-nowrap">Área de Bienestar Social</span>
+                  <div className="h-[25mm] print:h-[25mm] w-full flex items-end">
+                    {/* WEB PREVIEW ONLY */}
+                    <div className="relative w-full flex items-end overflow-visible text-[10px] text-slate-600 font-medium h-full print:hidden">
+                      <img src="/informe/footer.png" alt="Fondo" className="absolute -left-4 bottom-0 h-16 object-contain z-0" />
                       
-                      <div className="flex items-center gap-1.5 whitespace-nowrap">
-                        <MapPin className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
-                        <span>Av. Carretera Central N° 314 – Llicua Baja Amarilis -Huánuco</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-1.5 whitespace-nowrap">
-                        <Globe className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
-                        <span className="text-blue-500 underline">https://redsaludhuanuco.gob.pe/oficial/index.html</span>
+                      <div className="relative z-10 flex items-center justify-center w-full gap-4 pl-24 pb-4">
+                        <span className="whitespace-nowrap">Área de Bienestar Social</span>
+                        
+                        <div className="flex items-center gap-1.5 whitespace-nowrap">
+                          <MapPin className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
+                          <span>Av. Carretera Central N° 314 – Llicua Baja Amarilis -Huánuco</span>
+                        </div>
+                        
+                        <div className="flex items-center gap-1.5 whitespace-nowrap">
+                          <Globe className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
+                          <span className="text-blue-500 underline">https://redsaludhuanuco.gob.pe/oficial/index.html</span>
+                        </div>
                       </div>
                     </div>
                   </div>
