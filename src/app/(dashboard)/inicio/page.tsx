@@ -4,6 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { Users, Activity, FileCheck, Bell, CheckCircle2, CheckCircle, Calendar, BookOpen, History, ExternalLink } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import TrabajadorDashboard from './TrabajadorDashboard';
+import ChatbotAsistente from '@/shared/components/ChatbotAsistente';
+import VideoGuiaCard from '@/shared/components/VideoGuiaCard';
+import MLMiniCard from '@/shared/components/MLMiniCard';
 
 export default function InicioPage() {
   const { data: session } = useSession();
@@ -136,6 +139,9 @@ export default function InicioPage() {
           </div>
         </div>
 
+      {/* Resumen Ejecutivo de Machine Learning & Modelos Predictivos */}
+      <MLMiniCard />
+
       {/* Layout de Contenido: Semáforo (Izquierda) + Manual y Changelog (Derecha) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
         
@@ -215,20 +221,13 @@ export default function InicioPage() {
           </div>
         </div>
 
-        {/* COLUMNA DERECHA (1/3) - Manual y Changelog */}
+        {/* COLUMNA DERECHA (1/3) - Asistente IA, Manual y Changelog */}
         <div className="space-y-6">
-          {/* Manual de Uso */}
-          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl p-6 text-white shadow-md">
-            <h3 className="text-lg font-bold flex items-center gap-2 mb-2">
-              <BookOpen className="w-5 h-5" /> Manual de Uso
-            </h3>
-            <p className="text-blue-100 text-sm mb-4">
-              Aprende a sacar el máximo provecho al sistema. Conoce el flujo de subsidios, canjes y registro de expedientes.
-            </p>
-            <a href="/manual_de_uso.pdf" target="_blank" className="inline-flex items-center gap-2 bg-white text-blue-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-50 transition-colors">
-              Descargar PDF <ExternalLink className="w-4 h-4" />
-            </a>
-          </div>
+          {/* Asistente Virtual BienestarBot */}
+          <ChatbotAsistente modo="tarjeta" />
+
+          {/* Video Guía / Tutorial Oficial del Sistema */}
+          <VideoGuiaCard />
 
           {/* Historial de Cambios */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">

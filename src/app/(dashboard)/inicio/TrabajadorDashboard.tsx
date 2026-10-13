@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, Activity, FileCheck, MapPin, Search, Calendar, Heart, BadgePlus } from 'lucide-react';
+import ChatbotAsistente from '@/shared/components/ChatbotAsistente';
+import VideoGuiaCard from '@/shared/components/VideoGuiaCard';
 
 export default function TrabajadorDashboard() {
   const [userData, setUserData] = useState<any>(null);
@@ -103,91 +105,104 @@ export default function TrabajadorDashboard() {
         </div>
       </div>
 
-      {/* Tabla Visual tipo Excel para Licencias */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/50">
-          <div>
-            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <Activity className="w-5 h-5 text-blue-600" /> Mis Trámites y Licencias
-            </h2>
-            <p className="text-sm text-slate-500">Historial completo de tus descansos médicos registrados.</p>
+      {/* Layout Principal: Tabla de Trámites (2/3) + Asistente Virtual (1/3) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        {/* Tabla Visual tipo Excel para Licencias (2/3) */}
+        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/50">
+            <div>
+              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-blue-600" /> Mis Trámites y Licencias
+              </h2>
+              <p className="text-sm text-slate-500">Historial completo de tus descansos médicos registrados.</p>
+            </div>
+            <div className="relative w-full sm:w-72">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input 
+                type="text" 
+                placeholder="Buscar por CITT o Tipo..." 
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              />
+            </div>
           </div>
-          <div className="relative w-full sm:w-72">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input 
-              type="text" 
-              placeholder="Buscar por CITT o Tipo..." 
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            />
-          </div>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-slate-100/80 text-slate-600 font-semibold uppercase text-[10px] tracking-wider">
-              <tr>
-                <th className="px-5 py-4 border-b border-slate-200">N° Certificado / CITT</th>
-                <th className="px-5 py-4 border-b border-slate-200">Tipo Licencia</th>
-                <th className="px-5 py-4 border-b border-slate-200">Origen</th>
-                <th className="px-5 py-4 border-b border-slate-200">Fechas (Inicio - Fin)</th>
-                <th className="px-5 py-4 border-b border-slate-200 text-center">Días</th>
-                <th className="px-5 py-4 border-b border-slate-200">Estado</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {licenciasFiltradas.length > 0 ? (
-                licenciasFiltradas.map((lic: any) => (
-                  <tr key={lic.id} className="hover:bg-blue-50/50 transition-colors">
-                    <td className="px-5 py-4">
-                      <span className="font-mono font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded text-xs border border-slate-200">
-                        {lic.numeroCertificado || 'S/N'}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-slate-600 font-medium">
-                      {lic.tipoLicencia?.replace(/_/g, ' ')}
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="text-[11px] font-bold uppercase text-slate-500">
-                        {lic.origen?.replace(/_/g, ' ')}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-slate-600 flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                      {new Date(lic.fechaInicio).toLocaleDateString('es-PE')} - {new Date(lic.fechaFin).toLocaleDateString('es-PE')}
-                    </td>
-                    <td className="px-5 py-4 text-center">
-                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold text-xs">
-                        {lic.diasOtorgados}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      {lic.estado === 'ACTIVA' ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> ACTIVA
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-slate-100/80 text-slate-600 font-semibold uppercase text-[10px] tracking-wider">
+                <tr>
+                  <th className="px-5 py-4 border-b border-slate-200">N° Certificado / CITT</th>
+                  <th className="px-5 py-4 border-b border-slate-200">Tipo Licencia</th>
+                  <th className="px-5 py-4 border-b border-slate-200">Origen</th>
+                  <th className="px-5 py-4 border-b border-slate-200">Fechas (Inicio - Fin)</th>
+                  <th className="px-5 py-4 border-b border-slate-200 text-center">Días</th>
+                  <th className="px-5 py-4 border-b border-slate-200">Estado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {licenciasFiltradas.length > 0 ? (
+                  licenciasFiltradas.map((lic: any) => (
+                    <tr key={lic.id} className="hover:bg-blue-50/50 transition-colors">
+                      <td className="px-5 py-4">
+                        <span className="font-mono font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded text-xs border border-slate-200">
+                          {lic.numeroCertificado || 'S/N'}
                         </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                          CERRADA
+                      </td>
+                      <td className="px-5 py-4 text-slate-600 font-medium">
+                        {lic.tipoLicencia?.replace(/_/g, ' ')}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="text-[11px] font-bold uppercase text-slate-500">
+                          {lic.origen?.replace(/_/g, ' ')}
                         </span>
-                      )}
+                      </td>
+                      <td className="px-5 py-4 text-slate-600 flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                        {new Date(lic.fechaInicio).toLocaleDateString('es-PE')} - {new Date(lic.fechaFin).toLocaleDateString('es-PE')}
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold text-xs">
+                          {lic.diasOtorgados}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        {lic.estado === 'ACTIVA' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> ACTIVA
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                            CERRADA
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="px-5 py-10 text-center text-slate-500 bg-slate-50/50">
+                      <FileCheck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <p className="font-medium text-slate-600">No se encontraron licencias</p>
+                      <p className="text-xs text-slate-400 mt-1">Aún no tienes descansos médicos registrados en el sistema.</p>
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-slate-500 bg-slate-50/50">
-                    <FileCheck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                    <p className="font-medium text-slate-600">No se encontraron licencias</p>
-                    <p className="text-xs text-slate-400 mt-1">Aún no tienes descansos médicos registrados en el sistema.</p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Columna Derecha: Asistente Virtual BienestarBot + Video Tutorial (1/3) */}
+        <div className="lg:col-span-1 space-y-6">
+          <ChatbotAsistente modo="tarjeta" />
+          <VideoGuiaCard 
+            titulo="Video Tutorial para Servidores"
+            subtitulo="Aprende cómo consultar tus descansos médicos, saldo de días y los pasos para el canje de CITT."
+          />
         </div>
       </div>
+
       
     </div>
   );

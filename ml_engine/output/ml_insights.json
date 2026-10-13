@@ -1,0 +1,1866 @@
+{
+  "fechaEntrenamiento": "2026-10-13 10:57:24",
+  "modelo1_forecasting": {
+    "metricas": {
+      "mae_dias": 6.82,
+      "rmse_dias": 9.05
+    },
+    "proyeccionesProximosMeses": [
+      {
+        "mes": "Noviembre",
+        "anio": 2026,
+        "diasSubsidioEstimados": 121,
+        "rangoMin": 112,
+        "rangoMax": 130,
+        "montoEstimadoRecupero": 9498.5
+      },
+      {
+        "mes": "Diciembre",
+        "anio": 2026,
+        "diasSubsidioEstimados": 120,
+        "rangoMin": 111,
+        "rangoMax": 129,
+        "montoEstimadoRecupero": 9420.0
+      },
+      {
+        "mes": "Enero",
+        "anio": 2027,
+        "diasSubsidioEstimados": 122,
+        "rangoMin": 113,
+        "rangoMax": 131,
+        "montoEstimadoRecupero": 9577.0
+      }
+    ]
+  },
+  "modelo2_anomalias": {
+    "totalAnalizados": 1620,
+    "totalAtipicos": 49,
+    "topCasosAtipicos": [
+      {
+        "dni": "74425510",
+        "servidor": "ADVINCULA MATO, NUELA",
+        "establecimiento": "C.S. STA. MARIA DEL VALLE",
+        "microred": "MICRO RED STA. MARIA DEL VALLE",
+        "scoreRiesgo": 100.0,
+        "diasTotales": 221,
+        "numLicencias": 14,
+        "motivoAlerta": "Duración atípica acumulada superior a la media"
+      },
+      {
+        "dni": "42237682",
+        "servidor": "FANO URETA, ENDIRA EMMA",
+        "establecimiento": "SEDE RED SALUD HUANUCO",
+        "microred": "SEDE RED SALUD HUANUCO",
+        "scoreRiesgo": 97.6,
+        "diasTotales": 21,
+        "numLicencias": 12,
+        "motivoAlerta": "Fraccionamiento de descansos particulares"
+      },
+      {
+        "dni": "72515417",
+        "servidor": "SANTIAGO JARA, DANIELA CRISTINA",
+        "establecimiento": "SEDE RED SALUD HUANUCO",
+        "microred": "SEDE RED SALUD HUANUCO",
+        "scoreRiesgo": 96.4,
+        "diasTotales": 21,
+        "numLicencias": 8,
+        "motivoAlerta": "Fraccionamiento de descansos particulares"
+      },
+      {
+        "dni": "71688936",
+        "servidor": "FLORES ROJAS, CESAR JESUS",
+        "establecimiento": "P.S. LLICUA",
+        "microred": "MICRO RED AMARILIS",
+        "scoreRiesgo": 95.8,
+        "diasTotales": 82,
+        "numLicencias": 9,
+        "motivoAlerta": "Duración atípica acumulada superior a la media"
+      },
+      {
+        "dni": "46251634",
+        "servidor": "CECILIO AQUINO, DIOMILA",
+        "establecimiento": "SEDE RED SALUD HUANUCO",
+        "microred": "SEDE RED SALUD HUANUCO",
+        "scoreRiesgo": 95.5,
+        "diasTotales": 21,
+        "numLicencias": 8,
+        "motivoAlerta": "Duración atípica acumulada superior a la media"
+      },
+      {
+        "dni": "41303563",
+        "servidor": "ROMERO ALANIA, SARA",
+        "establecimiento": "P.S. LLICUA",
+        "microred": "MICRO RED AMARILIS",
+        "scoreRiesgo": 95.2,
+        "diasTotales": 118,
+        "numLicencias": 10,
+        "motivoAlerta": "Duración atípica acumulada superior a la media"
+      }
+    ]
+  },
+  "modelo3_riesgo_citt": {
+    "metricas": {
+      "recall": 100.0,
+      "f1_score": 98.9,
+      "roc_auc": 99.8
+    },
+    "recomendacion": "El modelo prioriza el Recall para evitar que descansos prolongados en postas alejadas prescriban sin reembolso.",
+    "topCertificadosRiesgo": [
+      {
+        "licenciaId": "1b46fc70-f1de-467d-9d30-34d1d01fb4b8",
+        "dni": "22403931",
+        "servidor": "CONTRERAS MALPARTIDA, NELLY",
+        "numeroCertificado": "LUMBOCIATICA",
+        "establecimiento": "C.S. LAS MORAS",
+        "microred": "MICRO RED APARICIO POMARES",
+        "diasOtorgados": 7,
+        "diasTranscurridos": 27,
+        "diasRestantes30d": 3,
+        "probabilidadCaducidad": 91.9,
+        "nivelRiesgo": "CRÍTICO"
+      },
+      {
+        "licenciaId": "275129ca-218e-4ba5-b295-b609a69373bf",
+        "dni": "46290128",
+        "servidor": "VILLANUEVA MALDONADO, LUZ SADITH",
+        "numeroCertificado": "CERTIFICADO MEDICO POR INFECCION DEL TRACTO URINAR",
+        "establecimiento": "P.S. HUACORA",
+        "microred": "MICRO RED YACUS",
+        "diasOtorgados": 3,
+        "diasTranscurridos": 25,
+        "diasRestantes30d": 5,
+        "probabilidadCaducidad": 91.3,
+        "nivelRiesgo": "CRÍTICO"
+      },
+      {
+        "licenciaId": "17585c20-45cf-4aba-9a61-0df7b411a12f",
+        "dni": "46290128",
+        "servidor": "VILLANUEVA MALDONADO, LUZ SADITH",
+        "numeroCertificado": "DX INFECCION DEL TRACTO URINARIO",
+        "establecimiento": "P.S. HUACORA",
+        "microred": "MICRO RED YACUS",
+        "diasOtorgados": 2,
+        "diasTranscurridos": 26,
+        "diasRestantes30d": 4,
+        "probabilidadCaducidad": 91.3,
+        "nivelRiesgo": "CRÍTICO"
+      },
+      {
+        "licenciaId": "840f4fdb-7975-4b22-b80f-24aa5fb50993",
+        "dni": "44512535",
+        "servidor": "RONDON RIVERA, ROY OMAR",
+        "numeroCertificado": "CERTIFICADO MEDICO PARTICULAR POR CONTUSION LUMBO ",
+        "establecimiento": "P.S. MALCONGA",
+        "microred": "MICRO RED AMARILIS",
+        "diasOtorgados": 15,
+        "diasTranscurridos": 26,
+        "diasRestantes30d": 4,
+        "probabilidadCaducidad": 89.3,
+        "nivelRiesgo": "CRÍTICO"
+      },
+      {
+        "licenciaId": "dcb44c76-30ea-4898-b879-f3210072bf9d",
+        "dni": "42702564",
+        "servidor": "LAMA ALCEDO, ELIZABETH HERMILINDA",
+        "numeroCertificado": "PERMISO POR SALUD",
+        "establecimiento": "C.S. STA. MARIA DEL VALLE",
+        "microred": "MICRO RED STA. MARIA DEL VALLE",
+        "diasOtorgados": 7,
+        "diasTranscurridos": 27,
+        "diasRestantes30d": 3,
+        "probabilidadCaducidad": 88.4,
+        "nivelRiesgo": "CRÍTICO"
+      },
+      {
+        "licenciaId": "a665a4d3-a3e0-4400-b46e-5ee18c440b2f",
+        "dni": "22504545",
+        "servidor": "BENANCIO REYES, DILA ROSALI",
+        "numeroCertificado": "ENFERMEDAD",
+        "establecimiento": "C.S. PERU COREA",
+        "microred": "MICRO RED AMARILIS",
+        "diasOtorgados": 5,
+        "diasTranscurridos": 28,
+        "diasRestantes30d": 2,
+        "probabilidadCaducidad": 88.0,
+        "nivelRiesgo": "CRÍTICO"
+      },
+      {
+        "licenciaId": "0fefd902-44ef-4d51-a941-07cf18e982f1",
+        "dni": "40810002",
+        "servidor": "CRUZ SOLORZANO, NOEMI",
+        "numeroCertificado": "particular",
+        "establecimiento": "P.S. LLICUA",
+        "microred": "MICRO RED AMARILIS",
+        "diasOtorgados": 6,
+        "diasTranscurridos": 26,
+        "diasRestantes30d": 4,
+        "probabilidadCaducidad": 85.0,
+        "nivelRiesgo": "CRÍTICO"
+      },
+      {
+        "licenciaId": "db6bf45e-8160-4d32-9cb4-02d10d64ad5e",
+        "dni": "71688936",
+        "servidor": "FLORES ROJAS, CESAR JESUS",
+        "numeroCertificado": "LICENCIA POR SALUD PARTICULAR",
+        "establecimiento": "P.S. LLICUA",
+        "microred": "MICRO RED AMARILIS",
+        "diasOtorgados": 6,
+        "diasTranscurridos": 28,
+        "diasRestantes30d": 2,
+        "probabilidadCaducidad": 84.0,
+        "nivelRiesgo": "CRÍTICO"
+      }
+    ]
+  },
+  "modelo4_clustering": {
+    "silhouetteScore": 0.542,
+    "resumenClusters": [
+      {
+        "nombre": "Baja Vulnerabilidad",
+        "color": "emerald",
+        "accion": "Cobertura normal",
+        "microredes": [
+          "MICRO RED PILLAO",
+          "MICRO RED MARGOS",
+          "MICRO RED HUANCAPALLAC",
+          "MICRO RED YACUS",
+          "MICRO RED CHURUBAMBA",
+          "MICRO RED YARUMAYO",
+          "AMARILIS",
+          "CHURUBAMBA",
+          "SANTA MARIA DEL VALLE",
+          "PILLCO MARCA"
+        ]
+      },
+      {
+        "nombre": "Vulnerabilidad Moderada",
+        "color": "amber",
+        "accion": "Monitoreo de reemplazos",
+        "microredes": [
+          "MICRO RED AMARILIS",
+          "MICRO RED APARICIO POMARES"
+        ]
+      },
+      {
+        "nombre": "Zona Crítica de Alto Riesgo",
+        "color": "rose",
+        "accion": "Asignación prioritaria de presupuesto",
+        "microredes": [
+          "HUANUCO",
+          "MICRO RED ACOMAYO",
+          "SEDE RED SALUD HUANUCO",
+          "MICRO RED STA. MARIA DEL VALLE",
+          "MICRO RED PILLCO MARCA",
+          "MICRO RED SAN FCO. DE CAYRAN",
+          "MICRO RED SAN PEDRO DE CHAULAN"
+        ]
+      }
+    ],
+    "microredesDetalle": [
+      {
+        "microred": "HUANUCO",
+        "totalPersonal": 12,
+        "diasSaludTotales": 25,
+        "tasaAusentismo": 2.08,
+        "subsidioPorTrabajador": 1.15,
+        "cluster": 2,
+        "pca_x": 1.06,
+        "pca_y": -2.22,
+        "cluster_info": "Zona Crítica de Alto Riesgo",
+        "cluster_color": "rose"
+      },
+      {
+        "microred": "MICRO RED ACOMAYO",
+        "totalPersonal": 92,
+        "diasSaludTotales": 145,
+        "tasaAusentismo": 1.58,
+        "subsidioPorTrabajador": 0.87,
+        "cluster": 2,
+        "pca_x": 1.08,
+        "pca_y": -0.81,
+        "cluster_info": "Zona Crítica de Alto Riesgo",
+        "cluster_color": "rose"
+      },
+      {
+        "microred": "MICRO RED PILLAO",
+        "totalPersonal": 45,
+        "diasSaludTotales": 29,
+        "tasaAusentismo": 0.64,
+        "subsidioPorTrabajador": 0.35,
+        "cluster": 0,
+        "pca_x": -0.78,
+        "pca_y": -0.09,
+        "cluster_info": "Baja Vulnerabilidad",
+        "cluster_color": "emerald"
+      },
+      {
+        "microred": "SEDE RED SALUD HUANUCO",
+        "totalPersonal": 130,
+        "diasSaludTotales": 196,
+        "tasaAusentismo": 1.51,
+        "subsidioPorTrabajador": 0.83,
+        "cluster": 2,
+        "pca_x": 1.31,
+        "pca_y": -0.38,
+        "cluster_info": "Zona Crítica de Alto Riesgo",
+        "cluster_color": "rose"
+      },
+      {
+        "microred": "MICRO RED STA. MARIA DEL VALLE",
+        "totalPersonal": 149,
+        "diasSaludTotales": 336,
+        "tasaAusentismo": 2.26,
+        "subsidioPorTrabajador": 1.24,
+        "cluster": 2,
+        "pca_x": 2.86,
+        "pca_y": -0.92,
+        "cluster_info": "Zona Crítica de Alto Riesgo",
+        "cluster_color": "rose"
+      },
+      {
+        "microred": "MICRO RED AMARILIS",
+        "totalPersonal": 390,
+        "diasSaludTotales": 609,
+        "tasaAusentismo": 1.56,
+        "subsidioPorTrabajador": 0.86,
+        "cluster": 1,
+        "pca_x": 3.78,
+        "pca_y": 1.99,
+        "cluster_info": "Vulnerabilidad Moderada",
+        "cluster_color": "amber"
+      },
+      {
+        "microred": "MICRO RED APARICIO POMARES",
+        "totalPersonal": 363,
+        "diasSaludTotales": 425,
+        "tasaAusentismo": 1.17,
+        "subsidioPorTrabajador": 0.64,
+        "cluster": 1,
+        "pca_x": 2.55,
+        "pca_y": 1.9,
+        "cluster_info": "Vulnerabilidad Moderada",
+        "cluster_color": "amber"
+      },
+      {
+        "microred": "MICRO RED PILLCO MARCA",
+        "totalPersonal": 132,
+        "diasSaludTotales": 193,
+        "tasaAusentismo": 1.46,
+        "subsidioPorTrabajador": 0.8,
+        "cluster": 2,
+        "pca_x": 1.23,
+        "pca_y": -0.31,
+        "cluster_info": "Zona Crítica de Alto Riesgo",
+        "cluster_color": "rose"
+      },
+      {
+        "microred": "MICRO RED SAN FCO. DE CAYRAN",
+        "totalPersonal": 33,
+        "diasSaludTotales": 38,
+        "tasaAusentismo": 1.15,
+        "subsidioPorTrabajador": 0.63,
+        "cluster": 2,
+        "pca_x": -0.1,
+        "pca_y": -0.81,
+        "cluster_info": "Zona Crítica de Alto Riesgo",
+        "cluster_color": "rose"
+      },
+      {
+        "microred": "MICRO RED MARGOS",
+        "totalPersonal": 47,
+        "diasSaludTotales": 0,
+        "tasaAusentismo": 0.0,
+        "subsidioPorTrabajador": 0.0,
+        "cluster": 0,
+        "pca_x": -1.75,
+        "pca_y": 0.7,
+        "cluster_info": "Baja Vulnerabilidad",
+        "cluster_color": "emerald"
+      },
+      {
+        "microred": "MICRO RED HUANCAPALLAC",
+        "totalPersonal": 40,
+        "diasSaludTotales": 24,
+        "tasaAusentismo": 0.6,
+        "subsidioPorTrabajador": 0.33,
+        "cluster": 0,
+        "pca_x": -0.87,
+        "pca_y": -0.08,
+        "cluster_info": "Baja Vulnerabilidad",
+        "cluster_color": "emerald"
+      },
+      {
+        "microred": "MICRO RED YACUS",
+        "totalPersonal": 34,
+        "diasSaludTotales": 31,
+        "tasaAusentismo": 0.91,
+        "subsidioPorTrabajador": 0.5,
+        "cluster": 0,
+        "pca_x": -0.45,
+        "pca_y": -0.51,
+        "cluster_info": "Baja Vulnerabilidad",
+        "cluster_color": "emerald"
+      },
+      {
+        "microred": "MICRO RED CHURUBAMBA",
+        "totalPersonal": 78,
+        "diasSaludTotales": 60,
+        "tasaAusentismo": 0.77,
+        "subsidioPorTrabajador": 0.42,
+        "cluster": 0,
+        "pca_x": -0.37,
+        "pca_y": -0.01,
+        "cluster_info": "Baja Vulnerabilidad",
+        "cluster_color": "emerald"
+      },
+      {
+        "microred": "MICRO RED SAN PEDRO DE CHAULAN",
+        "totalPersonal": 24,
+        "diasSaludTotales": 30,
+        "tasaAusentismo": 1.25,
+        "subsidioPorTrabajador": 0.69,
+        "cluster": 2,
+        "pca_x": -0.02,
+        "pca_y": -1.02,
+        "cluster_info": "Zona Crítica de Alto Riesgo",
+        "cluster_color": "rose"
+      },
+      {
+        "microred": "MICRO RED YARUMAYO",
+        "totalPersonal": 26,
+        "diasSaludTotales": 0,
+        "tasaAusentismo": 0.0,
+        "subsidioPorTrabajador": 0.0,
+        "cluster": 0,
+        "pca_x": -1.84,
+        "pca_y": 0.6,
+        "cluster_info": "Baja Vulnerabilidad",
+        "cluster_color": "emerald"
+      },
+      {
+        "microred": "AMARILIS",
+        "totalPersonal": 16,
+        "diasSaludTotales": 0,
+        "tasaAusentismo": 0.0,
+        "subsidioPorTrabajador": 0.0,
+        "cluster": 0,
+        "pca_x": -1.88,
+        "pca_y": 0.54,
+        "cluster_info": "Baja Vulnerabilidad",
+        "cluster_color": "emerald"
+      },
+      {
+        "microred": "CHURUBAMBA",
+        "totalPersonal": 1,
+        "diasSaludTotales": 0,
+        "tasaAusentismo": 0.0,
+        "subsidioPorTrabajador": 0.0,
+        "cluster": 0,
+        "pca_x": -1.95,
+        "pca_y": 0.47,
+        "cluster_info": "Baja Vulnerabilidad",
+        "cluster_color": "emerald"
+      },
+      {
+        "microred": "SANTA MARIA DEL VALLE",
+        "totalPersonal": 3,
+        "diasSaludTotales": 0,
+        "tasaAusentismo": 0.0,
+        "subsidioPorTrabajador": 0.0,
+        "cluster": 0,
+        "pca_x": -1.94,
+        "pca_y": 0.48,
+        "cluster_info": "Baja Vulnerabilidad",
+        "cluster_color": "emerald"
+      },
+      {
+        "microred": "PILLCO MARCA",
+        "totalPersonal": 5,
+        "diasSaludTotales": 0,
+        "tasaAusentismo": 0.0,
+        "subsidioPorTrabajador": 0.0,
+        "cluster": 0,
+        "pca_x": -1.93,
+        "pca_y": 0.49,
+        "cluster_info": "Baja Vulnerabilidad",
+        "cluster_color": "emerald"
+      }
+    ]
+  },
+  "modelo5_origen_canjes": {
+    "metricas": {
+      "accuracy": 70.3,
+      "roc_auc": 79.4,
+      "f1_score": 57.8,
+      "pctGlobalEsSalud": 63.1,
+      "pctGlobalParticular": 36.9,
+      "totalAnalizadas": 255
+    },
+    "proyeccionesMensuales": [
+      {
+        "mes": "Noviembre",
+        "anio": 2026,
+        "totalLicenciasEstimadas": 36,
+        "licenciasEsSaludEstimadas": 23,
+        "licenciasParticularEstimadas": 13,
+        "pctEsSalud": 64.5,
+        "pctParticular": 35.5,
+        "montoCanjeEnJuego": 12246.0
+      },
+      {
+        "mes": "Diciembre",
+        "anio": 2026,
+        "totalLicenciasEstimadas": 35,
+        "licenciasEsSaludEstimadas": 19,
+        "licenciasParticularEstimadas": 16,
+        "pctEsSalud": 54.7,
+        "pctParticular": 45.3,
+        "montoCanjeEnJuego": 15072.0
+      },
+      {
+        "mes": "Enero",
+        "anio": 2027,
+        "totalLicenciasEstimadas": 36,
+        "licenciasEsSaludEstimadas": 22,
+        "licenciasParticularEstimadas": 14,
+        "pctEsSalud": 60.9,
+        "pctParticular": 39.1,
+        "montoCanjeEnJuego": 13188.0
+      }
+    ],
+    "establecimientos": [
+      {
+        "establecimiento": "SEDE RED SALUD HUANUCO",
+        "microred": "SEDE RED SALUD HUANUCO",
+        "totalPersonal": 130,
+        "totalLicencias": 37,
+        "cantEsSalud": 17,
+        "cantParticular": 20,
+        "pctEsSalud": 45.9,
+        "pctParticular": 54.1,
+        "alerta": "ALTA_CARGA",
+        "alertaDesc": "Alta Carga de Canje Administrativo",
+        "alertaColor": "rose",
+        "proyeccionMes": {
+          "licenciasEsperadas": 5,
+          "esperadasEsSalud": 2,
+          "esperadasParticular": 3
+        }
+      },
+      {
+        "establecimiento": "P.S. LLICUA",
+        "microred": "MICRO RED AMARILIS",
+        "totalPersonal": 15,
+        "totalLicencias": 29,
+        "cantEsSalud": 21,
+        "cantParticular": 8,
+        "pctEsSalud": 72.4,
+        "pctParticular": 27.6,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 4,
+          "esperadasEsSalud": 3,
+          "esperadasParticular": 1
+        }
+      },
+      {
+        "establecimiento": "C.S. STA. MARIA DEL VALLE",
+        "microred": "MICRO RED STA. MARIA DEL VALLE",
+        "totalPersonal": 77,
+        "totalLicencias": 28,
+        "cantEsSalud": 24,
+        "cantParticular": 4,
+        "pctEsSalud": 85.7,
+        "pctParticular": 14.3,
+        "alerta": "COBERTURA_DIRECTA",
+        "alertaDesc": "Alta Cobertura Directa EsSalud",
+        "alertaColor": "emerald",
+        "proyeccionMes": {
+          "licenciasEsperadas": 4,
+          "esperadasEsSalud": 3,
+          "esperadasParticular": 1
+        }
+      },
+      {
+        "establecimiento": "P.S. POTRACANCHA",
+        "microred": "MICRO RED PILLCO MARCA",
+        "totalPersonal": 132,
+        "totalLicencias": 22,
+        "cantEsSalud": 12,
+        "cantParticular": 10,
+        "pctEsSalud": 54.5,
+        "pctParticular": 45.5,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 3,
+          "esperadasEsSalud": 2,
+          "esperadasParticular": 1
+        }
+      },
+      {
+        "establecimiento": "C.S. APARICIO POMARES",
+        "microred": "HUANUCO",
+        "totalPersonal": 204,
+        "totalLicencias": 20,
+        "cantEsSalud": 18,
+        "cantParticular": 2,
+        "pctEsSalud": 90.0,
+        "pctParticular": 10.0,
+        "alerta": "COBERTURA_DIRECTA",
+        "alertaDesc": "Alta Cobertura Directa EsSalud",
+        "alertaColor": "emerald",
+        "proyeccionMes": {
+          "licenciasEsperadas": 2,
+          "esperadasEsSalud": 2,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "C.S. PERU COREA",
+        "microred": "MICRO RED AMARILIS",
+        "totalPersonal": 146,
+        "totalLicencias": 19,
+        "cantEsSalud": 9,
+        "cantParticular": 10,
+        "pctEsSalud": 47.4,
+        "pctParticular": 52.6,
+        "alerta": "ALTA_CARGA",
+        "alertaDesc": "Alta Carga de Canje Administrativo",
+        "alertaColor": "rose",
+        "proyeccionMes": {
+          "licenciasEsperadas": 2,
+          "esperadasEsSalud": 1,
+          "esperadasParticular": 1
+        }
+      },
+      {
+        "establecimiento": "P.S. LA ESPERANZA",
+        "microred": "MICRO RED AMARILIS",
+        "totalPersonal": 23,
+        "totalLicencias": 11,
+        "cantEsSalud": 11,
+        "cantParticular": 0,
+        "pctEsSalud": 100.0,
+        "pctParticular": 0.0,
+        "alerta": "COBERTURA_DIRECTA",
+        "alertaDesc": "Alta Cobertura Directa EsSalud",
+        "alertaColor": "emerald",
+        "proyeccionMes": {
+          "licenciasEsperadas": 1,
+          "esperadasEsSalud": 1,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "C.S. LAS MORAS",
+        "microred": "MICRO RED APARICIO POMARES",
+        "totalPersonal": 118,
+        "totalLicencias": 10,
+        "cantEsSalud": 2,
+        "cantParticular": 8,
+        "pctEsSalud": 20.0,
+        "pctParticular": 80.0,
+        "alerta": "ALTA_CARGA",
+        "alertaDesc": "Alta Carga de Canje Administrativo",
+        "alertaColor": "rose",
+        "proyeccionMes": {
+          "licenciasEsperadas": 1,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 1
+        }
+      },
+      {
+        "establecimiento": "C.S. CHAULAN",
+        "microred": "MICRO RED SAN PEDRO DE CHAULAN",
+        "totalPersonal": 17,
+        "totalLicencias": 10,
+        "cantEsSalud": 6,
+        "cantParticular": 4,
+        "pctEsSalud": 60.0,
+        "pctParticular": 40.0,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 1,
+          "esperadasEsSalud": 1,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "C.S.M.C. LA ESPERANZA",
+        "microred": "MICRO RED APARICIO POMARES",
+        "totalPersonal": 18,
+        "totalLicencias": 9,
+        "cantEsSalud": 5,
+        "cantParticular": 4,
+        "pctEsSalud": 55.6,
+        "pctParticular": 44.4,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 1,
+          "esperadasEsSalud": 1,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. MALCONGA",
+        "microred": "MICRO RED AMARILIS",
+        "totalPersonal": 12,
+        "totalLicencias": 8,
+        "cantEsSalud": 3,
+        "cantParticular": 5,
+        "pctEsSalud": 37.5,
+        "pctParticular": 62.5,
+        "alerta": "ALTA_CARGA",
+        "alertaDesc": "Alta Carga de Canje Administrativo",
+        "alertaColor": "rose",
+        "proyeccionMes": {
+          "licenciasEsperadas": 1,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 1
+        }
+      },
+      {
+        "establecimiento": "P.S. CHURUBAMBA",
+        "microred": "MICRO RED CHURUBAMBA",
+        "totalPersonal": 32,
+        "totalLicencias": 8,
+        "cantEsSalud": 7,
+        "cantParticular": 1,
+        "pctEsSalud": 87.5,
+        "pctParticular": 12.5,
+        "alerta": "COBERTURA_DIRECTA",
+        "alertaDesc": "Alta Cobertura Directa EsSalud",
+        "alertaColor": "emerald",
+        "proyeccionMes": {
+          "licenciasEsperadas": 1,
+          "esperadasEsSalud": 1,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. HUACORA",
+        "microred": "MICRO RED YACUS",
+        "totalPersonal": 7,
+        "totalLicencias": 7,
+        "cantEsSalud": 3,
+        "cantParticular": 4,
+        "pctEsSalud": 42.9,
+        "pctParticular": 57.1,
+        "alerta": "ALTA_CARGA",
+        "alertaDesc": "Alta Carga de Canje Administrativo",
+        "alertaColor": "rose",
+        "proyeccionMes": {
+          "licenciasEsperadas": 1,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 1
+        }
+      },
+      {
+        "establecimiento": "H.P.SEÑOR DE BURGOS",
+        "microred": "MICRO RED AMARILIS",
+        "totalPersonal": 9,
+        "totalLicencias": 6,
+        "cantEsSalud": 5,
+        "cantParticular": 1,
+        "pctEsSalud": 83.3,
+        "pctParticular": 16.7,
+        "alerta": "COBERTURA_DIRECTA",
+        "alertaDesc": "Alta Cobertura Directa EsSalud",
+        "alertaColor": "emerald",
+        "proyeccionMes": {
+          "licenciasEsperadas": 1,
+          "esperadasEsSalud": 1,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S.PUENTE DURAND",
+        "microred": "MICRO RED ACOMAYO",
+        "totalPersonal": 5,
+        "totalLicencias": 6,
+        "cantEsSalud": 6,
+        "cantParticular": 0,
+        "pctEsSalud": 100.0,
+        "pctParticular": 0.0,
+        "alerta": "COBERTURA_DIRECTA",
+        "alertaDesc": "Alta Cobertura Directa EsSalud",
+        "alertaColor": "emerald",
+        "proyeccionMes": {
+          "licenciasEsperadas": 1,
+          "esperadasEsSalud": 1,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "C.S. ACOMAYO",
+        "microred": "MICRO RED ACOMAYO",
+        "totalPersonal": 75,
+        "totalLicencias": 4,
+        "cantEsSalud": 3,
+        "cantParticular": 1,
+        "pctEsSalud": 75.0,
+        "pctParticular": 25.0,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 1,
+          "esperadasEsSalud": 1,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. SANTA ROSA DE SIRABAMBA",
+        "microred": "MICRO RED STA. MARIA DEL VALLE",
+        "totalPersonal": 9,
+        "totalLicencias": 4,
+        "cantEsSalud": 3,
+        "cantParticular": 1,
+        "pctEsSalud": 75.0,
+        "pctParticular": 25.0,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 1,
+          "esperadasEsSalud": 1,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "C.S. PILLAO",
+        "microred": "MICRO RED PILLAO",
+        "totalPersonal": 30,
+        "totalLicencias": 3,
+        "cantEsSalud": 0,
+        "cantParticular": 3,
+        "pctEsSalud": 0.0,
+        "pctParticular": 100.0,
+        "alerta": "ALTA_CARGA",
+        "alertaDesc": "Alta Carga de Canje Administrativo",
+        "alertaColor": "rose",
+        "proyeccionMes": {
+          "licenciasEsperadas": 1,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 1
+        }
+      },
+      {
+        "establecimiento": "C.S. HUANCAPALLAC",
+        "microred": "MICRO RED HUANCAPALLAC",
+        "totalPersonal": 29,
+        "totalLicencias": 3,
+        "cantEsSalud": 0,
+        "cantParticular": 3,
+        "pctEsSalud": 0.0,
+        "pctParticular": 100.0,
+        "alerta": "ALTA_CARGA",
+        "alertaDesc": "Alta Carga de Canje Administrativo",
+        "alertaColor": "rose",
+        "proyeccionMes": {
+          "licenciasEsperadas": 1,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 1
+        }
+      },
+      {
+        "establecimiento": "C.S. CAYRAN",
+        "microred": "MICRO RED SAN FCO. DE CAYRAN",
+        "totalPersonal": 29,
+        "totalLicencias": 3,
+        "cantEsSalud": 1,
+        "cantParticular": 2,
+        "pctEsSalud": 33.3,
+        "pctParticular": 66.7,
+        "alerta": "ALTA_CARGA",
+        "alertaDesc": "Alta Carga de Canje Administrativo",
+        "alertaColor": "rose",
+        "proyeccionMes": {
+          "licenciasEsperadas": 1,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 1
+        }
+      },
+      {
+        "establecimiento": "C.S.AMARILIS",
+        "microred": "MICRO RED AMARILIS",
+        "totalPersonal": 27,
+        "totalLicencias": 3,
+        "cantEsSalud": 2,
+        "cantParticular": 1,
+        "pctEsSalud": 66.7,
+        "pctParticular": 33.3,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 1,
+          "esperadasEsSalud": 1,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "C.S COMUNITARIO PAKARIN",
+        "microred": "MICRO RED AMARILIS",
+        "totalPersonal": 10,
+        "totalLicencias": 3,
+        "cantEsSalud": 3,
+        "cantParticular": 0,
+        "pctEsSalud": 100.0,
+        "pctParticular": 0.0,
+        "alerta": "COBERTURA_DIRECTA",
+        "alertaDesc": "Alta Cobertura Directa EsSalud",
+        "alertaColor": "emerald",
+        "proyeccionMes": {
+          "licenciasEsperadas": 1,
+          "esperadasEsSalud": 1,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "C.S AMARILIS",
+        "microred": "MICRO RED AMARILIS",
+        "totalPersonal": 99,
+        "totalLicencias": 2,
+        "cantEsSalud": 0,
+        "cantParticular": 2,
+        "pctEsSalud": 0.0,
+        "pctParticular": 100.0,
+        "alerta": "ALTA_CARGA",
+        "alertaDesc": "Alta Carga de Canje Administrativo",
+        "alertaColor": "rose",
+        "proyeccionMes": {
+          "licenciasEsperadas": 1,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 1
+        }
+      },
+      {
+        "establecimiento": "P.S. PUEBLO LIBRE DE MAYOBAMBA",
+        "microred": "MICRO RED ACOMAYO",
+        "totalPersonal": 5,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. CHINCHINGA",
+        "microred": "MICRO RED PILLAO",
+        "totalPersonal": 6,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "C.S MENTAL COMUNITARIO UNIVERSITARI",
+        "microred": "MICRO RED AMARILIS",
+        "totalPersonal": 9,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. TAMBO DE SAN JOSE",
+        "microred": "MICRO RED STA. MARIA DEL VALLE",
+        "totalPersonal": 6,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "C.S. MARGOS",
+        "microred": "MICRO RED MARGOS",
+        "totalPersonal": 35,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 1,
+          "esperadasEsSalud": 1,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. YACUS",
+        "microred": "MICRO RED YACUS",
+        "totalPersonal": 20,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. POMACUCHO",
+        "microred": "MICRO RED STA. MARIA DEL VALLE",
+        "totalPersonal": 12,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "C.S. SAN SEBASTIAN DE QUERA",
+        "microred": "MICRO RED STA. MARIA DEL VALLE",
+        "totalPersonal": 14,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. UTAO",
+        "microred": "MICRO RED CHURUBAMBA",
+        "totalPersonal": 19,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. LLACSA",
+        "microred": "MICRO RED STA. MARIA DEL VALLE",
+        "totalPersonal": 4,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. SAN ISIDRO DE PAURA",
+        "microred": "MICRO RED YACUS",
+        "totalPersonal": 3,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. PAMPAS",
+        "microred": "MICRO RED HUANCAPALLAC",
+        "totalPersonal": 5,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. TRES DE MAYO DE PACSHAG",
+        "microred": "MICRO RED CHURUBAMBA",
+        "totalPersonal": 7,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "C.S MENTAL COMUNITARIO LA ESPERANZA",
+        "microred": "MICRO RED APARICIO POMARES",
+        "totalPersonal": 13,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. SAN MIGUEL DE MITOQUERA",
+        "microred": "MICRO RED STA. MARIA DEL VALLE",
+        "totalPersonal": 5,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. LLACON",
+        "microred": "MICRO RED STA. MARIA DEL VALLE",
+        "totalPersonal": 9,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "AISPED UTAO PAGSHAG",
+        "microred": "MICRO RED CHURUBAMBA",
+        "totalPersonal": 2,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. HUANACAURE",
+        "microred": "MICRO RED PILLAO",
+        "totalPersonal": 2,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. JESUS DE NAZARET DE COCHAS",
+        "microred": "MICRO RED MARGOS",
+        "totalPersonal": 6,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. TRES DE MYO-ANDAS CHICO",
+        "microred": "MICRO RED YARUMAYO",
+        "totalPersonal": 5,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. PACHABAMBA",
+        "microred": "MICRO RED STA. MARIA DEL VALLE",
+        "totalPersonal": 7,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. TAMBOGAN",
+        "microred": "MICRO RED CHURUBAMBA",
+        "totalPersonal": 12,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. HUALMISH",
+        "microred": "MICRO RED CHURUBAMBA",
+        "totalPersonal": 2,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. PAUCAR",
+        "microred": "MICRO RED AMARILIS",
+        "totalPersonal": 9,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "HOGAR PROTEGIDO AMIGOS DE JESUS",
+        "microred": "MICRO RED AMARILIS",
+        "totalPersonal": 1,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. CHULLAY",
+        "microred": "MICRO RED YARUMAYO",
+        "totalPersonal": 6,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S TABRAJ",
+        "microred": "MICRO RED ACOMAYO",
+        "totalPersonal": 2,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. COLPA BAJA",
+        "microred": "MICRO RED APARICIO POMARES",
+        "totalPersonal": 17,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S CHOQUECANCHA",
+        "microred": "MICRO RED STA. MARIA DEL VALLE",
+        "totalPersonal": 3,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "C.S. YARUMAYO",
+        "microred": "MICRO RED YARUMAYO",
+        "totalPersonal": 15,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. HUANCHAN",
+        "microred": "MICRO RED YACUS",
+        "totalPersonal": 3,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. INGENIO BAJO",
+        "microred": "MICRO RED STA. MARIA DEL VALLE",
+        "totalPersonal": 3,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. SAN PEDRO DE PILLAO",
+        "microred": "MICRO RED PILLAO",
+        "totalPersonal": 3,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. STA. ISABEL",
+        "microred": "MICRO RED PILLAO",
+        "totalPersonal": 1,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. PACAYHUA",
+        "microred": "MICRO RED MARGOS",
+        "totalPersonal": 4,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. SN-FCO.DE COCHABAMBA",
+        "microred": "MICRO RED CHURUBAMBA",
+        "totalPersonal": 3,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "C.S.C. PAKARIN",
+        "microred": "MICRO RED AMARILIS",
+        "totalPersonal": 22,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 1,
+          "esperadasEsSalud": 1,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. SANTA CRUZ DE RATACOCHA",
+        "microred": "MICRO RED STA. MARIA DEL VALLE",
+        "totalPersonal": 3,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "HOGARES PROTEGIDOS AMIGOS DE JESUS",
+        "microred": "MICRO RED AMARILIS",
+        "totalPersonal": 10,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. SAN JOSE DE COZO TINGO",
+        "microred": "MICRO RED SAN PEDRO DE CHAULAN",
+        "totalPersonal": 3,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "C.S. MENTAL COMUNITARIO UNIVERSITAR",
+        "microred": "MICRO RED AMARILIS",
+        "totalPersonal": 14,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. HUANCACHUPAC",
+        "microred": "MICRO RED SAN FCO. DE CAYRAN",
+        "totalPersonal": 4,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. STO.TBIO MJO AMP CHINCHAO",
+        "microred": "MICRO RED ACOMAYO",
+        "totalPersonal": 5,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. NAUYAN RONDOS",
+        "microred": "MICRO RED APARICIO POMARES",
+        "totalPersonal": 5,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. SAN PEDRO DE CANI",
+        "microred": "MICRO RED HUANCAPALLAC",
+        "totalPersonal": 6,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. SAN FCO DE ASIS DE LLAMAPASHIL",
+        "microred": "MICRO RED MARGOS",
+        "totalPersonal": 2,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. SAN JUAN DE LA LIBERTAD",
+        "microred": "MICRO RED SAN PEDRO DE CHAULAN",
+        "totalPersonal": 4,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S.STA. ISABEL",
+        "microred": "MICRO RED PILLAO",
+        "totalPersonal": 3,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S. MANANTIAL DE VIDA DE QUECHUALO",
+        "microred": "MICRO RED CHURUBAMBA",
+        "totalPersonal": 2,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "P.S.SAN ISIDRO DE PAURA",
+        "microred": "MICRO RED YACUS",
+        "totalPersonal": 1,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      },
+      {
+        "establecimiento": "C.S. POTRACANCHA",
+        "microred": "PILLCO MARCA",
+        "totalPersonal": 5,
+        "totalLicencias": 0,
+        "cantEsSalud": 0,
+        "cantParticular": 0,
+        "pctEsSalud": 63.1,
+        "pctParticular": 36.9,
+        "alerta": "MODERADA",
+        "alertaDesc": "Carga Moderada de Canje",
+        "alertaColor": "amber",
+        "proyeccionMes": {
+          "licenciasEsperadas": 0,
+          "esperadasEsSalud": 0,
+          "esperadasParticular": 0
+        }
+      }
+    ]
+  }
+}
