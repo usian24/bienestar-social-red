@@ -35,7 +35,7 @@ export default function EditorToolbar() {
   };
 
   return (
-    <div className="fixed left-4 top-1/2 -translate-y-1/2 bg-slate-800 text-white p-3 rounded-xl flex flex-col gap-4 items-center z-50 print:hidden shadow-2xl border-l-4 border-blue-500 w-16">
+    <div className="fixed right-4 top-110 -translate-y-1/2 bg-slate-800 text-white p-3 rounded-xl flex flex-col gap-4 items-center z-50 print:hidden shadow-2xl border-r-4 border-blue-500 w-16">
       <div className="text-[10px] font-bold text-slate-300 uppercase tracking-widest text-center mb-2" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
         Editor
       </div>

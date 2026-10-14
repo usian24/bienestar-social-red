@@ -14,7 +14,7 @@ interface DetallesTrabajadorModalProps {
   reporteUrl?: string; // Optional prop for custom PDF report URL
 }
 
-export default function DetallesTrabajadorModal({ isOpen, onClose, trabajadorInfoFijo, onRefreshParent, tipoLicenciaRestriccion, reporteUrl = '/salud/reporte-detallado/' }: DetallesTrabajadorModalProps) {
+export default function DetallesTrabajadorModal({ isOpen, onClose, trabajadorInfoFijo, onRefreshParent, tipoLicenciaRestriccion, reporteUrl = '/salud/reporte/' }: DetallesTrabajadorModalProps) {
   
   const { data: session } = useSession();
   const [licencias, setLicencias] = useState<any[]>([]);
@@ -82,7 +82,18 @@ export default function DetallesTrabajadorModal({ isOpen, onClose, trabajadorInf
               Historial del Servidor
             </h3>
             <div className="flex gap-3 items-center">
-
+              {(trabajadorInfoFijo?.id || trabajadorInfoFijo?.trabajadorId) && (
+                <a
+                  href={`${reporteUrl.endsWith('/') ? reporteUrl : `${reporteUrl}/`}${trabajadorInfoFijo.id || trabajadorInfoFijo.trabajadorId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+                  title="Abrir Reporte PDF Personal del Servidor"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Reporte Personal PDF</span>
+                </a>
+              )}
               <button onClick={onClose} className="p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600 dark:text-slate-300 rounded-md transition-colors">
                 <X className="w-5 h-5" />
               </button>

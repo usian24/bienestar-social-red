@@ -15,6 +15,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Sistema de Subsidios para Salud",
   description: "Red de Salud Huánuco",
+  icons: {
+    icon: [
+      { url: "/images/logo-red-huanuco.png", type: "image/png" },
+      { url: "/favicon.ico" }
+    ],
+    shortcut: "/images/logo-red-huanuco.png",
+    apple: "/images/logo-red-huanuco.png",
+  },
 };
 
 import { Providers } from "./Providers";

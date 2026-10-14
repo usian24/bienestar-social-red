@@ -9,12 +9,8 @@ export default withAuth({
 // El "matcher" define a qué rutas se les pone el candado
 export const config = {
   matcher: [
-    "/inicio",
-    "/salud",
-    "/maternidad",
-    "/paternidad",
-    // Protege todas las rutas excepto el login y los archivos estáticos de Next.js
-    "/((?!login|api|_next/static|_next/image|favicon.ico).*)",
+    // Protege rutas de la aplicación excepto login, api, recursos estáticos, imágenes y uploads
+    "/((?!login|api|_next/static|_next/image|favicon.ico|images|uploads|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|json)$).*)",
   ],
 };
 

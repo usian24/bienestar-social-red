@@ -36,7 +36,23 @@ export async function GET(request: Request) {
       where: whereClause,
       include: {
         trabajador: {
-          select: { nombres: true, apellidos: true, dni: true, establecimiento: { select: { nombre: true, microred: { select: { nombre: true } } } } }
+          select: {
+            id: true,
+            nombres: true,
+            apellidos: true,
+            dni: true,
+            cargo: true,
+            condicionLaboral: true,
+            establecimiento: {
+              select: {
+                id: true,
+                nombre: true,
+                microred: {
+                  select: { id: true, nombre: true }
+                }
+              }
+            }
+          }
         }
       }
     });
