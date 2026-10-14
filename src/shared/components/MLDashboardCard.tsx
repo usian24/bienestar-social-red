@@ -74,6 +74,36 @@ interface ClusterResumen {
   microredes: string[];
 }
 
+interface EstablecimientoOrigen {
+  establecimiento: string;
+  microred: string;
+  totalPersonal: number;
+  totalLicencias: number;
+  cantEsSalud: number;
+  cantParticular: number;
+  pctEsSalud: number;
+  pctParticular: number;
+  alerta: 'ALTA_CARGA' | 'MODERADA' | 'COBERTURA_DIRECTA';
+  alertaDesc: string;
+  alertaColor: 'rose' | 'amber' | 'emerald';
+  proyeccionMes: {
+    licenciasEsperadas: number;
+    esperadasEsSalud: number;
+    esperadasParticular: number;
+  };
+}
+
+interface ProyeccionMesOrigen {
+  mes: string;
+  anio: number;
+  totalLicenciasEstimadas: number;
+  licenciasEsSaludEstimadas: number;
+  licenciasParticularEstimadas: number;
+  pctEsSalud: number;
+  pctParticular: number;
+  montoCanjeEnJuego: number;
+}
+
 interface MLInsightsData {
   fechaEntrenamiento: string;
   modelo1_forecasting: {
@@ -95,17 +125,31 @@ interface MLInsightsData {
     resumenClusters: ClusterResumen[];
     microredesDetalle: MicroredDetalle[];
   };
+  modelo5_origen_canjes?: {
+    metricas: {
+      accuracy: number;
+      roc_auc: number;
+      f1_score: number;
+      pctGlobalEsSalud: number;
+      pctGlobalParticular: number;
+      totalAnalizadas: number;
+    };
+    proyeccionesMensuales: ProyeccionMesOrigen[];
+    establecimientos: EstablecimientoOrigen[];
+  };
 }
 
 export default function MLDashboardCard() {
   const [data, setData] = useState<MLInsightsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [retraining, setRetraining] = useState(false);
-  const [activeTab, setActiveTab] = useState<'forecasting' | 'anomalias' | 'citt' | 'clustering'>('forecasting');
+  const [activeTab, setActiveTab] = useState<'forecasting' | 'anomalias' | 'citt' | 'clustering' | 'origen'>('forecasting');
   const [error, setError] = useState<string | null>(null);
   const [colapsado, setColapsado] = useState(false);
   const [selectedMicrored, setSelectedMicrored] = useState<MicroredDetalle | null>(null);
   const [selectedCaso, setSelectedCaso] = useState<CasoAtipico | null>(null);
+  const [busquedaEst, setBusquedaEst] = useState('');
+  const [filtroAlertaEst, setFiltroAlertaEst] = useState<'TODOS' | 'ALTA_CARGA' | 'MODERADA' | 'COBERTURA_DIRECTA'>('TODOS');
   const [notification, setNotification] = useState<string | null>(null);
 
   const fetchInsights = async () => {
@@ -255,10 +299,11 @@ export default function MLDashboardCard() {
       {colapsado ? (
         <div className="px-5 py-3 sm:px-6 bg-slate-50/40 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
-            <span>Pronóstico: <strong className="text-slate-800">~107 días/mes</strong> (S/ 8,400 recupero)</span>
+            <span>Pronóstico: <strong className="text-slate-800">~107 días/mes</strong></span>
             <span>Auditoría: <strong className="text-slate-800">{data.modelo2_anomalias.totalAtipicos} casos atípicos</strong></span>
             <span>CITT: <strong className="text-slate-800">100% de captura</strong></span>
-            <span>Microredes: <strong className="text-slate-800">3 zonas territoriales</strong></span>
+            <span>Microredes: <strong className="text-slate-800">3 zonas</strong></span>
+            <span>Procedencia: <strong className="text-slate-800">63% EsSalud / 37% Part.</strong></span>
           </div>
           <button
             onClick={() => setColapsado(false)}
@@ -347,6 +392,26 @@ export default function MLDashboardCard() {
                 <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50">
                   <div className="bg-slate-900 text-white text-[11px] font-normal py-1 px-2.5 rounded shadow-lg whitespace-nowrap">
                     Agrupamiento de microredes (K-Means & PCA) para planificación de personal
+                  </div>
+                  <div className="w-1.5 h-1.5 bg-slate-900 rotate-45 -mt-0.5" />
+                </div>
+              </div>
+
+              <div className="flex-1 group relative">
+                <button
+                  onClick={() => setActiveTab('origen')}
+                  className={`w-full py-2 px-3 text-xs font-medium rounded-lg transition-all text-center cursor-pointer flex items-center justify-center gap-1.5 ${
+                    activeTab === 'origen'
+                      ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Building2 className="w-3.5 h-3.5 text-slate-600" />
+                  <span>5. Procedencia (EsSalud vs Particular)</span>
+                </button>
+                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50">
+                  <div className="bg-slate-900 text-white text-[11px] font-normal py-1 px-2.5 rounded shadow-lg whitespace-nowrap">
+                    Estimación y clasificación de certificados particulares vs CITT EsSalud en todos los establecimientos
                   </div>
                   <div className="w-1.5 h-1.5 bg-slate-900 rotate-45 -mt-0.5" />
                 </div>
@@ -1046,6 +1111,241 @@ export default function MLDashboardCard() {
                         </div>
                       </div>
                     )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ========================================================================= */}
+            {/* TAB 5: PROCEDENCIA DE CANJES (ESSALUD CITT VS PARTICULAR) */}
+            {/* ========================================================================= */}
+            {activeTab === 'origen' && data.modelo5_origen_canjes && (
+              <div className="space-y-6">
+                {/* Banner de Información y Métricas Globales */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-slate-200 text-slate-800 rounded-lg">
+                      <Building2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-slate-900 text-sm">
+                        Clasificador y Estimador de Procedencia de Canjes
+                      </h4>
+                      <p className="text-slate-500 text-xs">
+                        Compara la emisión de CITT directos de EsSalud frente a Certificados Médicos Particulares que requieren trámite de canje.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-mono bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-xs self-start sm:self-auto">
+                    <span className="text-slate-700 font-bold">
+                      EsSalud: {data.modelo5_origen_canjes.metricas.pctGlobalEsSalud}%
+                    </span>
+                    <span className="text-slate-300">|</span>
+                    <span className="text-slate-900 font-bold">
+                      Particular: {data.modelo5_origen_canjes.metricas.pctGlobalParticular}%
+                    </span>
+                    <span className="text-slate-300">|</span>
+                    <span className="text-slate-500">
+                      Precisión: {data.modelo5_origen_canjes.metricas.accuracy}%
+                    </span>
+                  </div>
+                </div>
+
+                {/* 1. Proyecciones Mensuales de Procedencia */}
+                <div>
+                  <h5 className="font-semibold text-slate-900 text-xs uppercase tracking-wider mb-2">
+                    Proyección Mensual por Canal de Procedencia
+                  </h5>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                    {data.modelo5_origen_canjes.proyeccionesMensuales.map((p, idx) => (
+                      <div key={idx} className="p-4 rounded-xl border border-slate-200 bg-white shadow-xs">
+                        <div className="flex items-center justify-between text-xs mb-2">
+                          <span className="font-semibold text-slate-900 uppercase">
+                            {p.mes} {p.anio}
+                          </span>
+                          <span className="text-slate-500 font-mono text-[11px]">
+                            {p.totalLicenciasEstimadas} licencias est.
+                          </span>
+                        </div>
+
+                        {/* Barra visual bimodal */}
+                        <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden flex mb-2 border border-slate-200">
+                          <div
+                            style={{ width: `${p.pctEsSalud}%` }}
+                            className="bg-slate-300 h-full transition-all"
+                            title={`EsSalud: ${p.pctEsSalud}%`}
+                          />
+                          <div
+                            style={{ width: `${p.pctParticular}%` }}
+                            className="bg-slate-900 h-full transition-all"
+                            title={`Particular: ${p.pctParticular}%`}
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-slate-600 font-mono">
+                          <span className="flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-xs bg-slate-300" />
+                            EsSalud: <strong>{p.licenciasEsSaludEstimadas}</strong> ({p.pctEsSalud}%)
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-xs bg-slate-900" />
+                            Part: <strong>{p.licenciasParticularEstimadas}</strong> ({p.pctParticular}%)
+                          </span>
+                        </div>
+
+                        <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                          <span>Canje en juego:</span>
+                          <strong className="text-slate-900 font-mono font-bold">
+                            S/ {p.montoCanjeEnJuego.toLocaleString('es-PE')}
+                          </strong>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. Ranking y Filtro por Establecimiento */}
+                <div className="bg-slate-50/60 p-5 rounded-xl border border-slate-200 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h5 className="font-semibold text-slate-900 text-xs md:text-sm">
+                        Comportamiento de Procedencia en Todos los Establecimientos
+                      </h5>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Identifica qué establecimientos tienen mayor concentración de certificados particulares
+                      </p>
+                    </div>
+
+                    {/* Filtros rápidos */}
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                      <button
+                        onClick={() => setFiltroAlertaEst('TODOS')}
+                        className={`px-2.5 py-1 rounded-lg font-medium transition cursor-pointer text-[11px] ${
+                          filtroAlertaEst === 'TODOS'
+                            ? 'bg-slate-900 text-white shadow-xs'
+                            : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                        }`}
+                      >
+                        Todos ({data.modelo5_origen_canjes.establecimientos.length})
+                      </button>
+                      <button
+                        onClick={() => setFiltroAlertaEst('ALTA_CARGA')}
+                        className={`px-2.5 py-1 rounded-lg font-medium transition cursor-pointer text-[11px] ${
+                          filtroAlertaEst === 'ALTA_CARGA'
+                            ? 'bg-slate-900 text-white shadow-xs'
+                            : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                        }`}
+                      >
+                        Alta Carga (&ge;50% Particulares)
+                      </button>
+                      <button
+                        onClick={() => setFiltroAlertaEst('MODERADA')}
+                        className={`px-2.5 py-1 rounded-lg font-medium transition cursor-pointer text-[11px] ${
+                          filtroAlertaEst === 'MODERADA'
+                            ? 'bg-slate-900 text-white shadow-xs'
+                            : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                        }`}
+                      >
+                        Moderada (25-49%)
+                      </button>
+                      <button
+                        onClick={() => setFiltroAlertaEst('COBERTURA_DIRECTA')}
+                        className={`px-2.5 py-1 rounded-lg font-medium transition cursor-pointer text-[11px] ${
+                          filtroAlertaEst === 'COBERTURA_DIRECTA'
+                            ? 'bg-slate-900 text-white shadow-xs'
+                            : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                        }`}
+                      >
+                        Cobertura Directa (&lt;25%)
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Buscador de establecimiento */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Buscar por nombre de posta, centro de salud o microred..."
+                      value={busquedaEst}
+                      onChange={(e) => setBusquedaEst(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs placeholder:text-slate-400 focus:outline-slate-500"
+                    />
+                  </div>
+
+                  {/* Lista de Establecimientos */}
+                  <div className="space-y-2.5 max-h-[460px] overflow-y-auto pr-1">
+                    {data.modelo5_origen_canjes.establecimientos
+                      .filter((e) => {
+                        const matchText =
+                          e.establecimiento.toLowerCase().includes(busquedaEst.toLowerCase()) ||
+                          e.microred.toLowerCase().includes(busquedaEst.toLowerCase());
+                        const matchFiltro =
+                          filtroAlertaEst === 'TODOS' || e.alerta === filtroAlertaEst;
+                        return matchText && matchFiltro;
+                      })
+                      .map((est, idx) => (
+                        <div
+                          key={idx}
+                          className="p-3.5 bg-white rounded-lg border border-slate-200 hover:border-slate-300 transition shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="min-w-[240px]">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-slate-900">
+                                {est.establecimiento}
+                              </span>
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                                  est.alerta === 'ALTA_CARGA'
+                                    ? 'bg-slate-900 text-white'
+                                    : est.alerta === 'MODERADA'
+                                    ? 'bg-slate-100 text-slate-800 border border-slate-200'
+                                    : 'bg-slate-50 text-slate-600 border border-slate-200'
+                                }`}
+                              >
+                                {est.alertaDesc}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-400 mt-0.5">
+                              {est.microred} · {est.totalPersonal} trabajadores · {est.totalLicencias} licencias registradas
+                            </div>
+                          </div>
+
+                          {/* Barra bimodal */}
+                          <div className="flex-1 max-w-xs">
+                            <div className="flex items-center justify-between text-[11px] font-mono mb-1">
+                              <span className="text-slate-500">
+                                EsSalud: <strong>{est.cantEsSalud}</strong> ({est.pctEsSalud}%)
+                              </span>
+                              <span className="text-slate-900 font-bold">
+                                Particular: <strong>{est.cantParticular}</strong> ({est.pctParticular}%)
+                              </span>
+                            </div>
+                            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden flex border border-slate-200">
+                              <div
+                                style={{ width: `${est.pctEsSalud}%` }}
+                                className="bg-slate-300 h-full"
+                              />
+                              <div
+                                style={{ width: `${est.pctParticular}%` }}
+                                className="bg-slate-900 h-full"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Proyección Próximo Mes */}
+                          <div className="text-right sm:text-right shrink-0 font-mono text-[11px]">
+                            <span className="text-slate-400 block text-[9px] uppercase">
+                              Próx. Mes Est.
+                            </span>
+                            <span className="text-slate-900 font-bold">
+                              {est.proyeccionMes.licenciasEsperadas} licencias
+                            </span>
+                            <div className="text-[10px] text-slate-500">
+                              (~{est.proyeccionMes.esperadasParticular} particulares a canjear)
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                   </div>
                 </div>
               </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { FileText, Printer, Loader2, Brain } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import ReporteMensualTemplate from '@/shared/components/ReporteMensualTemplate';
@@ -24,14 +24,27 @@ const meses = [
 ];
 
 function ReportesContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'informe' | 'ml'>('informe');
+  const tabParam = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<'informe' | 'ml'>(tabParam === 'ml' ? 'ml' : 'informe');
 
   useEffect(() => {
-    if (searchParams.get('tab') === 'ml') {
+    if (tabParam === 'ml') {
       setActiveTab('ml');
+    } else {
+      setActiveTab('informe');
     }
-  }, [searchParams]);
+  }, [tabParam]);
+
+  const handleTabChange = (tab: 'informe' | 'ml') => {
+    setActiveTab(tab);
+    if (tab === 'ml') {
+      router.push('/reportes?tab=ml');
+    } else {
+      router.push('/reportes');
+    }
+  };
 
   const [mes, setMes] = useState<number>(new Date().getMonth() + 1);
   const [anio, setAnio] = useState<number>(new Date().getFullYear());
@@ -78,7 +91,7 @@ function ReportesContent() {
         {/* Segmented Control tipo Apple para alternar entre Informe Mensual y Machine Learning */}
         <div className="bg-slate-200/70 p-1 rounded-xl flex gap-1 self-start sm:self-auto">
           <button
-            onClick={() => setActiveTab('informe')}
+            onClick={() => handleTabChange('informe')}
             className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'informe'
                 ? 'bg-white text-slate-900 shadow-xs'
@@ -90,7 +103,7 @@ function ReportesContent() {
           </button>
 
           <button
-            onClick={() => setActiveTab('ml')}
+            onClick={() => handleTabChange('ml')}
             className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'ml'
                 ? 'bg-white text-slate-900 shadow-xs'

@@ -6,7 +6,8 @@ import {
   TrendingUp,
   ShieldAlert,
   Clock,
-  ArrowRight
+  ArrowRight,
+  Building2
 } from 'lucide-react';
 
 interface MLMiniData {
@@ -30,6 +31,13 @@ interface MLMiniData {
   };
   modelo4_clustering: {
     resumenClusters: Array<any>;
+  };
+  modelo5_origen_canjes?: {
+    metricas: {
+      pctGlobalEsSalud: number;
+      pctGlobalParticular: number;
+      totalAnalizadas: number;
+    };
   };
 }
 
@@ -122,11 +130,11 @@ export default function MLMiniCard() {
 
             <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
               <span className="text-[10px] text-slate-500 flex items-center gap-1">
-                <Clock className="w-3 h-3 text-slate-600" />
-                CITT
+                <Building2 className="w-3 h-3 text-slate-600" />
+                Procedencia
               </span>
-              <span className="text-sm font-bold text-slate-900 font-mono block mt-0.5">
-                100% captura
+              <span className="text-xs font-bold text-slate-900 font-mono block mt-0.5">
+                {data.modelo5_origen_canjes?.metricas.pctGlobalEsSalud || 63.1}% EsSalud
               </span>
             </div>
           </div>
@@ -183,9 +191,9 @@ export default function MLMiniCard() {
           </div>
 
           <div className="flex items-center justify-between text-[10px] text-slate-400 mt-2">
-            <span>Modelo Gradient Boosting (MAE: {data.modelo1_forecasting.metricas.mae_dias} días)</span>
+            <span>Canal regional: {data.modelo5_origen_canjes?.metricas.pctGlobalEsSalud || 63.1}% EsSalud CITT vs {data.modelo5_origen_canjes?.metricas.pctGlobalParticular || 36.9}% Particulares</span>
             <Link href="/reportes?tab=ml" className="text-slate-700 hover:underline font-medium">
-              Explorar los 4 modelos detallados →
+              Explorar los 5 modelos predictivos en Reportes →
             </Link>
           </div>
         </div>
