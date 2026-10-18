@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, Sparkles, User, RefreshCw, X, ChevronDown, MessageSquare, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Send, RefreshCw, X, MessageCircle, ShieldCheck, User, ArrowLeft, HeartPulse } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { puedeUsarChatbot } from '@/shared/utils/permisos';
+import BienestarMascot from './BienestarMascot';
 
 interface MensajeChat {
   id: string;
@@ -29,35 +30,39 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
   const [mensajes, setMensajes] = useState<MensajeChat[]>([]);
   const [inputTexto, setInputTexto] = useState('');
   const [cargando, setCargando] = useState(false);
-  const [estaMinimizado, setEstaMinimizado] = useState(false);
+  const [modalMovilAbierto, setModalMovilAbierto] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const mobileChatContainerRef = useRef<HTMLDivElement>(null);
 
-  // Inicializar mensaje de bienvenida según rol
+  // Inicializar mensaje de bienvenida cálido, empático e institucional
   useEffect(() => {
     if (!tieneAcceso) return;
     const saludoInicial: MensajeChat = {
       id: 'saludo-1',
       remitente: 'asistente',
       texto: rol === 'TRABAJADOR'
-        ? `¡Hola, ${nombreUsuario}! 👋 Soy **BienestarBot**, tu asistente para licencias médicas y descansos de la Red de Salud Huánuco. ¿En qué puedo orientarte hoy?`
-        : `¡Hola, ${nombreUsuario}! 🏛️ Soy **BienestarBot**, asistente de Bienestar Social. Puedo buscar expedientes por DNI/nombre, revisar alertas de CITT y calcular subsidios.`,
-      origen: 'gemini_flash_lite',
+        ? `¡Hola, ${nombreUsuario}! 👋 Soy **BienestarBot**, tu orientador institucional de la Red de Salud Huánuco. Puedo ayudarte a consultar tus descansos médicos, saldo de días acumulados, requisitos de canje de CITT y subsidios. ¿En qué te oriento hoy?`
+        : `¡Hola, ${nombreUsuario}! 👋 Bienvenido al área de Bienestar Social. Como asistente de la Red de Salud Huánuco, puedo ayudarte a buscar expedientes por DNI/nombre, revisar alertas críticas de CITT y calcular subsidios EsSalud.`,
       fecha: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     setMensajes([saludoInicial]);
   }, [tieneAcceso, rol, nombreUsuario]);
 
+  // Auto-scroll al final en ambos contenedores (desktop y móvil)
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [mensajes, cargando]);
+    if (mobileChatContainerRef.current) {
+      mobileChatContainerRef.current.scrollTop = mobileChatContainerRef.current.scrollHeight;
+    }
+  }, [mensajes, cargando, modalMovilAbierto]);
 
-  // Preguntas sugeridas según el rol
+  // Preguntas sugeridas contextuales según el rol
   const sugerencias = rol === 'TRABAJADOR' ? [
     '¿Cuántos días de descanso me quedan este año?',
-    '¿Qué es la regla de los 20 días?',
-    '¿Cómo tramito mi canje de CITT?'
+    '¿Cómo funciona la regla de los 20 días?',
+    '¿Cuáles son los pasos para canjear mi CITT?'
   ] : [
     'Buscar expediente de DNI 74425510',
     '¿Qué alertas de CITT están vencidas o en rojo?',
@@ -112,7 +117,7 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
         {
           id: 'bot-err-' + Date.now(),
           remitente: 'asistente',
-          texto: 'Lo siento, ocurrió un problema al conectar con el asistente. Intenta de nuevo en unos momentos.',
+          texto: 'Disculpa el inconveniente, hubo un breve retraso al consultar los registros. Por favor, reintenta tu pregunta en unos segundos.',
           origen: 'error',
           fecha: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
@@ -133,17 +138,15 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
     const saludoInicial: MensajeChat = {
       id: 'saludo-' + Date.now(),
       remitente: 'asistente',
-      texto: `Conversación reiniciada. ¿En qué otra consulta puedo orientarte, ${nombreUsuario}?`,
-      origen: 'gemini_flash_lite',
+      texto: `Conversación reiniciada. Con gusto puedo orientarte con otra consulta, ${nombreUsuario}.`,
       fecha: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     setMensajes([saludoInicial]);
   };
 
-  // Renderizador simple de markdown (negritas y viñetas)
+  // Renderizador amigable de markdown (negritas y viñetas)
   const renderTextoFormateado = (txt: string) => {
     return txt.split('\n').map((linea, idx) => {
-      // Reemplazo básico de **texto** por negrita
       const partes = linea.split(/(\*\*.*?\*\*)/g);
       return (
         <span key={idx} className="block leading-relaxed">
@@ -158,104 +161,65 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
     });
   };
 
-  // Si el usuario no tiene permisos para el chatbot, no renderizar nada
   if (!tieneAcceso) {
     return null;
   }
 
-  return (
-    <div className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg flex flex-col overflow-hidden transition-all duration-300 ${modo === 'flotante' ? 'w-[380px] h-[520px] fixed bottom-5 right-5 z-50 shadow-2xl' : 'w-full h-[520px]'}`}>
-      
-      {/* Cabecera del Bot */}
-      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 px-4 py-3 text-white flex items-center justify-between shrink-0 shadow-sm">
-        <div className="flex items-center gap-2.5">
-          <div className="relative">
-            <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30 text-white shadow-inner">
-              <Bot className="w-5 h-5 text-white" />
+  // CONTENIDO REUTILIZABLE DE LA CONVERSACIÓN
+  const renderListaMensajes = (refContenedor: React.RefObject<HTMLDivElement | null>) => (
+    <div ref={refContenedor} className="flex-1 p-4 overflow-y-auto space-y-3.5 bg-slate-50/80 dark:bg-slate-900/60 text-[13px]">
+      {mensajes.map((msg) => (
+        <div
+          key={msg.id}
+          className={`flex items-start gap-2.5 ${msg.remitente === 'usuario' ? 'justify-end' : 'justify-start'}`}
+        >
+          {msg.remitente === 'asistente' && (
+            <div className="shrink-0 mt-0.5">
+              <BienestarMascot size="sm" estado={cargando ? 'thinking' : 'idle'} />
             </div>
-            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 border-2 border-indigo-700 rounded-full animate-pulse"></span>
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <h3 className="font-bold text-sm tracking-tight leading-none text-white">BienestarBot</h3>
-              <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded font-mono font-medium text-blue-100 flex items-center gap-1">
-                <Sparkles className="w-2.5 h-2.5 text-amber-300" /> Flash Lite
-              </span>
-            </div>
-            <p className="text-[11px] text-blue-100/80 font-normal mt-0.5">Red de Salud Huánuco</p>
-          </div>
-        </div>
+          )}
 
-        <div className="flex items-center gap-1">
-          <button
-            onClick={reiniciarChat}
-            title="Reiniciar chat"
-            className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+          <div
+            className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 shadow-sm text-slate-800 dark:text-slate-100 ${
+              msg.remitente === 'usuario'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-tr-none shadow-blue-500/20'
+                : 'bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 rounded-tl-none'
+            }`}
           >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-          {modo === 'flotante' && onCerrar && (
-            <button
-              onClick={onCerrar}
-              title="Cerrar ventana"
-              className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <div className="whitespace-pre-wrap">{renderTextoFormateado(msg.texto)}</div>
+            <div className={`text-[10px] mt-1 text-right font-medium ${msg.remitente === 'usuario' ? 'text-blue-100' : 'text-slate-400'}`}>
+              {msg.fecha}
+            </div>
+          </div>
+
+          {msg.remitente === 'usuario' && (
+            <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 flex items-center justify-center shrink-0 mt-0.5 border border-blue-200 dark:border-blue-700 shadow-xs">
+              <User className="w-4 h-4" />
+            </div>
           )}
         </div>
-      </div>
+      ))}
 
-      {/* Cuerpo de Mensajes */}
-      <div ref={chatContainerRef} className="flex-1 p-4 overflow-y-auto space-y-3.5 bg-slate-50/60 dark:bg-slate-900/40 text-[13px]">
-        {mensajes.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex items-start gap-2.5 ${msg.remitente === 'usuario' ? 'justify-end' : 'justify-start'}`}
-          >
-            {msg.remitente === 'asistente' && (
-              <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5 border border-blue-200 dark:border-blue-800">
-                <Bot className="w-4 h-4" />
-              </div>
-            )}
-
-            <div
-              className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 shadow-sm text-slate-700 dark:text-slate-200 ${
-                msg.remitente === 'usuario'
-                  ? 'bg-blue-600 text-white rounded-tr-none'
-                  : 'bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-tl-none'
-              }`}
-            >
-              <div className="whitespace-pre-wrap">{renderTextoFormateado(msg.texto)}</div>
-              <div className={`text-[10px] mt-1 text-right font-medium ${msg.remitente === 'usuario' ? 'text-blue-200' : 'text-slate-400'}`}>
-                {msg.fecha}
-              </div>
-            </div>
-
-            {msg.remitente === 'usuario' && (
-              <div className="w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 mt-0.5 border border-indigo-200 dark:border-indigo-800">
-                <User className="w-4 h-4" />
-              </div>
-            )}
+      {cargando && (
+        <div className="flex items-start gap-2.5 justify-start">
+          <div className="shrink-0 mt-0.5">
+            <BienestarMascot size="sm" estado="thinking" />
           </div>
-        ))}
-
-        {cargando && (
-          <div className="flex items-start gap-2.5 justify-start">
-            <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mt-0.5 border border-blue-200 dark:border-blue-800 animate-pulse">
-              <Bot className="w-4 h-4" />
-            </div>
-            <div className="bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce"></span>
-              <span className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce [animation-delay:0.2s]"></span>
-              <span className="w-2 h-2 rounded-full bg-blue-600 animate-bounce [animation-delay:0.4s]"></span>
-              <span className="text-[11px] text-slate-400 ml-1.5 font-medium">Consultando normativa y expediente...</span>
-            </div>
+          <div className="bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce"></span>
+            <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce [animation-delay:0.2s]"></span>
+            <span className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce [animation-delay:0.4s]"></span>
+            <span className="text-[12px] text-slate-500 dark:text-slate-400 font-medium ml-1">Revisando expediente y normativa...</span>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+    </div>
+  );
 
-      {/* Chips de Sugerencias Rápidas */}
+  // BARRA DE INPUT Y SUGERENCIAS
+  const renderInputForm = () => (
+    <>
+      {/* Sugerencias Rápidas */}
       {mensajes.length <= 2 && (
         <div className="px-3 py-2 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700/60 flex flex-wrap gap-1.5 shrink-0">
           {sugerencias.map((sug, i) => (
@@ -263,7 +227,7 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
               key={i}
               onClick={() => enviarMensaje(sug)}
               disabled={cargando}
-              className="text-[11px] text-left bg-slate-100 hover:bg-blue-50 dark:bg-slate-700/60 dark:hover:bg-blue-900/30 text-slate-700 dark:text-slate-300 hover:text-blue-700 dark:hover:text-blue-400 px-2.5 py-1 rounded-full border border-slate-200/70 dark:border-slate-600 transition-all font-medium"
+              className="text-[11px] text-left bg-slate-100/90 hover:bg-emerald-50 dark:bg-slate-700/60 dark:hover:bg-emerald-950/40 text-slate-700 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-300 px-2.5 py-1 rounded-full border border-slate-200/80 dark:border-slate-600 transition-all font-medium cursor-pointer"
             >
               💡 {sug}
             </button>
@@ -271,7 +235,7 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
         </div>
       )}
 
-      {/* Input de Enviar Mensaje */}
+      {/* Formulario de Entrada */}
       <div className="p-3 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 shrink-0">
         <form
           onSubmit={(e) => {
@@ -287,24 +251,199 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
             onKeyDown={handleKeyDown}
             placeholder="Pregúntale a BienestarBot..."
             disabled={cargando}
-            className="flex-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 dark:text-white transition-all placeholder:text-slate-400"
+            className="flex-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-900 dark:text-white transition-all placeholder:text-slate-400"
           />
           <button
             type="submit"
             disabled={!inputTexto.trim() || cargando}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white p-2.5 rounded-xl shadow-sm transition-all duration-150 flex items-center justify-center shrink-0"
-            title="Enviar pregunta"
+            className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white p-2.5 rounded-xl shadow-sm transition-all duration-150 flex items-center justify-center shrink-0 cursor-pointer active:scale-95"
+            title="Enviar consulta"
           >
             <Send className="w-4 h-4" />
           </button>
         </form>
         <div className="flex items-center justify-between mt-1.5 px-1 text-[10px] text-slate-400">
-          <span className="flex items-center gap-1 font-mono">
-            <ShieldCheck className="w-3 h-3 text-emerald-500" /> Información protegida por Ley
+          <span className="flex items-center gap-1">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> Orientación oficial protegida
           </span>
-          <span>Red Huánuco © 2026</span>
+          <span>Red de Salud Huánuco</span>
         </div>
       </div>
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* =========================================================================
+          1. VISTA EN CELULAR / PANTALLAS PEQUEÑAS (md:hidden)
+          Muestra el personaje animado interactivo. Al tocarlo abre el chat completo.
+         ========================================================================= */}
+      <div className="block md:hidden w-full">
+        <div 
+          onClick={() => setModalMovilAbierto(true)}
+          className="relative overflow-hidden bg-gradient-to-br from-white via-emerald-50/40 to-blue-50/50 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900 border border-emerald-200/80 dark:border-slate-700 rounded-2xl p-4 shadow-md hover:shadow-lg transition-all active:scale-[0.98] cursor-pointer"
+        >
+          {/* Adorno decorativo de fondo */}
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-400/10 rounded-full blur-xl pointer-events-none" />
+          
+          <div className="flex items-center gap-4">
+            {/* Personaje Animado Saludando */}
+            <div className="shrink-0 relative">
+              <BienestarMascot size="lg" estado="waving" />
+              <span className="absolute bottom-0 right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-white dark:border-slate-800 rounded-full animate-pulse" />
+            </div>
+
+            {/* Bocadillo de Texto de Bienvenida */}
+            <div className="flex-1 min-w-0">
+              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold tracking-wide uppercase mb-1">
+                <HeartPulse className="w-3 h-3 text-emerald-600" /> Asistente de Bienestar
+              </div>
+
+              <h4 className="font-bold text-slate-900 dark:text-white text-base leading-tight">
+                ¡Hola! Soy BienestarBot 👋
+              </h4>
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 line-clamp-2">
+                Tócame aquí para consultar tus descansos médicos, subsidios o el estado de tus trámites.
+              </p>
+
+              {/* Botón de Llamada a la Acción */}
+              <div className="mt-2.5 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-xl border border-emerald-200/70 dark:border-emerald-800/50">
+                <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Tocar para hablar conmigo</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Botón flotante del personaje en la esquina del celular para acceso rápido */}
+        {!modalMovilAbierto && (
+          <div 
+            onClick={() => setModalMovilAbierto(true)}
+            className="fixed bottom-5 right-5 z-40 flex items-center gap-2 group cursor-pointer"
+            title="Consultar con BienestarBot"
+          >
+            <div className="hidden sm:flex bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg px-3 py-1.5 rounded-full text-xs font-semibold text-slate-700 dark:text-slate-200 animate-bounce">
+              ¿Dudas con tu CITT? 👋
+            </div>
+            <div className="relative p-1.5 bg-white dark:bg-slate-800 rounded-full shadow-2xl border-2 border-emerald-400 hover:scale-105 active:scale-95 transition-transform">
+              <BienestarMascot size="sm" estado="waving" />
+              <span className="absolute top-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full animate-ping" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* =========================================================================
+          2. MODAL A PANTALLA COMPLETA EN CELULAR (Cuando el usuario toca el personaje)
+         ========================================================================= */}
+      {modalMovilAbierto && (
+        <div className="fixed inset-0 z-50 md:hidden bg-slate-900/60 backdrop-blur-xs flex flex-col justify-end sm:justify-center p-0 sm:p-4">
+          <div className="w-full h-full sm:h-[88vh] sm:max-w-lg bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-6 duration-200">
+            
+            {/* Cabecera Móvil con el Personaje */}
+            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-4 py-3 text-white flex items-center justify-between shrink-0 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setModalMovilAbierto(false)}
+                  className="p-1.5 text-slate-300 hover:text-white rounded-lg active:bg-white/10 cursor-pointer"
+                  title="Volver"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                <div className="shrink-0">
+                  <BienestarMascot size="sm" estado={cargando ? 'thinking' : 'waving'} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-sm text-white">BienestarBot</h3>
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> En línea
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300">Red de Salud Huánuco</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={reiniciarChat}
+                  title="Reiniciar chat"
+                  className="p-2 text-slate-300 hover:text-white rounded-lg active:bg-white/10"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalMovilAbierto(false)}
+                  title="Cerrar ventana"
+                  className="p-2 text-slate-300 hover:text-white rounded-lg active:bg-white/10"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Mensajes en Móvil */}
+            {renderListaMensajes(mobileChatContainerRef)}
+
+            {/* Input en Móvil */}
+            {renderInputForm()}
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          3. VISTA EN ESCRITORIO / TABLETS (hidden md:flex)
+          Se integra con estilo institucional pulcro en la columna derecha.
+         ========================================================================= */}
+      <div className={`hidden md:flex bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-md flex-col overflow-hidden transition-all duration-300 ${modo === 'flotante' ? 'w-[380px] h-[520px] fixed bottom-5 right-5 z-50 shadow-2xl' : 'w-full h-[520px]'}`}>
+        
+        {/* Cabecera Institucional en Escritorio */}
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-4 py-3 text-white flex items-center justify-between shrink-0 shadow-xs border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="shrink-0 relative">
+              <BienestarMascot size="sm" estado={cargando ? 'thinking' : 'idle'} />
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 border-2 border-slate-900 rounded-full animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-sm tracking-tight leading-none text-white">BienestarBot</h3>
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Orientación
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 font-normal mt-0.5">Asistente de Bienestar Social • Red Huánuco</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={reiniciarChat}
+              title="Reiniciar conversación"
+              className="p-1.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+            {modo === 'flotante' && onCerrar && (
+              <button
+                onClick={onCerrar}
+                title="Cerrar ventana"
+                className="p-1.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Lista de Mensajes en Escritorio */}
+        {renderListaMensajes(chatContainerRef)}
+
+        {/* Input en Escritorio */}
+        {renderInputForm()}
+      </div>
+    </>
   );
 }
