@@ -26,6 +26,9 @@ export const PERMISOS = {
   
   // SISTEMA (DEVELOPER)
   VER_LOGS: 'VER_LOGS',
+
+  // INTELIGENCIA ARTIFICIAL (BIENESTARBOT)
+  USAR_CHATBOT: 'USAR_CHATBOT',
 } as const;
 
 export type Permiso = keyof typeof PERMISOS;
@@ -58,9 +61,20 @@ export const PERMISOS_DESCRIPCION: Record<Permiso, { titulo: string; descripcion
   
   // Sistema
   VER_LOGS: { titulo: 'Consola de Desarrollador', descripcion: 'Permite acceder a los logs técnicos del sistema en tiempo real.' },
+
+  // Inteligencia Artificial
+  USAR_CHATBOT: { titulo: 'Asistente IA (BienestarBot)', descripcion: 'Permite interactuar con el chatbot asistente para consultar CITTs, subsidios y alertas.' },
 };
 
 export function tienePermiso(usuarioPermisos: string[], rol: string, permiso: Permiso): boolean {
   if (rol === 'SUPER_ADMIN') return true;
   return usuarioPermisos.includes(permiso);
+}
+
+export function puedeUsarChatbot(rol?: string, usuarioPermisos: string[] = []): boolean {
+  if (!rol) return false;
+  // SUPER_ADMIN y TRABAJADOR tienen acceso por defecto
+  if (rol === 'SUPER_ADMIN' || rol === 'TRABAJADOR') return true;
+  // Cualquier otro rol o usuario requiere que el Super Admin le haya concedido el permiso USAR_CHATBOT
+  return usuarioPermisos.includes(PERMISOS.USAR_CHATBOT);
 }

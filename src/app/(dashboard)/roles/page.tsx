@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Shield, PlusCircle, Trash2, X, Pencil, Users, Heart, Settings, FileText, Folder, Terminal } from "lucide-react";
+import { Shield, PlusCircle, Trash2, X, Pencil, Users, Heart, Settings, FileText, Folder, Terminal, Bot } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { PERMISOS_DESCRIPCION, Permiso } from '@/shared/utils/permisos';
 
@@ -398,6 +398,35 @@ export default function RolesPage() {
                                   else setFormData({ ...formData, permisos: [...formData.permisos, clave] });
                                 }}
                                 className={`group relative inline-flex items-center px-2.5 py-1.5 rounded-md text-[11px] font-semibold cursor-pointer transition-all ${isActive ? 'bg-purple-100 text-purple-700 ring-1 ring-purple-400 shadow-sm dark:bg-purple-900/50 dark:text-purple-300 dark:ring-purple-500' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:bg-slate-700'}`}
+                              >
+                                {info.titulo}
+                                <div className="absolute opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-[10px] font-normal text-left p-2 rounded-md shadow-xl z-50">
+                                  {info.descripcion}<div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800"></div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Grupo 7: Inteligencia Artificial */}
+                      <div className="space-y-2">
+                        <h4 className="text-[11px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider flex items-center gap-1">
+                          <Bot className="w-3.5 h-3.5 text-blue-500" /> Inteligencia Artificial
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {['USAR_CHATBOT'].map(clave => {
+                            const info = PERMISOS_DESCRIPCION[clave as Permiso];
+                            if (!info) return null;
+                            const isActive = formData.permisos.includes(clave);
+                            return (
+                              <button
+                                key={clave} type="button"
+                                onClick={() => {
+                                  if (isActive) setFormData({ ...formData, permisos: formData.permisos.filter(p => p !== clave) });
+                                  else setFormData({ ...formData, permisos: [...formData.permisos, clave] });
+                                }}
+                                className={`group relative inline-flex items-center px-2.5 py-1.5 rounded-md text-[11px] font-semibold cursor-pointer transition-all ${isActive ? 'bg-sky-100 text-sky-700 ring-1 ring-sky-400 shadow-sm dark:bg-sky-900/50 dark:text-sky-300 dark:ring-sky-500' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:bg-slate-700'}`}
                               >
                                 {info.titulo}
                                 <div className="absolute opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-[10px] font-normal text-left p-2 rounded-md shadow-xl z-50">

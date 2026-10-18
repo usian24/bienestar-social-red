@@ -6,6 +6,7 @@ import { Printer, Loader2, ArrowLeft, MapPin } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import Link from 'next/link';
 import EditorToolbar from '@/shared/components/EditorToolbar';
+import VisorDocumentoA4 from '@/shared/components/VisorDocumentoA4';
 
 export default function ReporteIndividualPage() {
   const params = useParams();
@@ -62,15 +63,16 @@ export default function ReporteIndividualPage() {
         </button>
       </div>
 
-      <div className="flex flex-col items-center p-2 rounded-xl overflow-auto border border-transparent print:p-0 print:border-none print:shadow-none shadow-inner">
+      <div className="flex flex-col items-center w-full p-1 sm:p-2 rounded-xl border border-transparent print:p-0 print:border-none print:shadow-none">
         <EditorToolbar />
-        <div 
-          className="bg-white shadow-2xl rounded-sm text-black text-[12px] print:shadow-none print:w-[210mm] outline-none pl-[30mm] pr-[27.5mm] box-border transition-all hover:shadow-blue-900/20" 
-          style={{ width: '210mm', minHeight: '297mm', fontFamily: 'Arial, Helvetica, sans-serif' }}
-          ref={componentRef}
-          contentEditable
-          suppressContentEditableWarning
-        >
+        <VisorDocumentoA4>
+          <div 
+            className="bg-white shadow-2xl rounded-sm text-black text-[12px] print:shadow-none print:w-[210mm] outline-none pl-[30mm] pr-[27.5mm] box-border transition-all hover:shadow-blue-900/20" 
+            style={{ width: '210mm', minHeight: '297mm', fontFamily: 'Arial, Helvetica, sans-serif' }}
+            ref={componentRef}
+            contentEditable
+            suppressContentEditableWarning
+          >
           <style type="text/css" media="print">
             {`
               @page { size: A4; margin: 0; }
@@ -212,6 +214,7 @@ export default function ReporteIndividualPage() {
             </tfoot>
           </table>
         </div>
+        </VisorDocumentoA4>
       </div>
     </div>
   );

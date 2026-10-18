@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Red de Salud Huánuco</string>
+    <string name="title_activity_main">Red de Salud Huánuco</string>
+    <string name="package_name">gob.pe.redsaludhuanuco.bienestar</string>
+    <string name="custom_url_scheme">gob.pe.redsaludhuanuco.bienestar</string>
+</resources>

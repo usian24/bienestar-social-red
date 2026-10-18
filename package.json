@@ -7,9 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "usb": "powershell -Command \"& \\\"$env:LOCALAPPDATA\\Android\\Sdk\\platform-tools\\adb.exe\\\" reverse tcp:3000 tcp:3000; Write-Host '✓ Puerto 3000 redirigido por USB a tu celular exitosamente!' -ForegroundColor Green\"",
     "importar": "ts-node --compiler-options {\\\"module\\\":\\\"CommonJS\\\"} prisma/importarTecho.ts"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/cli": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",

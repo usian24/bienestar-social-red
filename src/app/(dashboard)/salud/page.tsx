@@ -35,7 +35,7 @@ export default function SaludPage() {
   
   // Estado de los Filtros
   const [searchDni, setSearchDni] = useState('');
-  const [ambito, setAmbito] = useState('Microred');
+  const [ambito, setAmbito] = useState('Todos');
   const [microred, setMicrored] = useState('Todas');
   const [establecimiento, setEstablecimiento] = useState('--Todos--');
   const [condicionLaboral, setCondicionLaboral] = useState('--TODOS--');
@@ -82,13 +82,18 @@ export default function SaludPage() {
     const matchDni = r.dni.includes(searchDni) || r.apellidosNombres.toLowerCase().includes(searchDni.toLowerCase());
     
     let matchAmbito = true;
-    if (ambito === 'Sede Administrativa') {
+    if (searchDni.trim().length > 0) {
+      // Si el usuario escribe DNI o nombre, buscar en todo el universo sin bloquear por ámbito
+      matchAmbito = true;
+    } else if (ambito === 'Sede Administrativa') {
       matchAmbito = r.microred === 'SEDE RED SALUD HUANUCO';
-    } else {
+    } else if (ambito === 'Microred') {
       matchAmbito = r.microred !== 'SEDE RED SALUD HUANUCO';
     }
 
-    const matchMicrored = ambito === 'Sede Administrativa' ? true : (microred === 'Todas' || r.microred === microred);
+    const matchMicrored = (ambito === 'Sede Administrativa' || searchDni.trim().length > 0) 
+      ? true 
+      : (microred === 'Todas' || r.microred === microred);
     const matchEstablecimiento = establecimiento === '--Todos--' || r.establecimiento === establecimiento;
     const matchCondicion = condicionLaboral === '--TODOS--' || r.condicionLaboral === condicionLaboral;
     
@@ -200,10 +205,15 @@ export default function SaludPage() {
                 <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">Ámbito</label>
                 <select 
                   value={ambito} 
-                  onChange={(e) => setAmbito(e.target.value)}
+                  onChange={(e) => {
+                    setAmbito(e.target.value);
+                    if (e.target.value !== 'Microred') setMicrored('Todas');
+                    setEstablecimiento('--Todos--');
+                  }}
                   className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-blue-500 focus:bg-white dark:bg-slate-800 transition-colors"
                 >
-                  <option value="Microred">Microred</option>
+                  <option value="Todos">-- Todos (Sede y Microredes) --</option>
+                  <option value="Microred">Microredes</option>
                   <option value="Sede Administrativa">Sede Administrativa</option>
                 </select>
               </div>
@@ -459,8 +469,12 @@ export default function SaludPage() {
       <NuevoCittModal 
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSuccess={() => {
+        onSuccess={(dniRegistrado?: string) => {
           fetchInicial(); // Refrescar la tabla
+          if (dniRegistrado) {
+            setSearchDni(dniRegistrado);
+            setAmbito('Todos');
+          }
         }}
         tipoPorDefecto="ENFERMEDAD_COMUN"
       />

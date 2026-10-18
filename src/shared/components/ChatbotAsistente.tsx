@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, Sparkles, User, RefreshCw, X, ChevronDown, MessageSquare, AlertCircle, ShieldCheck } from 'lucide-react';
 import { useSession } from 'next-auth/react';
+import { puedeUsarChatbot } from '@/shared/utils/permisos';
 
 interface MensajeChat {
   id: string;
@@ -19,7 +20,10 @@ interface ChatbotAsistenteProps {
 
 export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: ChatbotAsistenteProps) {
   const { data: session } = useSession();
-  const rol = (session?.user as any)?.rol || 'TRABAJADOR';
+  const rol = (session?.user as any)?.rol;
+  const permisos = (session?.user as any)?.permisos || [];
+  const tieneAcceso = puedeUsarChatbot(rol, permisos);
+
   const nombreUsuario = (session?.user?.name || 'Servidor').split(' ')[0];
 
   const [mensajes, setMensajes] = useState<MensajeChat[]>([]);
@@ -30,6 +34,7 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
 
   // Inicializar mensaje de bienvenida según rol
   useEffect(() => {
+    if (!tieneAcceso) return;
     const saludoInicial: MensajeChat = {
       id: 'saludo-1',
       remitente: 'asistente',
@@ -40,7 +45,7 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
       fecha: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     setMensajes([saludoInicial]);
-  }, [rol, nombreUsuario]);
+  }, [tieneAcceso, rol, nombreUsuario]);
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -152,6 +157,11 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
       );
     });
   };
+
+  // Si el usuario no tiene permisos para el chatbot, no renderizar nada
+  if (!tieneAcceso) {
+    return null;
+  }
 
   return (
     <div className={`bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg flex flex-col overflow-hidden transition-all duration-300 ${modo === 'flotante' ? 'w-[380px] h-[520px] fixed bottom-5 right-5 z-50 shadow-2xl' : 'w-full h-[520px]'}`}>

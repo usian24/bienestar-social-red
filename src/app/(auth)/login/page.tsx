@@ -1,17 +1,25 @@
 "use client";
 
-import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { signIn, useSession } from "next-auth/react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [dni, setDni] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Si ya tiene sesión activa, redirigir automáticamente al dashboard
+  useEffect(() => {
+    if (status === "authenticated") {
+      window.location.href = "/inicio";
+    }
+  }, [status]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,8 +36,8 @@ export default function LoginPage() {
       setError(result.error);
       setLoading(false);
     } else {
-      router.push("/inicio");
-      router.refresh();
+      // Usar window.location.href asegura que las cookies de sesión se confirmen en WebViews de Android
+      window.location.href = "/inicio";
     }
   };
 

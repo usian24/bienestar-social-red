@@ -7,6 +7,7 @@ import { useReactToPrint } from 'react-to-print';
 import ReporteMensualTemplate from '@/shared/components/ReporteMensualTemplate';
 import EditorToolbar from '@/shared/components/EditorToolbar';
 import MLDashboardCard from '@/shared/components/MLDashboardCard';
+import VisorDocumentoA4 from '@/shared/components/VisorDocumentoA4';
 
 const meses = [
   { value: 1, label: 'Enero' },
@@ -173,19 +174,21 @@ function ReportesContent() {
             )}
           </div>
 
-          {/* Visor tipo Google Docs para el informe mensual */}
+          {/* Visor tipo Google Docs para el informe mensual con escala responsive */}
           {dataReporte && (
-            <div className="flex flex-col items-center bg-slate-200 p-8 rounded-xl overflow-auto border border-slate-300 shadow-inner print:p-0 print:border-none print:shadow-none print:bg-white">
+            <div className="flex flex-col items-center bg-slate-200 dark:bg-slate-900 p-2 sm:p-6 rounded-xl border border-slate-300 dark:border-slate-800 shadow-inner print:p-0 print:border-none print:shadow-none print:bg-white w-full">
               <EditorToolbar />
-              <div className="w-full flex flex-col items-center gap-8 print:gap-0">
-                <ReporteMensualTemplate 
-                  ref={componentRef} 
-                  mes={meses.find(m => m.value === mes)?.label || ''} 
-                  anio={anio} 
-                  condicionLaboral={condicion}
-                  data={dataReporte} 
-                />
-              </div>
+              <VisorDocumentoA4>
+                <div className="w-full flex flex-col items-center gap-8 print:gap-0">
+                  <ReporteMensualTemplate 
+                    ref={componentRef} 
+                    mes={meses.find(m => m.value === mes)?.label || ''} 
+                    anio={anio} 
+                    condicionLaboral={condicion}
+                    data={dataReporte} 
+                  />
+                </div>
+              </VisorDocumentoA4>
             </div>
           )}
         </div>

@@ -5,6 +5,7 @@ import { useReactToPrint } from 'react-to-print';
 import { useSearchParams, useRouter } from 'next/navigation';
 import ReporteMensualTemplate from '@/shared/components/ReporteMensualTemplate';
 import EditorToolbar from '@/shared/components/EditorToolbar';
+import VisorDocumentoA4 from '@/shared/components/VisorDocumentoA4';
 
 function ReporteRangoContent() {
   const searchParams = useSearchParams();
@@ -80,24 +81,29 @@ function ReporteRangoContent() {
           <p className="text-slate-500">Generando documento...</p>
         </div>
       ) : dataReporte ? (
-        <div className="flex gap-6 relative items-start">
-          <div className="flex-1 bg-slate-100 dark:bg-slate-950 p-8 rounded-xl shadow-inner overflow-auto min-h-screen border border-slate-200 dark:border-slate-800">
-            <div className="w-[210mm] mx-auto bg-white shadow-2xl relative" ref={componentRef}>
-              <ReporteMensualTemplate data={dataReporte} mes="Rango" anio={new Date().getFullYear()} condicionLaboral={condicion} />
-            </div>
+        <div className="flex flex-col lg:flex-row gap-6 relative items-start">
+          {/* Contenedor del Documento A4 con Visor Responsive */}
+          <div className="w-full flex-1 bg-slate-100 dark:bg-slate-950 p-1 sm:p-4 rounded-xl shadow-inner min-h-screen border border-slate-200 dark:border-slate-800">
+            <VisorDocumentoA4>
+              <div className="w-[210mm] min-w-[210mm] mx-auto bg-white shadow-2xl relative" ref={componentRef}>
+                <ReporteMensualTemplate data={dataReporte} mes="Rango" anio={new Date().getFullYear()} condicionLaboral={condicion} />
+              </div>
+            </VisorDocumentoA4>
           </div>
-          <div className="w-80 shrink-0 sticky top-6 flex flex-col gap-4">
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 flex flex-col gap-4">
-              <h3 className="font-bold text-slate-800 dark:text-slate-100">Acciones</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Verifique que toda la información esté correcta. Puede usar la barra de herramientas a la izquierda para editar textos antes de imprimir.
+
+          {/* Panel de Acciones */}
+          <div className="w-full lg:w-80 shrink-0 lg:sticky lg:top-6 flex flex-col gap-4">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 sm:p-6 flex flex-col gap-3 sm:gap-4">
+              <h3 className="font-bold text-slate-800 dark:text-slate-100">Acciones del Reporte</h3>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                Verifique que toda la información esté correcta. Puede pulsar el botón flotante de <strong>Formato</strong> para retocar textos antes de imprimir o guardar en PDF.
               </p>
               <button 
                 onClick={handlePrint}
-                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-medium transition-all shadow-md hover:shadow-lg active:scale-95"
+                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-bold text-sm transition-all shadow-md hover:shadow-lg active:scale-95 cursor-pointer"
               >
                 <Printer className="w-5 h-5" />
-                Imprimir Documento
+                Imprimir / Guardar PDF
               </button>
             </div>
             <EditorToolbar />
