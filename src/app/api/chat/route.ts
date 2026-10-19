@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
 import prisma from '@/core/db/prisma';
 import { puedeUsarChatbot } from '@/shared/utils/permisos';
+import { logger } from '@/core/logging/systemLogger';
 
 export const dynamic = 'force-dynamic';
 
@@ -307,6 +308,11 @@ Instrucciones de Respuesta:
       }
 
       if (!respuestaTexto) {
+        await logger.advertencia('CHATBOT', 'FALLBACK_ACTIVADO', 'Ningún modelo de Gemini respondió a tiempo. Se activó el motor de contingencia institucional.', {
+          usuarioId: user.id,
+          ruta: '/api/chat',
+          metadata: { longitudMensaje: mensaje.length }
+        });
         return NextResponse.json({
           respuesta: generarRespuestaDirecta(contextoCompacto, mensaje),
           origen: 'fallback_seguro'
@@ -332,6 +338,11 @@ Instrucciones de Respuesta:
 
     } catch (apiError) {
       console.error('Error de conexión con Gemini:', apiError);
+      await logger.error('CHATBOT', 'GEMINI_CONEXION_ERROR', 'Fallo de conexión o respuesta inválida con API de Gemini', {
+        error: apiError,
+        usuarioId: user.id,
+        ruta: '/api/chat'
+      });
       return NextResponse.json({
         respuesta: generarRespuestaDirecta(contextoCompacto, mensaje),
         origen: 'fallback_seguro'
@@ -340,6 +351,10 @@ Instrucciones de Respuesta:
 
   } catch (error) {
     console.error('Error en POST /api/chat:', error);
+    await logger.error('CHATBOT', 'CHAT_API_CRASH', 'Excepción no controlada en endpoint de Chat', {
+      error,
+      ruta: '/api/chat'
+    });
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }

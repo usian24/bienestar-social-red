@@ -192,9 +192,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </Link>
                   </>
                 )}
-                {showMenu('Auditoría') && (
-                  <Link href="/auditoria" className={`flex items-center rounded-md text-sm font-medium transition-colors ${isSidebarOpen ? 'gap-2 px-3 py-2' : 'justify-center p-2 text-[10px]'} ${pathname === "/auditoria" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Auditoría">
-                    {!isSidebarOpen ? <Activity className="w-4 h-4" /> : <><Activity className="w-3.5 h-3.5 shrink-0" /> Auditoría</>}
+                {(showMenu('Auditoría') || showMenu('Logs')) && (
+                  <Link href="/auditoria" className={`flex items-center rounded-md text-sm font-medium transition-colors ${isSidebarOpen ? 'gap-2 px-3 py-2' : 'justify-center p-2 text-[10px]'} ${pathname === "/auditoria" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Logs y Auditoría">
+                    {!isSidebarOpen ? <Activity className="w-4 h-4" /> : <><Activity className="w-3.5 h-3.5 shrink-0" /> Logs y Auditoría</>}
                   </Link>
                 )}
               </div>
@@ -401,13 +401,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </Link>
                 </>
               )}
-              {showMenu('Auditoría') && (
+              {(showMenu('Auditoría') || showMenu('Logs')) && (
                 <Link 
                   href="/auditoria" 
                   onClick={() => setIsMobileMenuOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${pathname === "/auditoria" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100"}`}
                 >
-                  <Activity className="w-4 h-4 text-slate-500" /> Auditoría
+                  <Activity className="w-4 h-4 text-slate-500" /> Logs y Auditoría
                 </Link>
               )}
             </div>

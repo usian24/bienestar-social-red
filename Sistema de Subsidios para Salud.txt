@@ -2058,4 +2058,4 @@ Para entender cómo se comunican las capas sin generar código espagueti, este s
       6. Respuesta (App): La ruta actualiza la tabla automáticamente mediante la revalidación de caché de Next.js (revalidatePath).
 Siguiente paso en el desarrollo
 Para materializar esta arquitectura de inmediato, debemos configurar las fundaciones del servidor. ¿Comenzamos definiendo el esquema exacto de tablas y relaciones en Prisma (schema.prisma) para blindar la base de datos?
-________________
+

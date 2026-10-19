@@ -2,6 +2,7 @@ import NextAuth, { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import prisma from "@/core/db/prisma";
 import bcrypt from "bcryptjs";
+import { logger } from "@/core/logging/systemLogger";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -19,11 +20,27 @@ export const authOptions: NextAuthOptions = {
           include: { rol: true }
         });
         
-        if (!user || !user.activo) throw new Error("Usuario no encontrado o inactivo");
+        if (!user || !user.activo) {
+          await logger.advertencia('AUTH', 'LOGIN_FALLIDO', `Intento de acceso con DNI inexistente o inactivo: ${credentials.dni}`, {
+            ruta: '/api/auth/signin'
+          });
+          throw new Error("Usuario no encontrado o inactivo");
+        }
         
         const isPasswordValid = await bcrypt.compare(credentials.password, user.passwordHash);
         
-        if (!isPasswordValid) throw new Error("Contraseña incorrecta");
+        if (!isPasswordValid) {
+          await logger.advertencia('AUTH', 'PASSWORD_INCORRECTO', `Contraseña incorrecta para el usuario: ${credentials.dni} (${user.nombres})`, {
+            usuarioId: user.id,
+            ruta: '/api/auth/signin'
+          });
+          throw new Error("Contraseña incorrecta");
+        }
+
+        await logger.info('AUTH', 'LOGIN_EXITOSO', `Inicio de sesión exitoso: ${user.nombres} ${user.apellidos} [${user.rol?.nombre || 'SIN_ROL'}]`, {
+          usuarioId: user.id,
+          ruta: '/api/auth/signin'
+        });
         
         // Unificar los permisos del rol con los permisos excepcionales de este usuario
         const todosLosPermisos = Array.from(new Set([

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
 import ExcelJS from 'exceljs';
+import { logger } from '@/core/logging/systemLogger';
 
 function splitIntoMonths(inicioStr: string, finStr: string) {
   const chunks = [];
@@ -418,6 +419,10 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error('Error generando Excel Masivo:', error);
+    await logger.error('EXCEL_IMPORT', 'GENERAR_EXCEL_MASIVO_ERROR', 'Fallo al procesar o exportar Excel Masivo de Salud', {
+      error,
+      ruta: '/api/salud/excel-masivo'
+    });
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }

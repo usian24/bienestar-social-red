@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
+import { logger } from '@/core/logging/systemLogger';
 
 export async function GET(request: Request) {
   try {
@@ -35,9 +36,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  let session: any = null;
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !(session.user as any)?.id) {
+    session = await getServerSession(authOptions);
+    if (!session || !session.user?.id) {
       return NextResponse.json({ error: 'No autorizado. Inicie sesión.' }, { status: 401 });
     }
 
@@ -93,6 +95,11 @@ export async function POST(request: Request) {
     return NextResponse.json(nuevaLicencia, { status: 201 });
   } catch (error) {
     console.error('Error al crear licencia:', error);
+    await logger.error('LICENCIAS', 'CREAR_LICENCIA_ERROR', 'Error al crear licencia o CITT en la base de datos', {
+      error,
+      usuarioId: (session?.user as any)?.id,
+      ruta: '/api/licencias'
+    });
     return NextResponse.json({ error: 'Error interno del servidor al guardar el CITT' }, { status: 500 });
   }
 }
