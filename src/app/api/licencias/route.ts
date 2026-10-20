@@ -64,6 +64,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
     }
 
+    // Validación RBAC por Microred: Solo SUPER_ADMIN puede registrar en cualquier microred
+    const isSuperAdmin = (session.user as any)?.rol === 'SUPER_ADMIN';
+    const userMicroredId = (session.user as any)?.microredId ? Number((session.user as any).microredId) : null;
+    const userMicroredNombre = (session.user as any)?.microredNombre || 'Sede Local';
+
+    if (!isSuperAdmin && userMicroredId) {
+      const trabajador = await prisma.trabajador.findUnique({
+        where: { id: trabajadorId },
+        include: {
+          establecimiento: {
+            include: { microred: true }
+          }
+        }
+      });
+
+      if (!trabajador) {
+        return NextResponse.json({ error: 'Trabajador no encontrado en el sistema' }, { status: 404 });
+      }
+
+      if (trabajador.establecimiento?.microredId && trabajador.establecimiento.microredId !== userMicroredId) {
+        return NextResponse.json({ 
+          error: `Acceso restringido: El servidor ${trabajador.apellidos}, ${trabajador.nombres} pertenece a la microred "${trabajador.establecimiento.microred?.nombre || 'otra sede'}". Tu usuario solo tiene permisos para registrar descansos médicos de la microred "${userMicroredNombre}".` 
+        }, { status: 403 });
+      }
+    }
+
     const nuevaLicencia = await prisma.licencia.create({
       data: {
         trabajadorId,

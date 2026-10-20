@@ -52,6 +52,25 @@ export async function GET(request: Request) {
   const isPreview = searchParams.get('preview') === 'true';
   const reqMonthStr = searchParams.get('month');
   const reqMonth = reqMonthStr !== null ? parseInt(reqMonthStr, 10) - 1 : null;
+  const monthDesdeStr = searchParams.get('monthDesde') || searchParams.get('monthStart');
+  const monthHastaStr = searchParams.get('monthHasta') || searchParams.get('monthEnd');
+  
+  let mDesde: number | null = null;
+  let mHasta: number | null = null;
+
+  if (monthDesdeStr !== null || monthHastaStr !== null) {
+    mDesde = monthDesdeStr ? Math.max(0, parseInt(monthDesdeStr, 10) - 1) : 0;
+    mHasta = monthHastaStr ? Math.min(11, parseInt(monthHastaStr, 10) - 1) : 11;
+    if (mDesde > mHasta) {
+      const temp = mDesde;
+      mDesde = mHasta;
+      mHasta = temp;
+    }
+  } else if (reqMonth !== null) {
+    mDesde = reqMonth;
+    mHasta = reqMonth;
+  }
+
   const reqYearStr = searchParams.get('year');
   const anio = reqYearStr !== null ? parseInt(reqYearStr, 10) : new Date().getFullYear();
 
@@ -72,7 +91,7 @@ export async function GET(request: Request) {
         whereClause.establecimiento = { nombre: establecimientoNombre };
       }
     }
-    if (condicionLaboral && condicionLaboral !== '--TODOS--' && condicionLaboral !== '') {
+    if (condicionLaboral && condicionLaboral !== '--TODOS--' && condicionLaboral !== 'TODOS' && condicionLaboral !== '-- TODOS --' && condicionLaboral !== '') {
       whereClause.condicionLaboral = condicionLaboral;
     }
 
@@ -199,6 +218,9 @@ export async function GET(request: Request) {
       });
 
       const hasAnyDataForAnyMonth = workersData.some(w => {
+         if (mDesde !== null && mHasta !== null) {
+            return w.allChunks.some(c => c.month >= mDesde && c.month <= mHasta);
+         }
          if (reqMonth !== null) {
             return w.allChunks.some(c => c.month === reqMonth);
          }
@@ -217,7 +239,11 @@ export async function GET(request: Request) {
 
       // Iterar por meses (0 = Enero, 11 = Diciembre)
       for (let m = 0; m < 12; m++) {
-        if (reqMonth !== null && m !== reqMonth) continue;
+        if (mDesde !== null && mHasta !== null) {
+          if (m < mDesde || m > mHasta) continue;
+        } else if (reqMonth !== null && m !== reqMonth) {
+          continue;
+        }
         const workersInMonth = workersData.filter(w => w.allChunks.some(c => c.month === m));
         if (workersInMonth.length === 0) continue;
 
@@ -408,13 +434,23 @@ export async function GET(request: Request) {
        return NextResponse.json(previewData);
     }
 
+    if (workbook.worksheets.length === 0) {
+      const ws = workbook.addWorksheet('SIN REGISTROS');
+      ws.addRow(['No se encontraron licencias para el período y filtros seleccionados']);
+    }
+
     const buffer = await workbook.xlsx.writeBuffer();
+
+    const monthLabel = (mDesde !== null && mHasta !== null)
+      ? (mDesde === mHasta ? MESES[mDesde] : `${MESES[mDesde]}_A_${MESES[mHasta]}`)
+      : (reqMonth !== null ? MESES[reqMonth] : 'CONSOLIDADO');
+    const filename = `Reporte_Masivo_${monthLabel}_${anio}.xlsx`;
 
     return new NextResponse(buffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="Reporte_Masivo_Mensual_${anio}.xlsx"`
+        'Content-Disposition': `attachment; filename="${filename}"`
       }
     });
   } catch (error) {

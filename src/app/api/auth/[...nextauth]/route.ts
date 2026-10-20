@@ -17,7 +17,7 @@ export const authOptions: NextAuthOptions = {
         
         const user = await prisma.usuario.findUnique({
           where: { dni: credentials.dni },
-          include: { rol: true }
+          include: { rol: true, microred: true }
         });
         
         if (!user || !user.activo) {
@@ -48,13 +48,16 @@ export const authOptions: NextAuthOptions = {
           ...(user.permisosExtra || [])
         ]));
         
+        const microredNombre = user.microred?.nombre || (user.microredId ? `Microred #${user.microredId}` : 'SEDE CENTRAL');
+
         return { 
             id: user.id, 
             name: user.nombres + ' ' + user.apellidos, 
             email: user.dni,
             rol: user.rol?.nombre || 'VISUALIZADOR', // Fallback si no tiene rol
             permisos: todosLosPermisos,
-            microredId: user.microredId?.toString()
+            microredId: user.microredId?.toString(),
+            microredNombre
         };
       }
     })
@@ -65,6 +68,7 @@ export const authOptions: NextAuthOptions = {
         token.rol = (user as any).rol;
         token.permisos = (user as any).permisos;
         token.microredId = (user as any).microredId;
+        token.microredNombre = (user as any).microredNombre;
       }
       return token;
     },
@@ -73,6 +77,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).rol = token.rol;
         (session.user as any).permisos = token.permisos || [];
         (session.user as any).microredId = token.microredId;
+        (session.user as any).microredNombre = token.microredNombre;
         (session.user as any).id = token.sub;
       }
       return session;

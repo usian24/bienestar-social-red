@@ -20,16 +20,17 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const rol = await prisma.rol.findUnique({ where: { id } });
     if (!rol) return NextResponse.json({ error: 'Rol no encontrado' }, { status: 404 });
     
-    if (rol.esFijo) {
-       return NextResponse.json({ error: 'No se puede editar un rol fijo del sistema' }, { status: 400 });
-    }
+    // Si el rol es fijo del sistema (SUPER_ADMIN, SEDE_ADMIN, TRABAJADOR, VISUALIZADOR):
+    // Se permite al Super Admin modificar sus poderes asignados (permisos) y descripción,
+    // pero se resguarda su nombre clave interno para no romper la arquitectura del sistema.
+    const nuevoNombre = rol.esFijo ? rol.nombre : (nombre ? nombre.toUpperCase().trim() : undefined);
 
     const updated = await prisma.rol.update({
       where: { id },
       data: {
-        nombre: nombre ? nombre.toUpperCase().trim() : undefined,
+        nombre: nuevoNombre,
         descripcion,
-        permisos
+        permisos: Array.isArray(permisos) ? permisos : []
       }
     });
 

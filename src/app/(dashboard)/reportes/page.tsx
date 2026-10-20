@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { FileText, Printer, Loader2, Brain } from 'lucide-react';
+import { FileText, Printer, Loader2, Brain, FileSpreadsheet, Calendar, Sparkles } from 'lucide-react';
 import { useImprimir } from '@/shared/hooks/useImprimir';
 import ReporteMensualTemplate from '@/shared/components/ReporteMensualTemplate';
 import EditorToolbar from '@/shared/components/EditorToolbar';
@@ -47,32 +47,64 @@ function ReportesContent() {
     }
   };
 
-  const [mes, setMes] = useState<number>(new Date().getMonth() + 1);
+  const currentMonth = new Date().getMonth() + 1;
+  const [mesDesde, setMesDesde] = useState<number>(currentMonth);
+  const [mesHasta, setMesHasta] = useState<number>(currentMonth);
   const [anio, setAnio] = useState<number>(new Date().getFullYear());
-  const [condicion, setCondicion] = useState<string>('CAS');
+  const [condicion, setCondicion] = useState<string>('--TODOS--');
   const [generando, setGenerando] = useState(false);
   const [dataReporte, setDataReporte] = useState<any>(null);
 
   const componentRef = useRef<HTMLDivElement>(null);
 
+  const labelDesde = meses.find(m => m.value === mesDesde)?.label || '';
+  const labelHasta = meses.find(m => m.value === mesHasta)?.label || '';
+  const labelRangoTexto = mesDesde === mesHasta ? labelDesde : `${labelDesde} a ${labelHasta}`;
+  const labelRangoDoc = mesDesde === mesHasta ? labelDesde : `${labelDesde}_a_${labelHasta}`;
+
   const handlePrint = useImprimir({
     contentRef: componentRef,
-    documentTitle: `Informe_Mensual_Bienestar_${meses.find(m => m.value === mes)?.label}_${anio}`
+    documentTitle: `Informe_Bienestar_${labelRangoDoc}_${anio}_${condicion.replace(/[^a-zA-Z0-9]/g, '_')}`
   });
+
+  const aplicarRangoRapido = (desde: number, hasta: number) => {
+    setMesDesde(desde);
+    setMesHasta(hasta);
+  };
 
   const generarReporte = async () => {
     setGenerando(true);
     try {
-      const res = await fetch(`/api/salud/excel-masivo?month=${mes}&year=${anio}&preview=true&condicionLaboral=${condicion}`);
-      if (!res.ok) throw new Error('Error al generar el reporte');
+      const queryParams = new URLSearchParams({
+        monthDesde: Math.min(mesDesde, mesHasta).toString(),
+        monthHasta: Math.max(mesDesde, mesHasta).toString(),
+        year: anio.toString(),
+        preview: 'true',
+        condicionLaboral: condicion
+      });
+      const res = await fetch(`/api/salud/excel-masivo?${queryParams.toString()}`);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Error al generar el reporte');
+      }
       const data = await res.json();
       setDataReporte(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert('Hubo un error al extraer los datos para el reporte.');
+      alert(error.message || 'Hubo un error al extraer los datos para el reporte.');
     } finally {
       setGenerando(false);
     }
+  };
+
+  const descargarExcelMasivo = () => {
+    const queryParams = new URLSearchParams({
+      monthDesde: Math.min(mesDesde, mesHasta).toString(),
+      monthHasta: Math.max(mesDesde, mesHasta).toString(),
+      year: anio.toString(),
+      condicionLaboral: condicion
+    });
+    window.open(`/api/salud/excel-masivo?${queryParams.toString()}`, '_blank');
   };
 
   return (
@@ -85,7 +117,7 @@ function ReportesContent() {
             Reportes e Inteligencia Analítica
           </h1>
           <p className="text-slate-500 text-sm mt-0.5">
-            Generación de informes mensuales oficiales y modelos predictivos de la Red de Salud Huánuco.
+            Generación de informes mensuales oficiales, reportes masivos en Excel y modelos predictivos de la Red de Salud Huánuco.
           </p>
         </div>
 
@@ -100,7 +132,7 @@ function ReportesContent() {
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
-            <span>Informe Mensual (PDF)</span>
+            <span>Informe Mensual & Excel Masivo</span>
           </button>
 
           <button
@@ -117,61 +149,163 @@ function ReportesContent() {
         </div>
       </div>
 
-      {/* SECCIÓN 1: INFORME MENSUAL OFICIAL (PDF) */}
+      {/* SECCIÓN 1: INFORME MENSUAL OFICIAL (PDF) Y EXCEL MASIVO */}
       {activeTab === 'informe' && (
         <div className="space-y-6">
-          {/* Controles de Generación */}
-          <div className="bg-white p-5 rounded-xl shadow-xs border border-slate-200 flex flex-col sm:flex-row gap-4 items-end print:hidden">
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">Mes</label>
-              <select 
-                value={mes} 
-                onChange={e => setMes(Number(e.target.value))}
-                className="w-full sm:w-48 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-slate-500"
-              >
-                {meses.map(m => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">Año</label>
-              <input 
-                type="number" 
-                value={anio} 
-                onChange={e => setAnio(Number(e.target.value))}
-                className="w-full sm:w-32 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-slate-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">Condición Laboral</label>
-              <select 
-                value={condicion} 
-                onChange={e => setCondicion(e.target.value)}
-                className="w-full sm:w-48 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-slate-500"
-              >
-                <option value="CAS">CAS</option>
-                <option value="NOMBRADO">NOMBRADO</option>
-              </select>
-            </div>
-            <button 
-              onClick={generarReporte}
-              disabled={generando}
-              className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 disabled:opacity-50 transition-colors cursor-pointer"
-            >
-              {generando ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-              {generando ? 'Extrayendo...' : 'Generar Vista Previa'}
-            </button>
+          {/* Controles de Generación y Filtros */}
+          <div className="bg-white p-5 rounded-2xl shadow-xs border border-slate-200 space-y-4 print:hidden">
+            {/* Fila superior de filtros */}
+            <div className="flex flex-wrap items-end gap-3.5">
+              {/* Mes Desde */}
+              <div className="flex-1 min-w-[140px]">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Mes Inicial (Desde)
+                </label>
+                <select 
+                  value={mesDesde} 
+                  onChange={e => setMesDesde(Number(e.target.value))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 font-medium focus:ring-2 focus:ring-slate-400 focus:outline-none"
+                >
+                  {meses.map(m => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
 
-            {dataReporte && (
-              <button 
-                onClick={() => handlePrint()}
-                className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ml-auto cursor-pointer"
-              >
-                <Printer className="w-4 h-4" />
-                Imprimir / Guardar PDF
-              </button>
-            )}
+              {/* Mes Hasta */}
+              <div className="flex-1 min-w-[140px]">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Mes Final (Hasta)
+                </label>
+                <select 
+                  value={mesHasta} 
+                  onChange={e => setMesHasta(Number(e.target.value))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 font-medium focus:ring-2 focus:ring-slate-400 focus:outline-none"
+                >
+                  {meses.map(m => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Año */}
+              <div className="w-28">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Año</label>
+                <input 
+                  type="number" 
+                  value={anio} 
+                  onChange={e => setAnio(Number(e.target.value))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 font-medium focus:ring-2 focus:ring-slate-400 focus:outline-none"
+                />
+              </div>
+
+              {/* Condición Laboral */}
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Condición Laboral</label>
+                <select 
+                  value={condicion} 
+                  onChange={e => setCondicion(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 font-medium focus:ring-2 focus:ring-slate-400 focus:outline-none"
+                >
+                  <option value="--TODOS--">-- TODAS LAS MODALIDADES --</option>
+                  <option value="CAS">CAS (D.L. 1057)</option>
+                  <option value="NOMBRADO">NOMBRADO (D.L. 276)</option>
+                  <option value="CAS DIRESA">CAS DIRESA</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Accesos rápidos de rango y Botones de Acción */}
+            <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+              {/* Presets de período */}
+              <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                <span className="font-semibold text-slate-600 mr-1 flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5" />
+                  Atajos:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => aplicarRangoRapido(currentMonth, currentMonth)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer border ${
+                    mesDesde === currentMonth && mesHasta === currentMonth
+                      ? 'bg-slate-900 text-white border-slate-900'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  Mes Actual
+                </button>
+                <button
+                  type="button"
+                  onClick={() => aplicarRangoRapido(1, 12)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer border ${
+                    mesDesde === 1 && mesHasta === 12
+                      ? 'bg-slate-900 text-white border-slate-900'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  Todo el Año
+                </button>
+                <button
+                  type="button"
+                  onClick={() => aplicarRangoRapido(1, 6)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer border ${
+                    mesDesde === 1 && mesHasta === 6
+                      ? 'bg-slate-900 text-white border-slate-900'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  1er Semestre
+                </button>
+                <button
+                  type="button"
+                  onClick={() => aplicarRangoRapido(7, 12)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer border ${
+                    mesDesde === 7 && mesHasta === 12
+                      ? 'bg-slate-900 text-white border-slate-900'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  2do Semestre
+                </button>
+              </div>
+
+              {/* Botones de acción */}
+              <div className="flex flex-wrap items-center gap-2.5 ml-auto">
+                {/* Botón Excel Masivo */}
+                <button
+                  type="button"
+                  onClick={descargarExcelMasivo}
+                  className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 shadow-xs transition-all cursor-pointer"
+                  title="Descargar libro Excel oficial con hojas por cada microred, cálculo de los 20 días y subsidios"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-100" />
+                  Descargar Excel Masivo
+                </button>
+
+                {/* Botón Generar Vista Previa (PDF) */}
+                <button 
+                  type="button"
+                  onClick={generarReporte}
+                  disabled={generando}
+                  className="bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 disabled:opacity-50 transition-all cursor-pointer shadow-xs"
+                >
+                  {generando ? <Loader2 className="w-4 h-4 animate-spin text-slate-300" /> : <FileText className="w-4 h-4 text-slate-300" />}
+                  {generando ? 'Extrayendo datos...' : 'Generar Vista Previa'}
+                </button>
+
+                {/* Botón Imprimir / PDF */}
+                {dataReporte && (
+                  <button 
+                    type="button"
+                    onClick={() => handlePrint()}
+                    className="bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+                  >
+                    <Printer className="w-4 h-4 text-rose-100" />
+                    Imprimir / Guardar PDF
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Visor tipo Google Docs para el informe mensual con escala responsive */}
@@ -182,7 +316,7 @@ function ReportesContent() {
                 <div className="w-full flex flex-col items-center gap-8 print:gap-0">
                   <ReporteMensualTemplate 
                     ref={componentRef} 
-                    mes={meses.find(m => m.value === mes)?.label || ''} 
+                    mes={labelRangoTexto} 
                     anio={anio} 
                     condicionLaboral={condicion}
                     data={dataReporte} 

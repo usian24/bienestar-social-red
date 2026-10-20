@@ -15,6 +15,8 @@ import DetallesTrabajadorModal from '@/shared/components/DetallesTrabajadorModal
 export default function InicioPage() {
   const { data: session } = useSession();
   const rol = (session?.user as any)?.rol;
+  const isSuperAdmin = rol === 'SUPER_ADMIN';
+  const userMicroredNombre = (session?.user as any)?.microredNombre;
   const [kpis, setKpis] = useState({ totalTrabajadores: 0, licenciasActivas: 0, subsidiosPendientes: 0 });
   const [loadingKpis, setLoadingKpis] = useState(true);
   
@@ -201,11 +203,18 @@ export default function InicioPage() {
         <div className="lg:col-span-2">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <Bell className="w-5 h-5 text-amber-500" /> Semáforo de Canjes Particulares
-              </h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <Bell className="w-5 h-5 text-amber-500" /> Semáforo de Canjes Particulares
+                </h2>
+                {!isSuperAdmin && userMicroredNombre && (
+                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-300 shadow-xs flex items-center gap-1">
+                    {userMicroredNombre}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Plazo límite de 30 días para canjear certificados particulares ante EsSalud
+                Plazo límite de 30 días para canjear certificados particulares ante EsSalud {!isSuperAdmin && userMicroredNombre ? `(${userMicroredNombre})` : 'en toda la Red'}
               </p>
             </div>
 
@@ -294,9 +303,13 @@ export default function InicioPage() {
               </div>
             ) : alertasFiltradas.length === 0 ? (
               <div className="bg-white p-8 rounded-lg border border-slate-200 shadow-sm text-center flex flex-col items-center">
-                <CheckCircle className="w-10 h-10 text-emerald-400 mb-3" />
-                <p className="text-slate-600 font-medium">No hay certificados en este estado.</p>
-                <p className="text-sm text-slate-400 mt-1">Todo está al día con EsSalud.</p>
+                <CheckCircle className="w-10 h-10 text-emerald-500 mb-3" />
+                <p className="text-slate-700 font-semibold text-sm">
+                  Sin certificados en este estado {!isSuperAdmin && userMicroredNombre ? `en la ${userMicroredNombre}` : ''}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Los descansos médicos particulares de esta jurisdicción están al día y dentro del plazo de 30 días reglamentarios.
+                </p>
               </div>
             ) : (
               alertasPaginadas.map((alerta) => (

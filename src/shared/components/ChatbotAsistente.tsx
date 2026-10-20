@@ -196,11 +196,13 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
 
   // Preguntas sugeridas contextuales según el rol
   const sugerencias = rol === 'TRABAJADOR' ? [
+    '¿A qué sede y microred pertenezco?',
     '¿Cuántos días de descanso me quedan este año?',
     '¿Cómo funciona la regla de los 20 días?',
     '¿Cuáles son los pasos para canjear mi CITT?'
   ] : [
-    'Buscar expediente de DNI 74425510',
+    '¿A qué microred y sede pertenezco?',
+    'Buscar expediente por DNI',
     '¿Qué alertas de CITT están vencidas o en rojo?',
     '¿Cómo funciona la regla de los 20 días?'
   ];
@@ -571,7 +573,7 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Orientación
                 </span>
               </div>
-              <p className="text-[11px] text-slate-300 font-normal mt-0.5">Asistente de Bienestar Social • Red Huánuco</p>
+              <p className="text-[11px] text-slate-300 font-normal mt-0.5">Asistente de Bienestar Social</p>
             </div>
           </div>
 

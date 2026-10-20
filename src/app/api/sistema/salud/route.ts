@@ -27,7 +27,7 @@ export async function GET() {
     }
 
     // 2. Diagnóstico de IA Gemini
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY_SCANNER || process.env.GEMINI_API_KEY_CHAT || process.env.GEMINI_API_KEY;
     const aiConfigurada = Boolean(apiKey && apiKey.length > 10);
     const aiStatus = aiConfigurada ? 'OPERATIVO' : 'MODO_CONTINGENCIA';
 

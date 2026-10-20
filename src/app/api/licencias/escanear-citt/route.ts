@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     // 2. Preparar imagen en base64 para Gemini Vision
     const base64Image = webpBuffer.toString('base64');
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY_SCANNER || process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
       return NextResponse.json({
@@ -97,13 +97,11 @@ Responde ÚNICAMENTE un objeto JSON válido con estas claves exactas.`;
       }
     };
 
-    // 4. Cadena activa de modelos Gemini con timeout generoso de 22s y backoff ante 503
+    // 4. Cadena activa de modelos Gemini: gemini-3.5-flash-lite como #1 indiscutible por fidelidad y calidad en manuscritos
     const modelosDisponibles = [
       'gemini-3.5-flash-lite',
       'gemini-3.1-flash-lite',
       'gemini-flash-lite-latest',
-      'gemini-3.6-flash',
-      'gemini-3.5-flash',
       'gemini-flash-latest'
     ];
 
@@ -111,13 +109,14 @@ Responde ÚNICAMENTE un objeto JSON válido con estas claves exactas.`;
 
     for (const modelo of modelosDisponibles) {
       try {
+        console.log(`[OCR CITT] Iniciando análisis visual con modelo: ${modelo}...`);
         const geminiRes = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payloadGemini),
-            signal: AbortSignal.timeout(22000)
+            signal: AbortSignal.timeout(38000) // 38s permite a Vision procesar certificados manuscritos sin corte prematuro
           }
         );
 
@@ -275,7 +274,8 @@ Responde ÚNICAMENTE un objeto JSON válido con estas claves exactas.`;
           cargo: trab.cargo,
           condicionLaboral: trab.condicionLaboral,
           establecimiento: trab.establecimiento?.nombre || 'No asignado',
-          microred: trab.establecimiento?.microred?.nombre || 'No asignada'
+          microred: trab.establecimiento?.microred?.nombre || 'No asignada',
+          microredId: trab.establecimiento?.microredId || null
         };
       }
     }
@@ -314,7 +314,8 @@ Responde ÚNICAMENTE un objeto JSON válido con estas claves exactas.`;
             cargo: trabPorNombre.cargo,
             condicionLaboral: trabPorNombre.condicionLaboral,
             establecimiento: trabPorNombre.establecimiento?.nombre || 'No asignado',
-            microred: trabPorNombre.establecimiento?.microred?.nombre || 'No asignada'
+            microred: trabPorNombre.establecimiento?.microred?.nombre || 'No asignada',
+            microredId: trabPorNombre.establecimiento?.microredId || null
           };
           if (!datosExtraidos.dni) {
             datosExtraidos.dni = trabPorNombre.dni;
@@ -323,10 +324,30 @@ Responde ÚNICAMENTE un objeto JSON válido con estas claves exactas.`;
       }
     }
 
+    // 5. Verificación de Seguridad y RBAC por Microred
+    const userRol = (session.user as any)?.rol;
+    const userMicroredId = (session.user as any)?.microredId ? Number((session.user as any).microredId) : null;
+    const userMicroredNombre = (session.user as any)?.microredNombre || 'Sede Local';
+    const isSuperAdmin = userRol === 'SUPER_ADMIN';
+
+    let bloqueadoPorMicrored = false;
+    let mensajeMicrored = '';
+
+    if (trabajadorEncontrado && !isSuperAdmin && userMicroredId) {
+      if (trabajadorEncontrado.microredId && trabajadorEncontrado.microredId !== userMicroredId) {
+        bloqueadoPorMicrored = true;
+        mensajeMicrored = `Este servidor pertenece a la microred "${trabajadorEncontrado.microred}". Tu cuenta sólo tiene permisos para gestionar personal de la microred "${userMicroredNombre}". Solo el Super Admin puede registrar descansos médicos de otras sedes.`;
+      }
+    }
+
     return NextResponse.json({
       success: true,
       datos: datosExtraidos,
-      trabajador: trabajadorEncontrado
+      trabajador: trabajadorEncontrado,
+      bloqueadoPorMicrored,
+      mensajeMicrored,
+      microredTrabajador: trabajadorEncontrado?.microred || null,
+      microredUsuario: userMicroredNombre
     });
 
   } catch (error) {

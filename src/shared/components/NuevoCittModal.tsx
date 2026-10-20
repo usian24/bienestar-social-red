@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, Search, CheckCircle2, AlertCircle, Camera, Upload, 
   Loader2, Check, FileText, Scan, RefreshCw, Image as ImageIcon,
-  Zap, RotateCw, Sparkles, Stethoscope, UserCheck
+  Zap, RotateCw, Sparkles, Stethoscope, UserCheck, ShieldAlert, Lock, AlertTriangle
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { tienePermiso } from '@/shared/utils/permisos';
@@ -76,6 +76,10 @@ export default function NuevoCittModal({
     trabajadorNombre?: string;
     encontradoEnBD?: boolean;
     previewUrl?: string;
+    bloqueadoPorMicrored?: boolean;
+    mensajeMicrored?: string;
+    microredTrabajador?: string | null;
+    microredUsuario?: string | null;
   } | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -528,11 +532,15 @@ export default function NuevoCittModal({
         if (data.datos.diagnostico) setDiagnostico(String(data.datos.diagnostico).trim());
       }
 
-      // Auto-seleccionar si el trabajador fue hallado en BD
-      if (data.trabajador) {
+      // Auto-seleccionar si el trabajador fue hallado en BD Y NO está bloqueado por microred
+      const esBloqueado = Boolean(data.bloqueadoPorMicrored);
+      if (data.trabajador && !esBloqueado) {
         setTrabajadorSeleccionado(data.trabajador);
-      } else if (data.datos?.dni) {
-        setBusqueda(data.datos.dni);
+      } else {
+        setTrabajadorSeleccionado(null);
+        if (!esBloqueado && data.datos?.dni) {
+          setBusqueda(data.datos.dni);
+        }
       }
 
       setResumenEscaneo({
@@ -548,7 +556,11 @@ export default function NuevoCittModal({
         tipoLicencia: data.datos?.tipoLicencia,
         trabajadorNombre: data.trabajador ? data.trabajador.apellidosNombres : (data.datos?.apellidosNombres || undefined),
         encontradoEnBD: Boolean(data.trabajador),
-        previewUrl: previewUrl || undefined
+        previewUrl: previewUrl || undefined,
+        bloqueadoPorMicrored: esBloqueado,
+        mensajeMicrored: data.mensajeMicrored,
+        microredTrabajador: data.microredTrabajador,
+        microredUsuario: data.microredUsuario
       });
 
     } catch (err: any) {
@@ -580,6 +592,16 @@ export default function NuevoCittModal({
       setError('Debes seleccionar un trabajador.');
       return;
     }
+
+    // Doble validación de permisos por Microred
+    const isSuperAdmin = (session?.user as any)?.rol === 'SUPER_ADMIN';
+    const userMicroredId = (session?.user as any)?.microredId ? Number((session?.user as any).microredId) : null;
+    const workerMicroredId = trabajadorSeleccionado?.establecimiento?.microredId || trabajadorSeleccionado?.microredId;
+    if (!isSuperAdmin && userMicroredId && workerMicroredId && workerMicroredId !== userMicroredId) {
+      setError(`No tienes autorización para registrar descansos para personal de otra microred. Esta acción es exclusiva del Super Admin.`);
+      return;
+    }
+
     if (!fechaInicio || !diasOtorgados || !numeroCertificado) {
       setError('Por favor completa todos los campos.');
       return;
@@ -1168,7 +1190,25 @@ export default function NuevoCittModal({
                   <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 ${resumenEscaneo.previewUrl ? 'md:col-span-2' : 'md:col-span-3'}`}>
                     <div className="sm:col-span-2">
                       <span className="text-slate-400 block text-[11px] mb-0.5">Servidor Identificado</span>
-                      {resumenEscaneo.trabajadorNombre ? (
+                      {resumenEscaneo.bloqueadoPorMicrored ? (
+                        <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-xl space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="flex items-center gap-1.5 text-xs font-bold text-rose-800 dark:text-rose-200">
+                              <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                              Servidor de Otra Sede (Acceso Restringido)
+                            </span>
+                            <span className="px-2 py-0.5 bg-rose-600 text-white text-[10px] font-bold rounded-md uppercase shrink-0">
+                              Bloqueado
+                            </span>
+                          </div>
+                          <p className="font-bold text-slate-800 dark:text-slate-100 text-xs">
+                            {resumenEscaneo.trabajadorNombre} • DNI {resumenEscaneo.dni}
+                          </p>
+                          <div className="text-[11px] text-rose-700 dark:text-rose-300 bg-white/80 dark:bg-slate-900/60 p-2.5 rounded-lg border border-rose-200 dark:border-rose-900/60 leading-relaxed">
+                            {resumenEscaneo.mensajeMicrored || `Este servidor pertenece a la microred "${resumenEscaneo.microredTrabajador}". Tu cuenta solo puede tramitar licencias de "${resumenEscaneo.microredUsuario}". Solo el Super Admin puede registrar personal de otras sedes.`}
+                          </div>
+                        </div>
+                      ) : resumenEscaneo.trabajadorNombre ? (
                         <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg flex items-center justify-between">
                           <div>
                             <p className="font-bold text-emerald-900 dark:text-emerald-100 text-xs">
@@ -1255,16 +1295,31 @@ export default function NuevoCittModal({
 
                 <div className="p-4 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-3">
                   <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Foto escaneada lista. Se guardará en el servidor al presionar &quot;Registrar Licencia&quot;.
+                    {resumenEscaneo.bloqueadoPorMicrored
+                      ? "⚠️ Certificado bloqueado: El servidor pertenece a otra microred y no tienes autorización para tramitarlo."
+                      : "Foto escaneada lista. Se guardará en el servidor al presionar \"Registrar Licencia\"."}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setTabActiva('manual')}
-                    className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm cursor-pointer transition-colors active:scale-98"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Pasar al Formulario y Guardar</span>
-                  </button>
+
+                  {resumenEscaneo.bloqueadoPorMicrored ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="w-full sm:w-auto px-6 py-2.5 bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed border border-slate-300 dark:border-slate-600 shadow-none opacity-80"
+                      title="No puedes registrar descansos de servidores de otra microred"
+                    >
+                      <Lock className="w-3.5 h-3.5 text-rose-500" />
+                      <span>Registro Bloqueado (Otra Sede)</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setTabActiva('manual')}
+                      className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm cursor-pointer transition-colors active:scale-98"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Pasar al Formulario y Guardar</span>
+                    </button>
+                  )}
                 </div>
               </div>
             )}

@@ -61,9 +61,23 @@ const HojaA4 = ({ children, isEditable, noPadding }: { children: React.ReactNode
 );
 
 const ReporteMensualTemplate = forwardRef<HTMLDivElement, ReporteMensualTemplateProps>(({ mes, anio, condicionLaboral, data }, ref) => {
+  const isTodos = !condicionLaboral || condicionLaboral === '--TODOS--' || condicionLaboral === 'TODOS';
   const isCas = condicionLaboral === 'CAS';
-  const condicionAsunto = isCas ? 'PERSONAL CAS' : 'PERSONAL NOMBRADO 276';
-  const condicionCuerpo = isCas ? 'bajo el régimen del Decreto Legislativo N.° 1057 CAS' : 'bajo el régimen del Decreto Legislativo N.° 276 Nombrados';
+  const isCasDiresa = condicionLaboral === 'CAS DIRESA';
+
+  let condicionAsunto = 'PERSONAL GENERAL (TODAS LAS MODALIDADES)';
+  let condicionCuerpo = 'bajo los regímenes del D.L. 1057 CAS, D.L. 276 y modalidades vigentes';
+
+  if (isCas) {
+    condicionAsunto = 'PERSONAL CAS';
+    condicionCuerpo = 'bajo el régimen del Decreto Legislativo N.° 1057 CAS';
+  } else if (isCasDiresa) {
+    condicionAsunto = 'PERSONAL CAS DIRESA';
+    condicionCuerpo = 'bajo el régimen CAS DIRESA';
+  } else if (!isTodos) {
+    condicionAsunto = 'PERSONAL NOMBRADO 276';
+    condicionCuerpo = 'bajo el régimen del Decreto Legislativo N.° 276 Nombrados';
+  }
 
   return (
     <div ref={ref} className="w-full flex flex-col items-center">

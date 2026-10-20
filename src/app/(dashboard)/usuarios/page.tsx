@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Users, PlusCircle, Shield, Trash2, X, Eye, EyeOff, Pencil, Heart, Settings, FileText, Folder, Terminal, Bot } from "lucide-react";
+import { 
+  Users, PlusCircle, Shield, Trash2, X, Eye, EyeOff, Pencil, 
+  Heart, Settings, FileText, Folder, Terminal, Bot, 
+  CheckCircle2, Loader2, Lock, AlertCircle 
+} from "lucide-react";
 import { useSession } from "next-auth/react";
 import { PERMISOS, PERMISOS_DESCRIPCION, Permiso } from '@/shared/utils/permisos';
 
@@ -24,7 +28,69 @@ export default function UsuariosPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [showPermisoDropdown, setShowPermisoDropdown] = useState(false);
+  const [trabajadorVinculado, setTrabajadorVinculado] = useState<any | null>(null);
+  const [buscandoDni, setBuscandoDni] = useState(false);
+
+  const selectedRol = roles.find(r => r.id === formData.rolId);
+
+  const renderBotonPermiso = (clave: string) => {
+    const info = PERMISOS_DESCRIPCION[clave as Permiso];
+    if (!info) return null;
+    const tienePorRol = selectedRol?.permisos?.includes(clave);
+    const tieneExtra = formData.permisosExtra.includes(clave);
+
+    if (tienePorRol) {
+      return (
+        <div
+          key={clave}
+          className="group relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs select-none"
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          <span>{info.titulo}</span>
+          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100/80 dark:bg-emerald-900/50 px-1 rounded">Base</span>
+          <div className="absolute opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-[10px] font-normal text-left p-2 rounded-md shadow-xl z-50">
+            <p className="font-semibold text-emerald-300 mb-0.5">Poder incluido por Rol</p>
+            {info.descripcion}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800"></div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <button
+        key={clave}
+        type="button"
+        onClick={() => {
+          if (tieneExtra) {
+            setFormData({ ...formData, permisosExtra: formData.permisosExtra.filter(p => p !== clave) });
+          } else {
+            setFormData({ ...formData, permisosExtra: [...formData.permisosExtra, clave] });
+          }
+        }}
+        className={`group relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+          tieneExtra
+            ? 'bg-purple-100 text-purple-800 border border-purple-400 shadow-xs dark:bg-purple-950/70 dark:text-purple-300 dark:border-purple-600 ring-1 ring-purple-300'
+            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:bg-slate-700 dark:border-slate-700'
+        }`}
+      >
+        <span className={`w-1.5 h-1.5 rounded-full ${tieneExtra ? 'bg-purple-600' : 'bg-slate-400'}`}></span>
+        <span>{info.titulo}</span>
+        {tieneExtra ? (
+          <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 bg-purple-200/80 dark:bg-purple-900/60 px-1 rounded">+ Extra</span>
+        ) : (
+          <span className="text-[10px] text-slate-400 font-normal">+</span>
+        )}
+        <div className="absolute opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-[10px] font-normal text-left p-2 rounded-md shadow-xl z-50">
+          <p className={`font-semibold mb-0.5 ${tieneExtra ? 'text-purple-300' : 'text-slate-300'}`}>
+            {tieneExtra ? 'Permiso Extra Otorgado' : 'Clic para conceder como permiso extra'}
+          </p>
+          {info.descripcion}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800"></div>
+        </div>
+      </button>
+    );
+  };
 
   useEffect(() => {
     fetchUsuarios();
@@ -65,15 +131,56 @@ export default function UsuariosPage() {
     }
   };
 
+  const handleDniChange = async (val: string) => {
+    const dniLimpio = val.replace(/\D/g, '').slice(0, 8);
+    setFormData(prev => ({ ...prev, dni: dniLimpio }));
+
+    if (dniLimpio.length === 8) {
+      setBuscandoDni(true);
+      try {
+        const res = await fetch(`/api/trabajadores/buscar?q=${dniLimpio}`);
+        if (res.ok) {
+          const data = await res.json();
+          const list = Array.isArray(data) ? data : (data.trabajadores || []);
+          const encontrado = list.find((t: any) => String(t.dni).trim() === dniLimpio);
+          if (encontrado) {
+            setTrabajadorVinculado(encontrado);
+            setFormData(prev => ({
+              ...prev,
+              nombres: encontrado.nombres || '',
+              apellidos: encontrado.apellidos || '',
+              microredId: encontrado.establecimiento?.microredId?.toString() || encontrado.establecimiento?.microred?.id?.toString() || prev.microredId
+            }));
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Error buscando trabajador por DNI:", err);
+      } finally {
+        setBuscandoDni(false);
+      }
+    }
+    setTrabajadorVinculado(null);
+  };
+
+  const handleRolChange = (newRolId: string) => {
+    setFormData(prev => ({ ...prev, rolId: newRolId, permisosExtra: [] }));
+    if (formData.dni.length === 8) {
+      handleDniChange(formData.dni);
+    }
+  };
+
   const handleOpenCreate = () => {
     setIsEditing(false);
     setEditId(null);
     setFormData({ dni: '', nombres: '', apellidos: '', password: '', rolId: '', microredId: '', permisosExtra: [] });
+    setTrabajadorVinculado(null);
+    setBuscandoDni(false);
     setIsModalOpen(true);
     setErrorMsg('');
   };
 
-  const handleOpenEdit = (u: any) => {
+  const handleOpenEdit = async (u: any) => {
     setIsEditing(true);
     setEditId(u.id);
     setFormData({ 
@@ -85,8 +192,21 @@ export default function UsuariosPage() {
       microredId: u.microred?.id?.toString() || '',
       permisosExtra: u.permisosExtra || []
     });
+    setTrabajadorVinculado(null);
     setIsModalOpen(true);
     setErrorMsg('');
+
+    if (u.dni && u.dni.length === 8) {
+      try {
+        const res = await fetch(`/api/trabajadores/buscar?q=${u.dni}`);
+        if (res.ok) {
+          const data = await res.json();
+          const list = Array.isArray(data) ? data : (data.trabajadores || []);
+          const exacto = list.find((t: any) => String(t.dni).trim() === u.dni);
+          if (exacto) setTrabajadorVinculado(exacto);
+        }
+      } catch (e) {}
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -235,74 +355,132 @@ export default function UsuariosPage() {
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 overflow-y-auto p-1">
                 {/* Columna Izquierda: Datos del Usuario (Ocupa 4 de 12) */}
                 <div className="space-y-4 lg:col-span-4 border-b lg:border-b-0 lg:border-r border-slate-100 dark:border-slate-700 pb-6 lg:pb-0 lg:pr-6">
-                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-700 pb-2">Datos Básicos</h3>
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-700 pb-2">
+                    1. Configuración de la Cuenta
+                  </h3>
                   
+                  {/* Paso 1: Rol de Acceso PRIMERO */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">DNI (Usuario de acceso)</label>
-                    <input 
-                      required maxLength={8} type="text"
-                      disabled={isEditing} 
-                      value={formData.dni} onChange={e => setFormData({...formData, dni: e.target.value.replace(/\D/g, '')})}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-blue-500 text-slate-800 dark:text-slate-100 disabled:opacity-60"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Nombres</label>
-                    <input 
-                      required type="text"
-                      value={formData.nombres} onChange={e => setFormData({...formData, nombres: e.target.value.toUpperCase()})}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-blue-500 text-slate-800 dark:text-slate-100"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Apellidos</label>
-                    <input 
-                      required type="text"
-                      value={formData.apellidos} onChange={e => setFormData({...formData, apellidos: e.target.value.toUpperCase()})}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-blue-500 text-slate-800 dark:text-slate-100"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                      {isEditing ? 'Nueva Contraseña (Opcional)' : 'Contraseña'}
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Rol de Acceso <span className="text-blue-600">*</span>
                     </label>
-                    <div className="relative">
-                      <input 
-                        required={!isEditing} type={showPassword ? "text" : "password"}
-                        value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})}
-                        placeholder={isEditing ? 'Déjalo en blanco para no cambiarla' : ''}
-                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md pl-3 pr-10 py-2 text-sm focus:outline-blue-500 text-slate-800 dark:text-slate-100"
-                      />
-                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600">
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div className="pt-2">
-                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Rol de Acceso</label>
                     <select 
-                      value={formData.rolId} onChange={e => {
-                        setFormData({...formData, rolId: e.target.value, permisosExtra: []});
-                      }}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-blue-500 text-slate-800 dark:text-slate-100"
+                      required
+                      value={formData.rolId} 
+                      onChange={e => handleRolChange(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-blue-500 text-slate-800 dark:text-slate-100"
                     >
                       <option value="">Seleccione un Rol...</option>
                       {roles.map(r => (
                         <option key={r.id} value={r.id}>{r.nombre}</option>
                       ))}
                     </select>
+                    {selectedRol && (
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                        {selectedRol.descripcion || (selectedRol.nombre === 'SUPER_ADMIN' ? 'Control total del sistema' : `Rol con ${selectedRol.permisos?.length || 0} poderes base predefinidos.`)}
+                      </p>
+                    )}
                   </div>
-                  
+
+                  {/* Paso 2: DNI del Servidor */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Microred Asignada</label>
+                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                      DNI del Servidor (Usuario de acceso) <span className="text-blue-600">*</span>
+                    </label>
+                    <div className="relative">
+                      <input 
+                        required maxLength={8} type="text"
+                        disabled={isEditing} 
+                        placeholder="Ej. 46516392 (8 dígitos)"
+                        value={formData.dni} 
+                        onChange={e => handleDniChange(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-blue-500 text-slate-800 dark:text-slate-100 disabled:opacity-60"
+                      />
+                      {buscandoDni && (
+                        <div className="absolute right-3 top-2.5">
+                          <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
+                        </div>
+                      )}
+                    </div>
+
+                    {trabajadorVinculado && (
+                      <div className="mt-2 p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs">
+                        <div className="flex items-center gap-1.5 font-bold text-emerald-800 dark:text-emerald-200">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>Servidor vinculado del Padrón</span>
+                        </div>
+                        <p className="text-emerald-700 dark:text-emerald-300 text-[11px] mt-0.5">
+                          {trabajadorVinculado.cargo} • {trabajadorVinculado.establecimiento?.nombre} ({trabajadorVinculado.establecimiento?.microred?.nombre})
+                        </p>
+                        <span className="text-[10px] text-emerald-600/90 dark:text-emerald-400 block mt-1">
+                          🔒 Datos y microred bloqueados automáticamente según padrón oficial.
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Paso 3: Nombres */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400">Nombres</label>
+                      {trabajadorVinculado && (
+                        <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5">
+                          <Lock className="w-3 h-3" /> Bloqueado (Padrón)
+                        </span>
+                      )}
+                    </div>
+                    <input 
+                      required type="text"
+                      readOnly={Boolean(trabajadorVinculado)}
+                      value={formData.nombres} onChange={e => setFormData({...formData, nombres: e.target.value.toUpperCase()})}
+                      className={`w-full bg-slate-50 dark:bg-slate-900 border rounded-md px-3 py-2 text-sm text-slate-800 dark:text-slate-100 ${
+                        trabajadorVinculado 
+                          ? 'border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/30 dark:bg-emerald-950/20 cursor-not-allowed text-emerald-900 dark:text-emerald-100 font-medium'
+                          : 'border-slate-200 dark:border-slate-700 focus:outline-blue-500'
+                      }`}
+                    />
+                  </div>
+
+                  {/* Paso 4: Apellidos */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400">Apellidos</label>
+                      {trabajadorVinculado && (
+                        <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5">
+                          <Lock className="w-3 h-3" /> Bloqueado (Padrón)
+                        </span>
+                      )}
+                    </div>
+                    <input 
+                      required type="text"
+                      readOnly={Boolean(trabajadorVinculado)}
+                      value={formData.apellidos} onChange={e => setFormData({...formData, apellidos: e.target.value.toUpperCase()})}
+                      className={`w-full bg-slate-50 dark:bg-slate-900 border rounded-md px-3 py-2 text-sm text-slate-800 dark:text-slate-100 ${
+                        trabajadorVinculado 
+                          ? 'border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/30 dark:bg-emerald-950/20 cursor-not-allowed text-emerald-900 dark:text-emerald-100 font-medium'
+                          : 'border-slate-200 dark:border-slate-700 focus:outline-blue-500'
+                      }`}
+                    />
+                  </div>
+
+                  {/* Paso 5: Microred */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400">Microred Asignada</label>
+                      {trabajadorVinculado && (
+                        <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5">
+                          <Lock className="w-3 h-3" /> Bloqueado (Padrón)
+                        </span>
+                      )}
+                    </div>
                     <select 
                       value={formData.microredId} onChange={e => setFormData({...formData, microredId: e.target.value})}
-                      disabled={roles.find(r => r.id === formData.rolId)?.nombre === 'SUPER_ADMIN'}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm focus:outline-blue-500 disabled:opacity-50 text-slate-800 dark:text-slate-100"
+                      disabled={selectedRol?.nombre === 'SUPER_ADMIN' || Boolean(trabajadorVinculado)}
+                      className={`w-full bg-slate-50 dark:bg-slate-900 border rounded-md px-3 py-2 text-sm text-slate-800 dark:text-slate-100 ${
+                        trabajadorVinculado 
+                          ? 'border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/30 dark:bg-emerald-950/20 cursor-not-allowed font-medium text-emerald-900 dark:text-emerald-100'
+                          : 'border-slate-200 dark:border-slate-700 focus:outline-blue-500 disabled:opacity-50'
+                      }`}
                     >
                       <option value="">Seleccione...</option>
                       {microredes.map(m => (
@@ -310,15 +488,58 @@ export default function UsuariosPage() {
                       ))}
                     </select>
                   </div>
+
+                  {/* Paso 6: Contraseña */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                      {isEditing ? 'Nueva Contraseña (Opcional)' : 'Contraseña de Acceso'}
+                    </label>
+                    <div className="relative">
+                      <input 
+                        required={!isEditing} type={showPassword ? "text" : "password"}
+                        value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})}
+                        placeholder={isEditing ? 'Déjalo en blanco para mantener la actual' : 'Mínimo 6 caracteres'}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md pl-3 pr-10 py-2 text-sm focus:outline-blue-500 text-slate-800 dark:text-slate-100"
+                      />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600">
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Columna Derecha: Permisos Excepcionales (Ocupa 8 de 12) */}
+                {/* Columna Derecha: Permisos y Poderes (Ocupa 8 de 12) */}
                 <div className="space-y-4 lg:col-span-8">
-                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-700 pb-2">Permisos Excepcionales (Haz clic para activar/desactivar)</h3>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-700 pb-2">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                        Poderes y Permisos de la Cuenta
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        {selectedRol ? (
+                          <>Rol activo: <strong className="text-blue-600 dark:text-blue-400">{selectedRol.nombre}</strong> — Los poderes base se aplican automáticamente</>
+                        ) : 'Selecciona un rol en la izquierda para ver sus poderes'}
+                      </p>
+                    </div>
+
+                    {/* Leyenda visual */}
+                    <div className="flex items-center gap-3 text-[11px] shrink-0">
+                      <span className="inline-flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Base (Por Rol)
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 text-purple-700 dark:text-purple-400 font-semibold bg-purple-50 dark:bg-purple-950/50 px-2 py-0.5 rounded border border-purple-200 dark:border-purple-800">
+                        <span className="w-2 h-2 rounded-full bg-purple-600"></span> + Extra Concedido
+                      </span>
+                    </div>
+                  </div>
                   
                   {roles.find(r => r.id === formData.rolId)?.nombre === 'SUPER_ADMIN' ? (
-                    <div className="text-sm text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 p-4 rounded-md font-medium border border-blue-100 dark:border-blue-800">
-                      🛡️ Los Súper Administradores tienen acceso total al sistema. No es necesario asignar permisos excepcionales.
+                    <div className="text-sm text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 p-4 rounded-xl font-medium border border-blue-100 dark:border-blue-800 flex items-center gap-3">
+                      <Shield className="w-6 h-6 text-blue-600 shrink-0" />
+                      <div>
+                        <p className="font-bold">Super Administrador — Control Total</p>
+                        <p className="text-xs text-blue-600/80 dark:text-blue-300">Tiene acceso irrestricto a todas las funciones, módulos, microredes y configuraciones del sistema sin necesidad de permisos extra.</p>
+                      </div>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5">
@@ -329,28 +550,7 @@ export default function UsuariosPage() {
                           <Users className="w-3.5 h-3.5" /> Recursos Humanos
                         </h4>
                         <div className="flex flex-wrap gap-2">
-                          {['VER_TRABAJADORES', 'EDITAR_TRABAJADORES', 'EXPORTAR_EXCEL_PERSONAL'].map(clave => {
-                            const info = PERMISOS_DESCRIPCION[clave as Permiso];
-                            if (!info) return null;
-                            const isActive = formData.permisosExtra.includes(clave);
-                            return (
-                              <button
-                                key={clave}
-                                type="button"
-                                onClick={() => {
-                                  if (isActive) setFormData({ ...formData, permisosExtra: formData.permisosExtra.filter(p => p !== clave) });
-                                  else setFormData({ ...formData, permisosExtra: [...formData.permisosExtra, clave] });
-                                }}
-                                className={`group relative inline-flex items-center px-2.5 py-1.5 rounded-md text-[11px] font-semibold cursor-pointer transition-all ${isActive ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-400 shadow-sm dark:bg-blue-900/50 dark:text-blue-300 dark:ring-blue-500' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:bg-slate-700'}`}
-                              >
-                                {info.titulo}
-                                <div className="absolute opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-[10px] font-normal text-left p-2 rounded-md shadow-xl z-50">
-                                  {info.descripcion}
-                                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800"></div>
-                                </div>
-                              </button>
-                            );
-                          })}
+                          {['VER_TRABAJADORES', 'EDITAR_TRABAJADORES', 'EXPORTAR_EXCEL_PERSONAL'].map(renderBotonPermiso)}
                         </div>
                       </div>
 
@@ -360,28 +560,7 @@ export default function UsuariosPage() {
                           <Heart className="w-3.5 h-3.5" /> Trámites Essalud
                         </h4>
                         <div className="flex flex-wrap gap-2">
-                          {['VER_LICENCIAS', 'GESTIONAR_LICENCIAS', 'SUBIR_CITT', 'SUBIR_ARCHIVOS', 'EXPORTAR_PDF_TRAMITE'].map(clave => {
-                            const info = PERMISOS_DESCRIPCION[clave as Permiso];
-                            if (!info) return null;
-                            const isActive = formData.permisosExtra.includes(clave);
-                            return (
-                              <button
-                                key={clave}
-                                type="button"
-                                onClick={() => {
-                                  if (isActive) setFormData({ ...formData, permisosExtra: formData.permisosExtra.filter(p => p !== clave) });
-                                  else setFormData({ ...formData, permisosExtra: [...formData.permisosExtra, clave] });
-                                }}
-                                className={`group relative inline-flex items-center px-2.5 py-1.5 rounded-md text-[11px] font-semibold cursor-pointer transition-all ${isActive ? 'bg-indigo-100 text-indigo-700 ring-1 ring-indigo-400 shadow-sm dark:bg-indigo-900/50 dark:text-indigo-300 dark:ring-indigo-500' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:bg-slate-700'}`}
-                              >
-                                {info.titulo}
-                                <div className="absolute opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-[10px] font-normal text-left p-2 rounded-md shadow-xl z-50">
-                                  {info.descripcion}
-                                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800"></div>
-                                </div>
-                              </button>
-                            );
-                          })}
+                          {['VER_LICENCIAS', 'GESTIONAR_LICENCIAS', 'SUBIR_CITT', 'SUBIR_ARCHIVOS', 'EXPORTAR_PDF_TRAMITE'].map(renderBotonPermiso)}
                         </div>
                       </div>
 
@@ -391,28 +570,7 @@ export default function UsuariosPage() {
                           <Settings className="w-3.5 h-3.5" /> Administración
                         </h4>
                         <div className="flex flex-wrap gap-2">
-                          {['ADMINISTRAR_USUARIOS', 'VER_AUDITORIA', 'GESTIONAR_ESTABLECIMIENTOS'].map(clave => {
-                            const info = PERMISOS_DESCRIPCION[clave as Permiso];
-                            if (!info) return null;
-                            const isActive = formData.permisosExtra.includes(clave);
-                            return (
-                              <button
-                                key={clave}
-                                type="button"
-                                onClick={() => {
-                                  if (isActive) setFormData({ ...formData, permisosExtra: formData.permisosExtra.filter(p => p !== clave) });
-                                  else setFormData({ ...formData, permisosExtra: [...formData.permisosExtra, clave] });
-                                }}
-                                className={`group relative inline-flex items-center px-2.5 py-1.5 rounded-md text-[11px] font-semibold cursor-pointer transition-all ${isActive ? 'bg-rose-100 text-rose-700 ring-1 ring-rose-400 shadow-sm dark:bg-rose-900/50 dark:text-rose-300 dark:ring-rose-500' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:bg-slate-700'}`}
-                              >
-                                {info.titulo}
-                                <div className="absolute opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-[10px] font-normal text-left p-2 rounded-md shadow-xl z-50">
-                                  {info.descripcion}
-                                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800"></div>
-                                </div>
-                              </button>
-                            );
-                          })}
+                          {['ADMINISTRAR_USUARIOS', 'VER_AUDITORIA', 'GESTIONAR_ESTABLECIMIENTOS'].map(renderBotonPermiso)}
                         </div>
                       </div>
 
@@ -422,28 +580,7 @@ export default function UsuariosPage() {
                           <FileText className="w-3.5 h-3.5" /> Estadísticas
                         </h4>
                         <div className="flex flex-wrap gap-2">
-                          {['VER_REPORTES', 'EXPORTAR_EXCEL_MASIVO'].map(clave => {
-                            const info = PERMISOS_DESCRIPCION[clave as Permiso];
-                            if (!info) return null;
-                            const isActive = formData.permisosExtra.includes(clave);
-                            return (
-                              <button
-                                key={clave}
-                                type="button"
-                                onClick={() => {
-                                  if (isActive) setFormData({ ...formData, permisosExtra: formData.permisosExtra.filter(p => p !== clave) });
-                                  else setFormData({ ...formData, permisosExtra: [...formData.permisosExtra, clave] });
-                                }}
-                                className={`group relative inline-flex items-center px-2.5 py-1.5 rounded-md text-[11px] font-semibold cursor-pointer transition-all ${isActive ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-400 shadow-sm dark:bg-emerald-900/50 dark:text-emerald-300 dark:ring-emerald-500' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:bg-slate-700'}`}
-                              >
-                                {info.titulo}
-                                <div className="absolute opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-[10px] font-normal text-left p-2 rounded-md shadow-xl z-50">
-                                  {info.descripcion}
-                                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800"></div>
-                                </div>
-                              </button>
-                            );
-                          })}
+                          {['VER_REPORTES', 'EXPORTAR_EXCEL_MASIVO'].map(renderBotonPermiso)}
                         </div>
                       </div>
 
@@ -453,28 +590,7 @@ export default function UsuariosPage() {
                           <Folder className="w-3.5 h-3.5" /> Documentación
                         </h4>
                         <div className="flex flex-wrap gap-2">
-                          {['VER_ARCHIVO_HISTORICO', 'ORDENAR_DOCUMENTOS'].map(clave => {
-                            const info = PERMISOS_DESCRIPCION[clave as Permiso];
-                            if (!info) return null;
-                            const isActive = formData.permisosExtra.includes(clave);
-                            return (
-                              <button
-                                key={clave}
-                                type="button"
-                                onClick={() => {
-                                  if (isActive) setFormData({ ...formData, permisosExtra: formData.permisosExtra.filter(p => p !== clave) });
-                                  else setFormData({ ...formData, permisosExtra: [...formData.permisosExtra, clave] });
-                                }}
-                                className={`group relative inline-flex items-center px-2.5 py-1.5 rounded-md text-[11px] font-semibold cursor-pointer transition-all ${isActive ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-400 shadow-sm dark:bg-amber-900/50 dark:text-amber-300 dark:ring-amber-500' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:bg-slate-700'}`}
-                              >
-                                {info.titulo}
-                                <div className="absolute opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-[10px] font-normal text-left p-2 rounded-md shadow-xl z-50">
-                                  {info.descripcion}
-                                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800"></div>
-                                </div>
-                              </button>
-                            );
-                          })}
+                          {['VER_ARCHIVO_HISTORICO', 'ORDENAR_DOCUMENTOS'].map(renderBotonPermiso)}
                         </div>
                       </div>
 
@@ -484,28 +600,7 @@ export default function UsuariosPage() {
                           <Terminal className="w-3.5 h-3.5" /> Sistema (Developer)
                         </h4>
                         <div className="flex flex-wrap gap-2">
-                          {['VER_LOGS'].map(clave => {
-                            const info = PERMISOS_DESCRIPCION[clave as Permiso];
-                            if (!info) return null;
-                            const isActive = formData.permisosExtra.includes(clave);
-                            return (
-                              <button
-                                key={clave}
-                                type="button"
-                                onClick={() => {
-                                  if (isActive) setFormData({ ...formData, permisosExtra: formData.permisosExtra.filter(p => p !== clave) });
-                                  else setFormData({ ...formData, permisosExtra: [...formData.permisosExtra, clave] });
-                                }}
-                                className={`group relative inline-flex items-center px-2.5 py-1.5 rounded-md text-[11px] font-semibold cursor-pointer transition-all ${isActive ? 'bg-purple-100 text-purple-700 ring-1 ring-purple-400 shadow-sm dark:bg-purple-900/50 dark:text-purple-300 dark:ring-purple-500' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:bg-slate-700'}`}
-                              >
-                                {info.titulo}
-                                <div className="absolute opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-[10px] font-normal text-left p-2 rounded-md shadow-xl z-50">
-                                  {info.descripcion}
-                                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800"></div>
-                                </div>
-                              </button>
-                            );
-                          })}
+                          {['VER_LOGS'].map(renderBotonPermiso)}
                         </div>
                       </div>
 
@@ -515,28 +610,7 @@ export default function UsuariosPage() {
                           <Bot className="w-3.5 h-3.5 text-blue-500" /> Inteligencia Artificial
                         </h4>
                         <div className="flex flex-wrap gap-2">
-                          {['USAR_CHATBOT'].map(clave => {
-                            const info = PERMISOS_DESCRIPCION[clave as Permiso];
-                            if (!info) return null;
-                            const isActive = formData.permisosExtra.includes(clave);
-                            return (
-                              <button
-                                key={clave}
-                                type="button"
-                                onClick={() => {
-                                  if (isActive) setFormData({ ...formData, permisosExtra: formData.permisosExtra.filter(p => p !== clave) });
-                                  else setFormData({ ...formData, permisosExtra: [...formData.permisosExtra, clave] });
-                                }}
-                                className={`group relative inline-flex items-center px-2.5 py-1.5 rounded-md text-[11px] font-semibold cursor-pointer transition-all ${isActive ? 'bg-sky-100 text-sky-700 ring-1 ring-sky-400 shadow-sm dark:bg-sky-900/50 dark:text-sky-300 dark:ring-sky-500' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:bg-slate-700'}`}
-                              >
-                                {info.titulo}
-                                <div className="absolute opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-[10px] font-normal text-left p-2 rounded-md shadow-xl z-50">
-                                  {info.descripcion}
-                                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800"></div>
-                                </div>
-                              </button>
-                            );
-                          })}
+                          {['USAR_CHATBOT'].map(renderBotonPermiso)}
                         </div>
                       </div>
 

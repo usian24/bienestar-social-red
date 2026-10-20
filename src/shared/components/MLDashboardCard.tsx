@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useSession } from 'next-auth/react';
 import {
   Brain,
   TrendingUp,
@@ -140,6 +141,12 @@ interface MLInsightsData {
 }
 
 export default function MLDashboardCard() {
+  const { data: session } = useSession();
+  const user = session?.user as any;
+  const rol = user?.rol;
+  const esSuperAdmin = rol === 'SUPER_ADMIN' || rol === 'ADMIN';
+  const userMicroredNombre = user?.microredNombre;
+
   const [data, setData] = useState<MLInsightsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [retraining, setRetraining] = useState(false);
@@ -151,6 +158,92 @@ export default function MLDashboardCard() {
   const [busquedaEst, setBusquedaEst] = useState('');
   const [filtroAlertaEst, setFiltroAlertaEst] = useState<'TODOS' | 'ALTA_CARGA' | 'MODERADA' | 'COBERTURA_DIRECTA'>('TODOS');
   const [notification, setNotification] = useState<string | null>(null);
+  const [filtroMicrored, setFiltroMicrored] = useState<string>('TODAS');
+
+  // Inicializar microred según la sesión
+  useEffect(() => {
+    if (!esSuperAdmin && userMicroredNombre) {
+      setFiltroMicrored(userMicroredNombre);
+    }
+  }, [esSuperAdmin, userMicroredNombre]);
+
+  // Funciones de concordancia y normalización de nombres de microred
+  const normalizeMr = (name: string): string => {
+    if (!name) return '';
+    return name
+      .toUpperCase()
+      .replace(/^MICRO\s*RED\s+/i, '')
+      .replace(/^MR\s+/i, '')
+      .replace(/\./g, '')
+      .trim();
+  };
+
+  const matchMr = (mr1: string, mr2: string): boolean => {
+    if (!mr1 || !mr2) return false;
+    if (mr2 === 'TODAS' || mr1 === 'TODAS') return true;
+    const n1 = normalizeMr(mr1);
+    const n2 = normalizeMr(mr2);
+    if (n1 === n2) return true;
+    if (n1.includes(n2) || n2.includes(n1)) return true;
+    return false;
+  };
+
+  // Lista única de microredes analizadas en el modelo
+  const listaMicroredes = useMemo(() => {
+    if (!data?.modelo4_clustering?.microredesDetalle) return [];
+    const set = new Set<string>();
+    data.modelo4_clustering.microredesDetalle.forEach(m => {
+      if (m.microred) set.add(m.microred);
+    });
+    return Array.from(set).sort();
+  }, [data]);
+
+  // Microred seleccionada en clustering
+  const microredItemClustering = useMemo(() => {
+    if (filtroMicrored === 'TODAS' || !data?.modelo4_clustering?.microredesDetalle) return null;
+    return data.modelo4_clustering.microredesDetalle.find(m => matchMr(m.microred, filtroMicrored)) || null;
+  }, [data, filtroMicrored]);
+
+  // Proporción de días para estimaciones de la microred
+  const totalDiasProvinciales = useMemo(() => {
+    if (!data?.modelo4_clustering?.microredesDetalle) return 1;
+    return data.modelo4_clustering.microredesDetalle.reduce((sum, m) => sum + (m.diasSaludTotales || 0), 0) || 1;
+  }, [data]);
+
+  const cuotaMicrored = microredItemClustering 
+    ? (microredItemClustering.diasSaludTotales / totalDiasProvinciales) 
+    : 1;
+
+  // Casos atípicos filtrados (Modelo 2)
+  const casosAtipicosFiltrados = useMemo(() => {
+    if (!data?.modelo2_anomalias?.topCasosAtipicos) return [];
+    if (filtroMicrored === 'TODAS') return data.modelo2_anomalias.topCasosAtipicos;
+    return data.modelo2_anomalias.topCasosAtipicos.filter(c => matchMr(c.microred, filtroMicrored));
+  }, [data, filtroMicrored]);
+
+  // Certificados en riesgo filtrados (Modelo 3)
+  const certificadosRiesgoFiltrados = useMemo(() => {
+    if (!data?.modelo3_riesgo_citt?.topCertificadosRiesgo) return [];
+    if (filtroMicrored === 'TODAS') return data.modelo3_riesgo_citt.topCertificadosRiesgo;
+    return data.modelo3_riesgo_citt.topCertificadosRiesgo.filter(c => matchMr(c.microred, filtroMicrored));
+  }, [data, filtroMicrored]);
+
+  // Establecimientos filtrados (Modelo 5)
+  const establecimientosFiltrados = useMemo(() => {
+    if (!data?.modelo5_origen_canjes?.establecimientos) return [];
+    let lista = data.modelo5_origen_canjes.establecimientos;
+    if (filtroMicrored !== 'TODAS') {
+      lista = lista.filter(e => matchMr(e.microred, filtroMicrored));
+    }
+    if (filtroAlertaEst !== 'TODOS') {
+      lista = lista.filter(e => e.alerta === filtroAlertaEst);
+    }
+    if (busquedaEst.trim()) {
+      const q = busquedaEst.toLowerCase();
+      lista = lista.filter(e => e.establecimiento.toLowerCase().includes(q) || e.microred.toLowerCase().includes(q));
+    }
+    return lista;
+  }, [data, filtroMicrored, filtroAlertaEst, busquedaEst]);
 
   const fetchInsights = async () => {
     setLoading(true);
@@ -162,8 +255,14 @@ export default function MLDashboardCard() {
       }
       const json = await res.json();
       setData(json);
+
       if (json?.modelo4_clustering?.microredesDetalle?.length > 0) {
-        setSelectedMicrored(json.modelo4_clustering.microredesDetalle[0]);
+        if (!esSuperAdmin && userMicroredNombre) {
+          const matched = json.modelo4_clustering.microredesDetalle.find((m: any) => matchMr(m.microred, userMicroredNombre));
+          setSelectedMicrored(matched || json.modelo4_clustering.microredesDetalle[0]);
+        } else {
+          setSelectedMicrored(json.modelo4_clustering.microredesDetalle[0]);
+        }
       }
       if (json?.modelo2_anomalias?.topCasosAtipicos?.length > 0) {
         setSelectedCaso(json.modelo2_anomalias.topCasosAtipicos[0]);
@@ -314,6 +413,73 @@ export default function MLDashboardCard() {
         </div>
       ) : (
         <>
+          {/* Barra de Segmentación Territorial por Microred */}
+          <div className="px-5 py-3 bg-slate-100/80 border-b border-slate-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-slate-700 shrink-0" />
+              <span className="text-xs font-semibold text-slate-800">
+                {esSuperAdmin ? 'Ámbito Territorial de Inteligencia ML:' : 'Jurisdicción Asignada:'}
+              </span>
+              {filtroMicrored !== 'TODAS' && (
+                <span className="bg-slate-900 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  Filtro Activo
+                </span>
+              )}
+            </div>
+
+            {esSuperAdmin ? (
+              <div className="flex items-center gap-2">
+                <select
+                  value={filtroMicrored}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFiltroMicrored(val);
+                    if (val !== 'TODAS') {
+                      const mr = data.modelo4_clustering?.microredesDetalle?.find(m => matchMr(m.microred, val));
+                      if (mr) setSelectedMicrored(mr);
+                      const caso = data.modelo2_anomalias?.topCasosAtipicos?.find(c => matchMr(c.microred, val));
+                      setSelectedCaso(caso || null);
+                    } else {
+                      if (data.modelo4_clustering?.microredesDetalle?.length) {
+                        setSelectedMicrored(data.modelo4_clustering.microredesDetalle[0]);
+                      }
+                      if (data.modelo2_anomalias?.topCasosAtipicos?.length) {
+                        setSelectedCaso(data.modelo2_anomalias.topCasosAtipicos[0]);
+                      }
+                    }
+                  }}
+                  className="bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-xs focus:ring-2 focus:ring-slate-400 focus:outline-none cursor-pointer"
+                >
+                  <option value="TODAS">🏢 Consolidado Provincial (Todas las 13 Microredes)</option>
+                  {listaMicroredes.map((mr) => (
+                    <option key={mr} value={mr}>
+                      Microred: {mr}
+                    </option>
+                  ))}
+                </select>
+                {filtroMicrored !== 'TODAS' && (
+                  <button
+                    type="button"
+                    onClick={() => setFiltroMicrored('TODAS')}
+                    className="text-[11px] text-slate-600 hover:text-slate-900 underline font-medium cursor-pointer"
+                  >
+                    Ver Consolidado
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="bg-emerald-100 text-emerald-900 text-xs font-bold px-3 py-1 rounded-lg border border-emerald-300 flex items-center gap-1.5 shadow-xs">
+                  <Building2 className="w-3.5 h-3.5 text-emerald-700" />
+                  {userMicroredNombre || filtroMicrored}
+                </span>
+                <span className="text-[11px] text-slate-500 font-medium hidden sm:inline">
+                  (Modelos segmentados para tu microred)
+                </span>
+              </div>
+            )}
+          </div>
+
           {/* Segmented Control tipo Apple (iOS/macOS) */}
           <div className="p-3 sm:p-4 bg-slate-50/60 border-b border-slate-100">
             <div className="bg-slate-200/70 p-1 rounded-xl flex gap-1 overflow-x-auto scrollbar-none">
@@ -347,7 +513,7 @@ export default function MLDashboardCard() {
                   }`}
                 >
                   <ShieldAlert className="w-3.5 h-3.5 text-slate-600" />
-                  <span>2. Detección de Anomalías ({data.modelo2_anomalias.totalAtipicos})</span>
+                  <span>2. Detección de Anomalías ({casosAtipicosFiltrados.length})</span>
                 </button>
                 <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50">
                   <div className="bg-slate-900 text-white text-[11px] font-normal py-1 px-2.5 rounded shadow-lg whitespace-nowrap">
@@ -367,7 +533,7 @@ export default function MLDashboardCard() {
                   }`}
                 >
                   <Clock className="w-3.5 h-3.5 text-slate-600" />
-                  <span>3. Riesgo de Caducidad CITT</span>
+                  <span>3. Riesgo de Caducidad CITT ({certificadosRiesgoFiltrados.length})</span>
                 </button>
                 <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50">
                   <div className="bg-slate-900 text-white text-[11px] font-normal py-1 px-2.5 rounded shadow-lg whitespace-nowrap">
@@ -433,9 +599,18 @@ export default function MLDashboardCard() {
                       <BarChart3 className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-slate-900 text-sm">Modelo Predictivo de Series Temporales (Gradient Boosting)</h4>
+                      <h4 className="font-semibold text-slate-900 text-sm flex flex-wrap items-center gap-2">
+                        <span>Modelo Predictivo de Series Temporales (Gradient Boosting)</span>
+                        {filtroMicrored !== 'TODAS' && (
+                          <span className="text-[11px] font-medium text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                            Microred: {filtroMicrored}
+                          </span>
+                        )}
+                      </h4>
                       <p className="text-slate-500 text-xs">
-                        Estima la demanda de licencias médicas subsidiadas (&gt;20 días acumulados) y el presupuesto de recupero ante EsSalud.
+                        {filtroMicrored !== 'TODAS'
+                          ? `Estimación focalizada de descansos y presupuesto para la ${filtroMicrored} basada en su cuota de ausentismo (${(cuotaMicrored * 100).toFixed(1)}% provincial).`
+                          : 'Estima la demanda de licencias médicas subsidiadas (>20 días acumulados) y el presupuesto de recupero ante EsSalud en toda la Red.'}
                       </p>
                     </div>
                   </div>
@@ -448,53 +623,70 @@ export default function MLDashboardCard() {
 
                 {/* Tarjetas KPI de los Próximos Meses */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                  {data.modelo1_forecasting.proyeccionesProximosMeses.map((p, idx) => (
-                    <div
-                      key={idx}
-                      className="group relative p-4 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition shadow-xs"
-                    >
-                      <div className="flex items-center justify-between text-xs text-slate-500 font-medium mb-2">
-                        <span className="font-semibold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                          {p.mes} {p.anio}
-                        </span>
-                        <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded">
-                          M+{(idx + 1)}
-                        </span>
-                      </div>
+                  {data.modelo1_forecasting.proyeccionesProximosMeses.map((p, idx) => {
+                    const diasEstimados = filtroMicrored !== 'TODAS'
+                      ? Math.max(1, Math.round(p.diasSubsidioEstimados * cuotaMicrored))
+                      : p.diasSubsidioEstimados;
+                    const rangoMin = filtroMicrored !== 'TODAS'
+                      ? Math.max(1, Math.round(p.rangoMin * cuotaMicrored))
+                      : p.rangoMin;
+                    const rangoMax = filtroMicrored !== 'TODAS'
+                      ? Math.max(1, Math.round(p.rangoMax * cuotaMicrored))
+                      : p.rangoMax;
+                    const montoEstimado = filtroMicrored !== 'TODAS'
+                      ? Math.round(p.montoEstimadoRecupero * cuotaMicrored * 100) / 100
+                      : p.montoEstimadoRecupero;
 
-                      <div className="space-y-2">
-                        <div>
-                          <div className="text-[11px] text-slate-500 uppercase font-semibold">Días de Subsidio Proyectados</div>
-                          <div className="text-2xl font-bold text-slate-900 tracking-tight flex items-baseline gap-1.5">
-                            {p.diasSubsidioEstimados} <span className="text-xs font-normal text-slate-500">días</span>
-                          </div>
-                          <div className="text-[11px] text-slate-500 font-mono mt-0.5">
-                            Rango: {p.rangoMin} a {p.rangoMax} días
-                          </div>
-                        </div>
-
-                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-                          <div>
-                            <div className="text-[10px] text-slate-400 uppercase font-semibold">Recupero Estimado</div>
-                            <div className="text-sm font-bold text-slate-900 font-mono">
-                              S/ {p.montoEstimadoRecupero.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
-                            </div>
-                          </div>
-                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] font-medium">
-                            EsSalud
+                    return (
+                      <div
+                        key={idx}
+                        className="group relative p-4 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition shadow-xs"
+                      >
+                        <div className="flex items-center justify-between text-xs text-slate-500 font-medium mb-2">
+                          <span className="font-semibold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                            {p.mes} {p.anio}
+                          </span>
+                          <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded">
+                            M+{(idx + 1)}
                           </span>
                         </div>
-                      </div>
 
-                      <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50">
-                        <div className="bg-slate-900 text-white text-[11px] font-normal py-1 px-2.5 rounded shadow-lg whitespace-nowrap">
-                          {p.mes}: {p.diasSubsidioEstimados} días estimados (~S/ {p.montoEstimadoRecupero.toLocaleString('es-PE')})
+                        <div className="space-y-2">
+                          <div>
+                            <div className="text-[11px] text-slate-500 uppercase font-semibold">
+                              {filtroMicrored !== 'TODAS' ? `Días Estimados (${filtroMicrored})` : 'Días de Subsidio Proyectados'}
+                            </div>
+                            <div className="text-2xl font-bold text-slate-900 tracking-tight flex items-baseline gap-1.5">
+                              {diasEstimados} <span className="text-xs font-normal text-slate-500">días</span>
+                            </div>
+                            <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                              Rango: {rangoMin} a {rangoMax} días
+                            </div>
+                          </div>
+
+                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <div>
+                              <div className="text-[10px] text-slate-400 uppercase font-semibold">Recupero Estimado</div>
+                              <div className="text-sm font-bold text-slate-900 font-mono">
+                                S/ {montoEstimado.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                              </div>
+                            </div>
+                            <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] font-medium">
+                              EsSalud
+                            </span>
+                          </div>
                         </div>
-                        <div className="w-1.5 h-1.5 bg-slate-900 rotate-45 -mt-0.5" />
+
+                        <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50">
+                          <div className="bg-slate-900 text-white text-[11px] font-normal py-1 px-2.5 rounded shadow-lg whitespace-nowrap">
+                            {p.mes}: {diasEstimados} días estimados (~S/ {montoEstimado.toLocaleString('es-PE')})
+                          </div>
+                          <div className="w-1.5 h-1.5 bg-slate-900 rotate-45 -mt-0.5" />
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* GRÁFICOS REPRESENTATIVOS DEL MODELO 1 */}
@@ -625,14 +817,23 @@ export default function MLDashboardCard() {
                       <ShieldAlert className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-slate-900 text-sm">Auditoría no Supervisada de Ausentismo (Isolation Forest)</h4>
+                      <h4 className="font-semibold text-slate-900 text-sm flex flex-wrap items-center gap-2">
+                        <span>Auditoría no Supervisada de Ausentismo (Isolation Forest)</span>
+                        {filtroMicrored !== 'TODAS' && (
+                          <span className="text-[11px] font-medium text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                            Microred: {filtroMicrored}
+                          </span>
+                        )}
+                      </h4>
                       <p className="text-slate-500 text-xs">
-                        Detecta servidores con comportamientos fuera de la norma estadística (descansos fraccionados recurrentes o volumen extremo).
+                        {filtroMicrored !== 'TODAS'
+                          ? `Supervisión de servidores con patrones atípicos pertenecientes a la ${filtroMicrored}.`
+                          : 'Detecta servidores con comportamientos fuera de la norma estadística (descansos fraccionados recurrentes o volumen extremo).'}
                       </p>
                     </div>
                   </div>
                   <div className="bg-white px-3 py-1.5 rounded-lg border border-slate-200 text-xs shadow-xs self-start sm:self-auto font-medium">
-                    {data.modelo2_anomalias.totalAtipicos} observaciones de {data.modelo2_anomalias.totalAnalizados} evaluados
+                    {casosAtipicosFiltrados.length} observaciones {filtroMicrored !== 'TODAS' ? `en ${filtroMicrored}` : `de ${data.modelo2_anomalias.totalAnalizados} evaluados`}
                   </div>
                 </div>
 
@@ -692,32 +893,40 @@ export default function MLDashboardCard() {
                         <div className="absolute bottom-1 left-2 text-[9px] text-slate-400 font-mono">Eje X: Cantidad descansos</div>
                         <div className="absolute top-1 right-2 text-[9px] text-slate-400 font-mono">Eje Y: Días totales</div>
 
-                        {data.modelo2_anomalias.topCasosAtipicos.map((caso, idx) => {
-                          const posX = Math.min(90, Math.max(10, (caso.numLicencias / 15) * 100));
-                          const posY = Math.min(85, Math.max(15, 100 - (caso.diasTotales / 230) * 100));
-                          const isSel = selectedCaso?.dni === caso.dni;
+                        {casosAtipicosFiltrados.length === 0 ? (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
+                            <CheckCircle2 className="w-5 h-5 text-emerald-500 mb-1" />
+                            <span className="text-xs font-medium text-slate-700">Sin casos atípicos en esta microred</span>
+                            <span className="text-[10px] text-slate-400">Las solicitudes registradas operan dentro de los umbrales regulares</span>
+                          </div>
+                        ) : (
+                          casosAtipicosFiltrados.map((caso, idx) => {
+                            const posX = Math.min(90, Math.max(10, (caso.numLicencias / 15) * 100));
+                            const posY = Math.min(85, Math.max(15, 100 - (caso.diasTotales / 230) * 100));
+                            const isSel = selectedCaso?.dni === caso.dni;
 
-                          return (
-                            <div
-                              key={idx}
-                              style={{ left: `${posX}%`, top: `${posY}%` }}
-                              className="absolute -translate-x-1/2 -translate-y-1/2 group cursor-pointer"
-                            >
-                              <button
-                                onClick={() => setSelectedCaso(caso)}
-                                className={`block w-3 h-3 rounded-full transition-transform ${
-                                  isSel ? 'bg-slate-900 ring-2 ring-slate-400 scale-125' : 'bg-slate-700 hover:scale-125'
-                                }`}
-                              />
-                              <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center z-50">
-                                <div className="bg-slate-900 text-white text-[10px] font-mono py-0.5 px-2 rounded shadow-md whitespace-nowrap">
-                                  {caso.servidor}: {caso.diasTotales}d ({caso.scoreRiesgo}%)
+                            return (
+                              <div
+                                key={idx}
+                                style={{ left: `${posX}%`, top: `${posY}%` }}
+                                className="absolute -translate-x-1/2 -translate-y-1/2 group cursor-pointer"
+                              >
+                                <button
+                                  onClick={() => setSelectedCaso(caso)}
+                                  className={`block w-3 h-3 rounded-full transition-transform ${
+                                    isSel ? 'bg-slate-900 ring-2 ring-slate-400 scale-125' : 'bg-slate-700 hover:scale-125'
+                                  }`}
+                                />
+                                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center z-50">
+                                  <div className="bg-slate-900 text-white text-[10px] font-mono py-0.5 px-2 rounded shadow-md whitespace-nowrap">
+                                    {caso.servidor}: {caso.diasTotales}d ({caso.scoreRiesgo}%)
+                                  </div>
+                                  <div className="w-1 h-1 bg-slate-900 rotate-45 -mt-0.5" />
                                 </div>
-                                <div className="w-1 h-1 bg-slate-900 rotate-45 -mt-0.5" />
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })
+                        )}
                       </div>
                     </div>
 
@@ -747,34 +956,46 @@ export default function MLDashboardCard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {data.modelo2_anomalias.topCasosAtipicos.map((caso, i) => (
-                        <tr key={i} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="py-3 px-3 sm:px-4 font-mono">
-                            <span className="inline-block px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-800 border border-slate-200">
-                              {caso.scoreRiesgo}%
-                            </span>
-                          </td>
-                          <td className="py-3 px-3 sm:px-4">
-                            <div className="font-semibold text-slate-900">{caso.servidor}</div>
-                            <div className="text-[10px] text-slate-400 font-mono">DNI: {caso.dni}</div>
-                          </td>
-                          <td className="py-3 px-3 sm:px-4 text-slate-600">
-                            <div>{caso.establecimiento}</div>
-                            <div className="text-[10px] text-slate-400">{caso.microred}</div>
-                          </td>
-                          <td className="py-3 px-3 sm:px-4 text-center font-medium text-slate-700">
-                            {caso.numLicencias}
-                          </td>
-                          <td className="py-3 px-3 sm:px-4 text-center font-bold text-slate-900">
-                            {caso.diasTotales} d
-                          </td>
-                          <td className="py-3 px-3 sm:px-4">
-                            <span className="text-[11px] text-slate-700 font-medium">
-                              {caso.motivoAlerta}
-                            </span>
+                      {casosAtipicosFiltrados.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-8 text-center text-slate-500">
+                            <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto mb-2" />
+                            <p className="font-semibold text-slate-800">Sin anomalías detectadas {filtroMicrored !== 'TODAS' ? `en la ${filtroMicrored}` : ''}</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              Los descansos médicos en esta jurisdicción se encuentran dentro de las distribuciones normales de duración y frecuencia.
+                            </p>
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        casosAtipicosFiltrados.map((caso, i) => (
+                          <tr key={i} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="py-3 px-3 sm:px-4 font-mono">
+                              <span className="inline-block px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-800 border border-slate-200">
+                                {caso.scoreRiesgo}%
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 sm:px-4">
+                              <div className="font-semibold text-slate-900">{caso.servidor}</div>
+                              <div className="text-[10px] text-slate-400 font-mono">DNI: {caso.dni}</div>
+                            </td>
+                            <td className="py-3 px-3 sm:px-4 text-slate-600">
+                              <div>{caso.establecimiento}</div>
+                              <div className="text-[10px] text-slate-400">{caso.microred}</div>
+                            </td>
+                            <td className="py-3 px-3 sm:px-4 text-center font-medium text-slate-700">
+                              {caso.numLicencias}
+                            </td>
+                            <td className="py-3 px-3 sm:px-4 text-center font-bold text-slate-900">
+                              {caso.diasTotales} d
+                            </td>
+                            <td className="py-3 px-3 sm:px-4">
+                              <span className="text-[11px] text-slate-700 font-medium">
+                                {caso.motivoAlerta}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -819,37 +1040,47 @@ export default function MLDashboardCard() {
                     </p>
 
                     <div className="space-y-3">
-                      {(data.modelo3_riesgo_citt.topCertificadosRiesgo?.slice(0, 4) || []).map((cert, idx) => {
-                        const pct30 = Math.min(100, (cert.diasTranscurridos / 30) * 100);
-                        const esUrgente = cert.diasRestantes30d <= 7;
+                      {certificadosRiesgoFiltrados.length === 0 ? (
+                        <div className="py-8 text-center text-slate-500 bg-white rounded-lg border border-slate-200">
+                          <CheckCircle2 className="w-5 h-5 text-emerald-500 mx-auto mb-1.5" />
+                          <p className="font-semibold text-slate-800 text-xs">Sin certificados en riesgo de caducidad</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            Todos los certificados médicos de {filtroMicrored !== 'TODAS' ? `la ${filtroMicrored}` : 'la red'} cuentan con holgura legal de canje.
+                          </p>
+                        </div>
+                      ) : (
+                        certificadosRiesgoFiltrados.slice(0, 4).map((cert, idx) => {
+                          const pct30 = Math.min(100, (cert.diasTranscurridos / 30) * 100);
+                          const esUrgente = cert.diasRestantes30d <= 7;
 
-                        return (
-                          <div key={idx} className="group relative bg-white p-3 rounded-lg border border-slate-200 cursor-pointer shadow-xs">
-                            <div className="flex items-center justify-between text-xs mb-1">
-                              <span className="font-semibold text-slate-900">{cert.servidor}</span>
-                              <span className={`font-mono text-[11px] font-bold ${esUrgente ? 'text-slate-900 font-bold' : 'text-slate-600'}`}>
-                                {cert.diasRestantes30d} días restantes
-                              </span>
-                            </div>
-                            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-                              <div
-                                style={{ width: `${pct30}%` }}
-                                className={`h-full rounded-full ${esUrgente ? 'bg-slate-900' : 'bg-slate-500'}`}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1">
-                              <span>Certificado: {cert.numeroCertificado}</span>
-                              <span>Día {cert.diasTranscurridos} / 30 días</span>
-                            </div>
-                            <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center z-50">
-                              <div className="bg-slate-900 text-white text-[10px] font-mono py-0.5 px-2 rounded shadow-md whitespace-nowrap">
-                                {cert.servidor}: Quedan {cert.diasRestantes30d} días
+                          return (
+                            <div key={idx} className="group relative bg-white p-3 rounded-lg border border-slate-200 cursor-pointer shadow-xs">
+                              <div className="flex items-center justify-between text-xs mb-1">
+                                <span className="font-semibold text-slate-900">{cert.servidor}</span>
+                                <span className={`font-mono text-[11px] font-bold ${esUrgente ? 'text-slate-900 font-bold' : 'text-slate-600'}`}>
+                                  {cert.diasRestantes30d} días restantes
+                                </span>
                               </div>
-                              <div className="w-1 h-1 bg-slate-900 rotate-45 -mt-0.5" />
+                              <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                                <div
+                                  style={{ width: `${pct30}%` }}
+                                  className={`h-full rounded-full ${esUrgente ? 'bg-slate-900' : 'bg-slate-500'}`}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1">
+                                <span>Certificado: {cert.numeroCertificado}</span>
+                                <span>Día {cert.diasTranscurridos} / 30 días</span>
+                              </div>
+                              <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center z-50">
+                                <div className="bg-slate-900 text-white text-[10px] font-mono py-0.5 px-2 rounded shadow-md whitespace-nowrap">
+                                  {cert.servidor}: Quedan {cert.diasRestantes30d} días
+                                </div>
+                                <div className="w-1 h-1 bg-slate-900 rotate-45 -mt-0.5" />
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })
+                      )}
                     </div>
                   </div>
 
@@ -897,50 +1128,60 @@ export default function MLDashboardCard() {
 
                 {/* Grid de Certificados con Días Restantes Exactos */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                  {(data.modelo3_riesgo_citt.topCertificadosRiesgo?.slice(0, 6) || []).map((cert, idx) => {
-                    const esUrgente = cert.diasRestantes30d <= 7;
-                    return (
-                      <div
-                        key={idx}
-                        className="group relative p-4 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition shadow-xs cursor-pointer"
-                      >
-                        <div className="flex items-center justify-between text-xs mb-1">
-                          <span className="font-mono bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px]">
-                            Cert: {cert.numeroCertificado}
-                          </span>
-                          <span className={`text-[11px] font-bold font-mono ${esUrgente ? 'text-slate-900' : 'text-slate-600'}`}>
-                            {cert.diasRestantes30d} días restantes ({cert.probabilidadCaducidad}%)
-                          </span>
-                        </div>
-                        <h5 className="font-semibold text-slate-900 text-xs mt-1">{cert.servidor}</h5>
-                        <p className="text-[11px] text-slate-500 mb-3">{cert.establecimiento} ({cert.microred})</p>
+                  {certificadosRiesgoFiltrados.length === 0 ? (
+                    <div className="p-6 text-center text-slate-500 bg-white rounded-xl border border-slate-200 col-span-1 sm:col-span-2">
+                      <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto mb-2" />
+                      <p className="font-semibold text-slate-800 text-sm">Plazos CITT al 100% al día {filtroMicrored !== 'TODAS' ? `en la ${filtroMicrored}` : ''}</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        No se detectaron certificados médicos particulares próximos a expirar el plazo legal de 30 días hábiles.
+                      </p>
+                    </div>
+                  ) : (
+                    certificadosRiesgoFiltrados.slice(0, 6).map((cert, idx) => {
+                      const esUrgente = cert.diasRestantes30d <= 7;
+                      return (
+                        <div
+                          key={idx}
+                          className="group relative p-4 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition shadow-xs cursor-pointer"
+                        >
+                          <div className="flex items-center justify-between text-xs mb-1">
+                            <span className="font-mono bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px]">
+                              Cert: {cert.numeroCertificado}
+                            </span>
+                            <span className={`text-[11px] font-bold font-mono ${esUrgente ? 'text-slate-900' : 'text-slate-600'}`}>
+                              {cert.diasRestantes30d} días restantes ({cert.probabilidadCaducidad}%)
+                            </span>
+                          </div>
+                          <h5 className="font-semibold text-slate-900 text-xs mt-1">{cert.servidor}</h5>
+                          <p className="text-[11px] text-slate-500 mb-3">{cert.establecimiento} ({cert.microred})</p>
 
-                        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-center text-xs">
-                          <div>
-                            <span className="text-[10px] text-slate-400 block uppercase">Otorgados</span>
-                            <strong className="text-slate-800">{cert.diasOtorgados} d</strong>
+                          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-center text-xs">
+                            <div>
+                              <span className="text-[10px] text-slate-400 block uppercase">Otorgados</span>
+                              <strong className="text-slate-800">{cert.diasOtorgados} d</strong>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-400 block uppercase">Transcurridos</span>
+                              <strong className="text-slate-800">{cert.diasTranscurridos} d</strong>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-slate-400 block uppercase">Plazo</span>
+                              <strong className={esUrgente ? 'text-slate-900 font-bold' : 'text-slate-700'}>
+                                {cert.diasRestantes30d} d
+                              </strong>
+                            </div>
                           </div>
-                          <div>
-                            <span className="text-[10px] text-slate-400 block uppercase">Transcurridos</span>
-                            <strong className="text-slate-800">{cert.diasTranscurridos} d</strong>
-                          </div>
-                          <div>
-                            <span className="text-[10px] text-slate-400 block uppercase">Plazo</span>
-                            <strong className={esUrgente ? 'text-slate-900 font-bold' : 'text-slate-700'}>
-                              {cert.diasRestantes30d} d
-                            </strong>
-                          </div>
-                        </div>
 
-                        <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center z-50">
-                          <div className="bg-slate-900 text-white text-[10px] font-mono py-0.5 px-2 rounded shadow-md whitespace-nowrap">
-                            Riesgo: {cert.nivelRiesgo} ({cert.probabilidadCaducidad}%)
+                          <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center z-50">
+                            <div className="bg-slate-900 text-white text-[10px] font-mono py-0.5 px-2 rounded shadow-md whitespace-nowrap">
+                              Riesgo: {cert.nivelRiesgo} ({cert.probabilidadCaducidad}%)
+                            </div>
+                            <div className="w-1 h-1 bg-slate-900 rotate-45 -mt-0.5" />
                           </div>
-                          <div className="w-1 h-1 bg-slate-900 rotate-45 -mt-0.5" />
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               </div>
             )}
@@ -984,11 +1225,21 @@ export default function MLDashboardCard() {
                         Recomendación: <strong className="text-slate-900">{cl.accion}</strong>
                       </div>
                       <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto scrollbar-none">
-                        {cl.microredes.map((m, idx) => (
-                          <span key={idx} className="bg-slate-50 text-slate-600 text-[10px] px-2 py-0.5 rounded border border-slate-200">
-                            {m}
-                          </span>
-                        ))}
+                        {cl.microredes.map((m, idx) => {
+                          const isCurrentMr = filtroMicrored !== 'TODAS' && matchMr(m, filtroMicrored);
+                          return (
+                            <span
+                              key={idx}
+                              className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
+                                isCurrentMr
+                                  ? 'bg-slate-900 text-white font-bold border-slate-900 shadow-xs'
+                                  : 'bg-slate-50 text-slate-600 border border-slate-200'
+                              }`}
+                            >
+                              {m} {isCurrentMr && '✓'}
+                            </span>
+                          );
+                        })}
                       </div>
                     </div>
                   ))}
@@ -1009,17 +1260,35 @@ export default function MLDashboardCard() {
                       {data.modelo4_clustering.microredesDetalle.slice(0, 6).map((m, idx) => {
                         const maxTasa = 2.5;
                         const pctTasa = Math.min(100, (m.tasaAusentismo / maxTasa) * 100);
+                        const isCurrentMr = filtroMicrored !== 'TODAS' && matchMr(m.microred, filtroMicrored);
 
                         return (
-                          <div key={idx} className="group relative cursor-pointer">
+                          <div
+                            key={idx}
+                            className={`group relative cursor-pointer p-1.5 rounded-lg transition-colors ${
+                              isCurrentMr ? 'bg-slate-100/90 ring-1 ring-slate-300' : ''
+                            }`}
+                          >
                             <div className="flex items-center justify-between text-xs font-medium mb-1">
-                              <span className="text-slate-800 font-semibold truncate max-w-[200px]">{m.microred}</span>
+                              <span className={`truncate max-w-[200px] ${isCurrentMr ? 'text-slate-900 font-bold flex items-center gap-1.5' : 'text-slate-800 font-semibold'}`}>
+                                {m.microred}
+                                {isCurrentMr && (
+                                  <span className="text-[9px] bg-slate-900 text-white px-1.5 py-0.2 rounded">
+                                    Filtro Activo
+                                  </span>
+                                )}
+                              </span>
                               <span className="font-mono text-slate-700 text-[11px]">
                                 {m.tasaAusentismo} d/servidor ({m.totalPersonal} pers.)
                               </span>
                             </div>
                             <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
-                              <div style={{ width: `${pctTasa}%` }} className="h-full bg-slate-800 rounded-full transition-all" />
+                              <div
+                                style={{ width: `${pctTasa}%` }}
+                                className={`h-full rounded-full transition-all ${
+                                  isCurrentMr ? 'bg-slate-900' : 'bg-slate-800'
+                                }`}
+                              />
                             </div>
                             <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center z-50">
                               <div className="bg-slate-900 text-white text-[10px] font-mono py-0.5 px-2 rounded shadow-md whitespace-nowrap">
@@ -1059,25 +1328,30 @@ export default function MLDashboardCard() {
                         {data.modelo4_clustering.microredesDetalle.map((m, idx) => {
                           const posX = Math.max(5, Math.min(95, ((m.pca_x + 2.5) / 7.0) * 100));
                           const posY = Math.max(5, Math.min(95, 100 - ((m.pca_y + 3.0) / 5.5) * 100));
+                          const isMatchFiltro = filtroMicrored !== 'TODAS' && matchMr(m.microred, filtroMicrored);
                           const isSelected = selectedMicrored?.microred === m.microred;
 
                           return (
                             <div
                               key={idx}
                               style={{ left: `${posX}%`, top: `${posY}%` }}
-                              className="absolute -translate-x-1/2 -translate-y-1/2 group cursor-pointer"
+                              className={`absolute -translate-x-1/2 -translate-y-1/2 group cursor-pointer ${
+                                isMatchFiltro ? 'z-30' : isSelected ? 'z-20' : 'z-10'
+                              }`}
                             >
                               <button
                                 onClick={() => setSelectedMicrored(m)}
-                                className={`block w-3.5 h-3.5 rounded-full transition-transform border border-white ${
-                                  isSelected
-                                    ? 'bg-slate-900 ring-2 ring-slate-400 scale-125 z-20'
-                                    : 'bg-slate-700 hover:scale-125 z-10'
+                                className={`block transition-all border border-white ${
+                                  isMatchFiltro
+                                    ? 'w-4 h-4 rounded-full bg-emerald-600 ring-4 ring-emerald-300 scale-125 shadow-md'
+                                    : isSelected
+                                    ? 'w-3.5 h-3.5 rounded-full bg-slate-900 ring-2 ring-slate-400 scale-125'
+                                    : 'w-3.5 h-3.5 rounded-full bg-slate-700 hover:scale-125'
                                 }`}
                               />
                               <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center z-50">
                                 <div className="bg-slate-900 text-white text-[10px] font-mono py-0.5 px-2 rounded shadow-md whitespace-nowrap">
-                                  {m.microred}: {m.tasaAusentismo} d/t
+                                  {m.microred}: {m.tasaAusentismo} d/t {isMatchFiltro ? '(Filtro Activo)' : ''}
                                 </div>
                                 <div className="w-1 h-1 bg-slate-900 rotate-45 -mt-0.5" />
                               </div>
@@ -1157,50 +1431,65 @@ export default function MLDashboardCard() {
                     Proyección Mensual por Canal de Procedencia
                   </h5>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                    {data.modelo5_origen_canjes.proyeccionesMensuales.map((p, idx) => (
-                      <div key={idx} className="p-4 rounded-xl border border-slate-200 bg-white shadow-xs">
-                        <div className="flex items-center justify-between text-xs mb-2">
-                          <span className="font-semibold text-slate-900 uppercase">
-                            {p.mes} {p.anio}
-                          </span>
-                          <span className="text-slate-500 font-mono text-[11px]">
-                            {p.totalLicenciasEstimadas} licencias est.
-                          </span>
-                        </div>
+                    {data.modelo5_origen_canjes.proyeccionesMensuales.map((p, idx) => {
+                      const licEsSalud = filtroMicrored !== 'TODAS'
+                        ? Math.max(1, Math.round(p.licenciasEsSaludEstimadas * cuotaMicrored))
+                        : p.licenciasEsSaludEstimadas;
+                      const licPart = filtroMicrored !== 'TODAS'
+                        ? Math.max(1, Math.round(p.licenciasParticularEstimadas * cuotaMicrored))
+                        : p.licenciasParticularEstimadas;
+                      const totalLic = filtroMicrored !== 'TODAS'
+                        ? (licEsSalud + licPart)
+                        : p.totalLicenciasEstimadas;
+                      const montoCanje = filtroMicrored !== 'TODAS'
+                        ? Math.round(p.montoCanjeEnJuego * cuotaMicrored * 100) / 100
+                        : p.montoCanjeEnJuego;
 
-                        {/* Barra visual bimodal */}
-                        <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden flex mb-2 border border-slate-200">
-                          <div
-                            style={{ width: `${p.pctEsSalud}%` }}
-                            className="bg-slate-300 h-full transition-all"
-                            title={`EsSalud: ${p.pctEsSalud}%`}
-                          />
-                          <div
-                            style={{ width: `${p.pctParticular}%` }}
-                            className="bg-slate-900 h-full transition-all"
-                            title={`Particular: ${p.pctParticular}%`}
-                          />
-                        </div>
+                      return (
+                        <div key={idx} className="p-4 rounded-xl border border-slate-200 bg-white shadow-xs">
+                          <div className="flex items-center justify-between text-xs mb-2">
+                            <span className="font-semibold text-slate-900 uppercase">
+                              {p.mes} {p.anio}
+                            </span>
+                            <span className="text-slate-500 font-mono text-[11px]">
+                              {totalLic} licencias est.
+                            </span>
+                          </div>
 
-                        <div className="flex items-center justify-between text-[11px] text-slate-600 font-mono">
-                          <span className="flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-xs bg-slate-300" />
-                            EsSalud: <strong>{p.licenciasEsSaludEstimadas}</strong> ({p.pctEsSalud}%)
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-xs bg-slate-900" />
-                            Part: <strong>{p.licenciasParticularEstimadas}</strong> ({p.pctParticular}%)
-                          </span>
-                        </div>
+                          {/* Barra visual bimodal */}
+                          <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden flex mb-2 border border-slate-200">
+                            <div
+                              style={{ width: `${p.pctEsSalud}%` }}
+                              className="bg-slate-300 h-full transition-all"
+                              title={`EsSalud: ${p.pctEsSalud}%`}
+                            />
+                            <div
+                              style={{ width: `${p.pctParticular}%` }}
+                              className="bg-slate-900 h-full transition-all"
+                              title={`Particular: ${p.pctParticular}%`}
+                            />
+                          </div>
 
-                        <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-                          <span>Canje en juego:</span>
-                          <strong className="text-slate-900 font-mono font-bold">
-                            S/ {p.montoCanjeEnJuego.toLocaleString('es-PE')}
-                          </strong>
+                          <div className="flex items-center justify-between text-[11px] text-slate-600 font-mono">
+                            <span className="flex items-center gap-1">
+                              <span className="w-2 h-2 rounded-xs bg-slate-300" />
+                              EsSalud: <strong>{licEsSalud}</strong> ({p.pctEsSalud}%)
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span className="w-2 h-2 rounded-xs bg-slate-900" />
+                              Part: <strong>{licPart}</strong> ({p.pctParticular}%)
+                            </span>
+                          </div>
+
+                          <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                            <span>Canje en juego:</span>
+                            <strong className="text-slate-900 font-mono font-bold">
+                              S/ {montoCanje.toLocaleString('es-PE')}
+                            </strong>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -1209,7 +1498,9 @@ export default function MLDashboardCard() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <h5 className="font-semibold text-slate-900 text-xs md:text-sm">
-                        Comportamiento de Procedencia en Todos los Establecimientos
+                        {filtroMicrored !== 'TODAS'
+                          ? `Establecimientos Asignados a la ${filtroMicrored}`
+                          : 'Comportamiento de Procedencia en Todos los Establecimientos'}
                       </h5>
                       <p className="text-[11px] text-slate-500 mt-0.5">
                         Identifica qué establecimientos tienen mayor concentración de certificados particulares
@@ -1226,7 +1517,7 @@ export default function MLDashboardCard() {
                             : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
                         }`}
                       >
-                        Todos ({data.modelo5_origen_canjes.establecimientos.length})
+                        Todos ({establecimientosFiltrados.length})
                       </button>
                       <button
                         onClick={() => setFiltroAlertaEst('ALTA_CARGA')}
@@ -1274,16 +1565,31 @@ export default function MLDashboardCard() {
 
                   {/* Lista de Establecimientos */}
                   <div className="space-y-2.5 max-h-[460px] overflow-y-auto pr-1">
-                    {data.modelo5_origen_canjes.establecimientos
-                      .filter((e) => {
+                    {(() => {
+                      const list = establecimientosFiltrados.filter((e) => {
                         const matchText =
                           e.establecimiento.toLowerCase().includes(busquedaEst.toLowerCase()) ||
                           e.microred.toLowerCase().includes(busquedaEst.toLowerCase());
                         const matchFiltro =
                           filtroAlertaEst === 'TODOS' || e.alerta === filtroAlertaEst;
                         return matchText && matchFiltro;
-                      })
-                      .map((est, idx) => (
+                      });
+
+                      if (list.length === 0) {
+                        return (
+                          <div className="py-8 text-center text-slate-500 bg-white rounded-lg border border-slate-200">
+                            <CheckCircle2 className="w-5 h-5 text-slate-400 mx-auto mb-1.5" />
+                            <p className="font-semibold text-slate-800 text-xs">No se encontraron establecimientos</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">
+                              {busquedaEst
+                                ? 'Prueba con otro término de búsqueda o cambia la alerta seleccionada.'
+                                : `No hay establecimientos asignados para el filtro actual.`}
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      return list.map((est, idx) => (
                         <div
                           key={idx}
                           className="p-3.5 bg-white rounded-lg border border-slate-200 hover:border-slate-300 transition shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
@@ -1345,7 +1651,8 @@ export default function MLDashboardCard() {
                             </div>
                           </div>
                         </div>
-                      ))}
+                      ));
+                    })()}
                   </div>
                 </div>
               </div>

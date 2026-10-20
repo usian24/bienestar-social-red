@@ -13,21 +13,39 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const microredId = searchParams.get('microredId');
 
+    const user = session.user as any;
+    const isSuperAdmin = user.rol === 'SUPER_ADMIN';
+    let userMicroredId = user.microredId;
+
+    // Si por algún motivo no vino en session pero existe en DB, resolverlo mediante su DNI
+    if (!userMicroredId && !isSuperAdmin && user.email) {
+      const dbUser = await prisma.usuario.findUnique({
+        where: { dni: user.email },
+        select: { microredId: true }
+      });
+      if (dbUser?.microredId) {
+        userMicroredId = dbUser.microredId;
+      }
+    }
+
     // Construir where clause
     const whereClause: any = {
       origen: 'PARTICULAR'
     };
 
-    if (microredId) {
+    if (isSuperAdmin) {
+      if (microredId && microredId !== 'TODAS') {
+        whereClause.trabajador = {
+          establecimiento: {
+            microredId: Number(microredId)
+          }
+        };
+      }
+    } else if (userMicroredId) {
+      // SEDE_ADMIN o cualquier rol no-superadmin: Restringir obligatoriamente a su microred asignada
       whereClause.trabajador = {
         establecimiento: {
-          microredId: Number(microredId)
-        }
-      };
-    } else if ((session.user as any).rol === 'ADMIN_MICRORED' && (session.user as any).microredId) {
-      whereClause.trabajador = {
-        establecimiento: {
-          microredId: Number((session.user as any).microredId)
+          microredId: Number(userMicroredId)
         }
       };
     }

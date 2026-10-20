@@ -30,6 +30,20 @@ export async function POST(request: Request) {
     const esSuperAdmin = rol === 'SUPER_ADMIN';
     const esTrabajador = rol === 'TRABAJADOR';
 
+    // Resolver nombre oficial de la microred asignada para el contexto y las respuestas
+    let userMicroredNombre = user.microredNombre;
+    if (!userMicroredNombre && userMicroredId) {
+      const mr = await prisma.microred.findUnique({
+        where: { id: Number(userMicroredId) }
+      });
+      if (mr) userMicroredNombre = mr.nombre;
+    }
+    if (!userMicroredNombre) {
+      userMicroredNombre = esSuperAdmin 
+        ? 'Toda la Red de Salud Huánuco (Sede Central y 13 Microredes)' 
+        : 'SEDE CENTRAL';
+    }
+
     // 🔒 1. CONTROL DE ACCESO ESTRICTO: Solo SuperAdmin y Trabajador (o usuarios con poder USAR_CHATBOT concedido)
     if (!puedeUsarChatbot(rol, permisos)) {
       return NextResponse.json({
@@ -37,10 +51,41 @@ export async function POST(request: Request) {
       }, { status: 403 });
     }
 
-    // 🛡️ 2. CAPA PREVENTIVA: GUARDIÁN ANTI-HACKEO, ANTI-JSON Y ANTI-FUGA DE DATOS PARA TRABAJADORES
-    if (esTrabajador || !esSuperAdmin) {
-      const msjLower = mensaje.toLowerCase().trim();
+    const msjLower = mensaje.toLowerCase().trim();
 
+    // 👤 2. DETECCIÓN INSTANTÁNEA: PREGUNTAS SOBRE IDENTIDAD, SEDE, MICRORED O CUENTA EN SESIÓN
+    const esConsultaIdentidad = 
+      /\b(a\s*qu[eé]\s*(red|microred|sede)\s*pertenezco|cu[aá]l\s*es\s*mi\s*(red|microred|sede|jurisdicci[oó]n|cuenta|rol)|qu[eé]\s*cuenta\s*tengo|qui[eé]n\s*soy|a\s*d[oó]nde\s*pertenezco|mi\s*(sede|microred|red))\b/i.test(msjLower) ||
+      (msjLower.includes('pertenezco') && (msjLower.includes('red') || msjLower.includes('microred') || msjLower.includes('sede')));
+
+    if (esConsultaIdentidad) {
+      if (esSuperAdmin) {
+        return NextResponse.json({
+          respuesta: `👋 Hola **${nombre}** (DNI: **${dni}**).\n\n🏛️ Tu cuenta tiene el rol de **Super Administrador (Jefatura de Red)**.\n• **Jurisdicción:** Tienes acceso institucional irrestricto a toda la **Red de Salud Huánuco**, incluyendo la Sede Central y las 13 Microredes de la provincia.\n• **Alcance:** Puedes consultar expedientes de cualquier servidor, generar reportes consolidados (PDF/Excel) y supervisar los modelos de analítica predictiva de toda la red.`,
+          origen: 'consulta_identidad_sesion'
+        });
+      } else if (esTrabajador) {
+        const trabPropio = await prisma.trabajador.findUnique({
+          where: { dni },
+          include: { establecimiento: { include: { microred: true } } }
+        });
+        const estNombre = trabPropio?.establecimiento?.nombre || 'Establecimiento no asignado';
+        const mrNombre = trabPropio?.establecimiento?.microred?.nombre || userMicroredNombre;
+        return NextResponse.json({
+          respuesta: `👋 Hola **${nombre}** (DNI: **${dni}**).\n\n👤 Tu cuenta institucional corresponde a un **Servidor / Trabajador** de la Red de Salud Huánuco.\n• **Establecimiento de Salud:** ${estNombre}\n• **Microred:** **${mrNombre}**\n• **Alcance:** Tienes acceso para consultar tu propio expediente, tus días de descanso médico, cobertura de los primeros 20 días asumidos por la Red y tus días de subsidio ante EsSalud.`,
+          origen: 'consulta_identidad_sesion'
+        });
+      } else {
+        // Administrador de Sede / Microred o Gestor
+        return NextResponse.json({
+          respuesta: `👋 Hola **${nombre}** (DNI: **${dni}**).\n\n🏛️ Tu cuenta institucional tiene el rol de **${rol === 'SEDE_ADMIN' ? 'Administrador de Sede' : rol}** asignado a la **${userMicroredNombre}**.\n• **Jurisdicción:** Tu gestión y consultas están asignadas exclusivamente a los establecimientos de salud y al personal perteneciente a la **${userMicroredNombre}**.\n• **Alcance:** Puedes revisar expedientes de tus servidores, vigilar los semáforos de canje de CITT y tramitar licencias dentro de tu microred.`,
+          origen: 'consulta_identidad_sesion'
+        });
+      }
+    }
+
+    // 🛡️ 3. CAPA PREVENTIVA: GUARDIÁN ANTI-HACKEO, ANTI-JSON Y ANTI-FUGA DE DATOS PARA TRABAJADORES
+    if (esTrabajador || !esSuperAdmin) {
       // A) Bloquear consulta de DNIs ajenos para trabajadores
       const matchDni = mensaje.match(/\b\d{8}\b/);
       if (esTrabajador && matchDni && matchDni[0] !== dni) {
@@ -68,7 +113,66 @@ export async function POST(request: Request) {
       }
     }
 
-    // 3. DETECCIÓN INTELIGENTE DE BÚSQUEDA DE TRABAJADOR (SOLO SUPER ADMIN / GESTOR AUTORIZADO)
+    // ⚡ 4. MOTOR DE CONOCIMIENTO INSTITUCIONAL ULTRA-RÁPIDO (FAST PATH: 0 TOKENS, RESPUESTA EN <20MS)
+    // Responde instantáneamente a preguntas institucionales frecuentes sin consumir cuota de tokens ni saturar la API
+
+    // A) Información general sobre la Red de Salud Huánuco
+    const esConsultaInfoRed = 
+      /\b(informaci[oó]n\s*(sobre\s*)?(la\s*)?red(\s*de\s*salud)?(\s*hu[aá]nuco)?|qu[eé]\s*es\s*la\s*red(\s*de\s*salud)?|qui[eé]nes\s*somos|sobre\s*la\s*instituci[oó]n|diresa\s*hu[aá]nuco|sede\s*central)\b/i.test(msjLower) ||
+      (msjLower.includes('informacion') && (msjLower.includes('red') || msjLower.includes('huanuco')));
+
+    if (esConsultaInfoRed && !mensaje.match(/\b\d{8}\b/)) {
+      return NextResponse.json({
+        respuesta: `🏛️ **Red de Salud Huánuco (Unidad Ejecutora 404):**\n\nLa **Red de Salud Huánuco** es el órgano desconcentrado de la Dirección Regional de Salud (**DIRESA Huánuco**) y del Gobierno Regional de Huánuco (**GOREHCO**), encargado de gestionar, articular y garantizar la atención integral de salud pública y asistencial en toda la provincia de Huánuco.\n\n📍 **Sede Administrativa Central:**\n• Jr. Dámaso Beraún N° 1017, Huánuco, Perú.\n\n🏥 **Ámbito Territorial y Red de Servicios (13 Microredes):**\nArticula y supervisa más de **85 establecimientos de salud** (postas, puestos y centros de salud) organizados en:\n1. **MR Amarilis** | 2. **MR San Francisco de Cayrán** | 3. **MR Churubamba**\n4. **MR Santa María del Valle** | 5. **MR Kichki** | 6. **MR Margos**\n7. **MR Pillao** | 8. **MR Chaulán** | 9. **MR Yacus** | 10. **MR Quisqui**\n11. **MR Chinchao** | 12. **MR Acomayo** | 13. **Sede Central Huánuco**.\n\n💼 **Área de Bienestar Social:**\n• Liquidación técnica y control de descansos médicos (**CITT EsSalud** y particulares).\n• Trámite y auditoría de **subsidios por incapacidad temporal y maternidad** ante EsSalud.\n• Control estricto de la **cobertura patronal de los primeros 20 días** de descanso médico.\n\n¿En qué trámite, cálculo de subsidio o consulta sobre tu expediente te puedo orientar hoy?`,
+        origen: 'conocimiento_institucional_inmediato'
+      });
+    }
+
+    // B) Regla de los primeros 20 días de salud
+    const esConsulta20Dias = 
+      /\b(regla\s*(de\s*los)?\s*20\s*d[ií]as|primeros\s*20\s*d[ií]as|c[oó]mo\s*funciona(n)?\s*(la\s*regla|los\s*20\s*d[ií]as)|qui[eé]n\s*paga\s*(los\s*)?(primeros\s*)?20)\b/i.test(msjLower) ||
+      (msjLower.includes('20') && msjLower.includes('dia') && (msjLower.includes('regla') || msjLower.includes('paga') || msjLower.includes('subsidio')));
+
+    if (esConsulta20Dias && !mensaje.match(/\b\d{8}\b/)) {
+      return NextResponse.json({
+        respuesta: `⚖️ **Regla Legal de los Primeros 20 Días de Descanso Médico (D.S. N° 009-97-SA / Ley N° 26790):**\n\nEn la normativa laboral y de seguridad social del Perú:\n\n1. **Días 1 al 20 (Cobertura Institucional - Red de Salud Huánuco):**\n   • Son asumidos y remunerados **al 100% con goce de haber por la institución** de manera acumulativa dentro de cada año calendario (del 1 de enero al 31 de diciembre).\n   • Aplica sumando todas las licencias por enfermedad común y accidente común del servidor.\n\n2. **Día 21 en adelante (Subsidio Económico por EsSalud):**\n   • A partir del día 21 acumulativo, cesa la obligación patronal directa y nace el derecho al **Subsidio por Incapacidad Temporal para el Trabajo financiado por EsSalud**.\n   • La Red de Salud Huánuco continúa abonando tu remuneración mediante el sistema de pago directo y luego gestiona el expediente de reembolso ante las oficinas de EsSalud.\n\n💡 *Excepción Importante:* La **Maternidad (98 días)** es subsidiada por EsSalud desde el **día 1** y no consume la cuota de los primeros 20 días de la Red.`,
+        origen: 'conocimiento_institucional_inmediato'
+      });
+    }
+
+    // C) Plazo legal y procedimiento para canje de CITT
+    const esConsultaCanjeCitt = 
+      /\b(canje(ar)?\s*(de\s*)?citt|plazo\s*(de\s*)?(canje|30\s*d[ií]as)|c[oó]mo\s*canjear|requisitos\s*(para\s*)?canje|caducidad\s*citt|perder\s*subsidio)\b/i.test(msjLower) ||
+      (msjLower.includes('canje') && (msjLower.includes('citt') || msjLower.includes('particular')));
+
+    if (esConsultaCanjeCitt && !mensaje.match(/\b\d{8}\b/)) {
+      return NextResponse.json({
+        respuesta: `📑 **Procedimiento y Plazo Legal para Canje de Certificados Particulares por CITT:**\n\nCuando un servidor de la Red recibe atención en una clínica, hospital MINSA o médico particular colegiado:\n\n1. **Plazo Fatal de 30 Días Hábiles:**\n   • El certificado particular debe presentarse ante EsSalud Huánuco para su canje por el **CITT Oficial** dentro del plazo improrrogable de **30 días hábiles** contados desde su emisión.\n   • Si transcurren más de 30 días, el certificado caduca ante EsSalud y la institución no podrá tramitar el reembolso del subsidio.\n\n2. **Requisitos Exigidos por EsSalud:**\n   • Certificado médico original emitido en formato oficial del Colegio Médico del Perú (CMP) con firma, sello y número de colegiatura legible.\n   • Receta médica oficial, comprobantes de pago de farmacia y exámenes auxiliares o de laboratorio que sustenten el diagnóstico (**CIE-10**).\n   • Formulario de solicitud de canje debidamente suscrito por el servidor.\n\n💡 *En el Módulo de Bienestar Social contamos con un semáforo de alertas que notifica en amarillo y rojo los certificados que están por alcanzar el límite de 30 días.*`,
+        origen: 'conocimiento_institucional_inmediato'
+      });
+    }
+
+    // D) Licencias especiales: Maternidad (98 días), Paternidad (10 días), Ley 30012 (7 días)
+    const esConsultaLicenciasEspeciales = 
+      /\b(maternidad|pre\s*y\s*post\s*natal|98\s*d[ií]as|paternidad|10\s*d[ií]as|ley\s*30012|familiar\s*(grave|terminal)|7\s*d[ií]as)\b/i.test(msjLower);
+
+    if (esConsultaLicenciasEspeciales && !mensaje.match(/\b\d{8}\b/)) {
+      return NextResponse.json({
+        respuesta: `📋 **Régimen de Licencias Especiales en la Red de Salud Huánuco:**\n\n1. 🤰 **Maternidad (Ley N° 26644 y modif. Ley N° 30367):**\n   • **Duración:** 98 días calendario (49 días de descanso prenatal y 49 días postnatal).\n   • **Cobertura:** Subsidiada **al 100% por EsSalud desde el día 1** (no afecta la cuota de los primeros 20 días de la Red).\n\n2. 👨‍🍼 **Paternidad (Ley N° 30807):**\n   • **Duración:** 10 días calendario consecutivos con goce de haber.\n   • **Cobertura:** Asumida al **100% por la Red de Salud Huánuco** (no subsidiada por EsSalud).\n\n3. 🏥 **Licencia por Enfermedad Grave o Terminal de Familiar (Ley N° 30012):**\n   • **Duración:** Hasta 7 días calendario con goce de haber por familiar directo (padres, cónyuge, conviviente o hijos) en estado grave o terminal.\n   • **Cobertura:** Asumida al 100% por la institución previa presentación del certificado médico sustentatorio.`,
+        origen: 'conocimiento_institucional_inmediato'
+      });
+    }
+
+    // E) Saludos rápidos de cortesía
+    const esSaludoSimple = /^(hola|buenos\s*d[ií]as|buenas\s*tardes|buenas\s*noches|saludos|qu[eé]\s*tal)\b/i.test(msjLower) && msjLower.length < 25;
+    if (esSaludoSimple) {
+      return NextResponse.json({
+        respuesta: `👋 ¡Hola, **${nombre}**! Bienvenido al Asistente Institucional de Bienestar Social de la **Red de Salud Huánuco**.\n\nEstoy listo para ayudarte con:\n• **Búsqueda de expedientes:** Ingresa cualquier número de DNI (ej: 74425510) o nombre de un servidor.\n• **Cálculo de subsidios:** Regla de los primeros 20 días de la Red y subsidios de EsSalud (día 21 en adelante).\n• **Semáforos de CITT:** Control del plazo de 30 días para canje de descansos particulares.\n• **Tu jurisdicción:** Información sobre la **${userMicroredNombre}**.\n\n¿En qué consulta puedo orientarte en este momento?`,
+        origen: 'saludo_inmediato'
+      });
+    }
+
+    // 5. DETECCIÓN INTELIGENTE DE BÚSQUEDA DE TRABAJADOR CON AISLAMIENTO ESTRICTO RBAC
     let personaConsultada: any = null;
 
     if (esSuperAdmin || !esTrabajador) {
@@ -84,17 +188,27 @@ export async function POST(request: Request) {
           }
         });
         if (trab) {
+          // Aislamiento RBAC estricto: verificar jurisdicción para Administradores de Sede
+          if (!esSuperAdmin && userMicroredId && trab.establecimiento?.microredId !== Number(userMicroredId)) {
+            return NextResponse.json({
+              respuesta: `🔒 **Acceso Restringido por Jurisdicción Institucional:**\n\nEl servidor consultado con DNI **${dniBuscado}** (*${trab.apellidos}, ${trab.nombres}*) labora en el establecimiento **${trab.establecimiento?.nombre || 'No asignado'}** de la **${trab.establecimiento?.microred?.nombre || 'otra microred'}**.\n\nTu cuenta está asignada exclusivamente a la **${userMicroredNombre}**. Por políticas de confidencialidad y control interno, no está permitido consultar expedientes fuera de tu microred.`,
+              origen: 'filtro_jurisdiccion_microred'
+            });
+          }
           personaConsultada = formatearTrabajadorParaContexto(trab);
         }
       } else {
         // Búsqueda por nombres o apellidos para administradores
         const stopWords = new Set([
-          'hola', 'buenas', 'busca', 'buscar', 'dime', 'sobre', 'persona', 'trabajador', 'datos', 
-          'informacion', 'expediente', 'licencia', 'licencias', 'cuantos', 'dias', 'quien', 'este', 
-          'esta', 'salud', 'citt', 'favor', 'por', 'tiene', 'ver', 'mostrar'
+          'hola', 'buenas', 'buenos', 'dias', 'tardes', 'noches', 'busca', 'buscar', 'dime', 'sobre', 'persona', 
+          'trabajador', 'servidor', 'datos', 'informacion', 'expediente', 'licencia', 'licencias', 'cuantos', 
+          'quien', 'este', 'esta', 'salud', 'citt', 'favor', 'por', 'tiene', 'ver', 'mostrar', 'consulta',
+          'red', 'microred', 'sede', 'pertenezco', 'pertenece', 'cuenta', 'rol', 'cargo', 'soy', 'yo',
+          'ayuda', 'ayudame', 'huanuco', 'diresa', 'redsalud', 'establecimiento', 'centro', 'puesto',
+          'como', 'cual', 'cuales', 'donde', 'cuando', 'para', 'con', 'del', 'los', 'las', 'una', 'uno'
         ]);
         const palabras = mensaje
-          .replace(/[^\w\s]/gi, '')
+          .replace(/[^\w\sáéíóúÁÉÍÓÚñÑ]/gi, '')
           .split(/\s+/)
           .filter(w => w.length >= 3 && !stopWords.has(w.toLowerCase()));
 
@@ -104,8 +218,14 @@ export async function POST(request: Request) {
             { apellidos: { contains: p, mode: 'insensitive' as const } }
           ]);
 
+          const whereFiltro: any = { OR: orConditions };
+          // Si no es SuperAdmin, restringir la búsqueda a los establecimientos de su microred
+          if (!esSuperAdmin && userMicroredId) {
+            whereFiltro.establecimiento = { microredId: Number(userMicroredId) };
+          }
+
           const trab = await prisma.trabajador.findFirst({
-            where: { OR: orConditions },
+            where: whereFiltro,
             include: {
               establecimiento: { include: { microred: true } },
               licencias: { orderBy: { fechaInicio: 'asc' } }
@@ -190,7 +310,13 @@ export async function POST(request: Request) {
         }
       });
 
-      contextoCompacto.jurisdiccion = esSuperAdmin ? 'Toda la Red de Salud Huánuco (13 Microredes)' : 'Microred Asignada';
+      contextoCompacto.jurisdiccion = userMicroredNombre;
+      contextoCompacto.usuarioSesion = {
+        nombre,
+        dni,
+        rol,
+        microred: userMicroredNombre
+      };
       contextoCompacto.kpis = {
         totalTrabajadores,
         licenciasTotales,
@@ -210,6 +336,14 @@ export async function POST(request: Request) {
 Tu personalidad es cálida, cercana, empática, profesional y humana, como un orientador especializado de Bienestar Social y Recursos Humanos.
 No te presentes como "inteligencia artificial" ni "modelo de lenguaje"; eres el orientador institucional oficial de la Red de Salud Huánuco.
 Tu objetivo es orientar a los trabajadores y a la Jefatura con máxima precisión, amabilidad, claridad y estricto respeto a las normas laborales y de seguridad de la información.
+
+👤 IDENTIDAD DEL USUARIO CONECTADO EN SESIÓN:
+- Nombre: ${nombre}
+- DNI: ${dni}
+- Rol Institucional: ${rol}
+- Microred / Sede Asignada: ${userMicroredNombre}
+- Jurisdicción Oficial: ${userMicroredNombre}
+Si el usuario pregunta a qué red, microred o sede pertenece, o qué rol tiene, corrobórale con orgullo y amabilidad estos datos oficiales de su sesión.
 
 🛡️ POLÍTICA DE SEGURIDAD ESTRICTA Y PREVENCIÓN DE FUGA DE DATOS:
 1. PROHIBICIÓN TOTAL DE FORMATO JSON O CÓDIGO (Para Trabajadores):
@@ -242,8 +376,8 @@ Instrucciones de Respuesta:
 - Estructura las respuestas con negritas y viñetas para facilitar la lectura.
 - No uses tecnicismos informáticos ni menciones nombres de bases de datos o campos de programación.`;
 
-    // 7. LLAMADA A GEMINI FLASH LITE CON FALLBACK RESILIENTE
-    const apiKey = process.env.GEMINI_API_KEY;
+    // 7. LLAMADA A GEMINI FLASH LITE CON TIMEOUT DINÁMICO DE 9S Y FALLBACK RESILIENTE
+    const apiKey = process.env.GEMINI_API_KEY_CHAT || process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return NextResponse.json({
         respuesta: generarRespuestaDirecta(contextoCompacto, mensaje),
@@ -270,28 +404,33 @@ Instrucciones de Respuesta:
         }
       };
 
+      // Modelos priorizados para Chat: gemini-3.5-flash-lite es el modelo recomendado y verificado
       const modelosChat = [
         'gemini-3.5-flash-lite',
         'gemini-3.1-flash-lite',
         'gemini-flash-lite-latest',
-        'gemini-flash-latest',
-        'gemini-3.6-flash'
+        'gemini-flash-latest'
       ];
 
       let respuestaTexto: string | null = null;
       let modeloExitoso = 'fallback_seguro';
 
       for (const mod of modelosChat) {
+        const timeoutMs = mod === 'gemini-3.5-flash-lite' ? 35000 : 18000;
+        const inicioLlamada = Date.now();
         try {
+          console.log(`[CHATBOT] Consultando modelo ${mod} (tiempo límite: ${timeoutMs / 1000}s)...`);
           const resGemini = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/${mod}:generateContent?key=${apiKey}`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payloadGemini),
-              signal: AbortSignal.timeout(8000)
+              signal: AbortSignal.timeout(timeoutMs)
             }
           );
+
+          const duracionMs = Date.now() - inicioLlamada;
 
           if (resGemini.ok) {
             const dataGemini = await resGemini.json();
@@ -299,11 +438,18 @@ Instrucciones de Respuesta:
             if (text) {
               respuestaTexto = text;
               modeloExitoso = mod;
+              console.log(`[CHATBOT] Respuesta generada con éxito por ${mod} en ${duracionMs}ms`);
               break;
             }
+          } else if (resGemini.status === 503 || resGemini.status === 429) {
+            console.warn(`[CHATBOT] Modelo ${mod} saturado temporalmente (${resGemini.status}) tras ${duracionMs}ms, esperando 600ms antes del siguiente modelo...`);
+            await new Promise(r => setTimeout(r, 600));
+          } else {
+            console.warn(`[CHATBOT] Modelo ${mod} respondió status ${resGemini.status} tras ${duracionMs}ms`);
           }
         } catch (err: any) {
-          console.warn(`Error llamando a modelo chat ${mod}:`, err.message);
+          const duracionMs = Date.now() - inicioLlamada;
+          console.warn(`[CHATBOT] Error llamando a modelo chat ${mod} tras ${duracionMs}ms:`, err.message);
         }
       }
 
