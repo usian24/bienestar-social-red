@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { FileText, Printer, Loader2, Brain } from 'lucide-react';
-import { useReactToPrint } from 'react-to-print';
+import { useImprimir } from '@/shared/hooks/useImprimir';
 import ReporteMensualTemplate from '@/shared/components/ReporteMensualTemplate';
 import EditorToolbar from '@/shared/components/EditorToolbar';
 import MLDashboardCard from '@/shared/components/MLDashboardCard';
@@ -55,7 +55,7 @@ function ReportesContent() {
 
   const componentRef = useRef<HTMLDivElement>(null);
 
-  const handlePrint = useReactToPrint({
+  const handlePrint = useImprimir({
     contentRef: componentRef,
     documentTitle: `Informe_Mensual_Bienestar_${meses.find(m => m.value === mes)?.label}_${anio}`
   });

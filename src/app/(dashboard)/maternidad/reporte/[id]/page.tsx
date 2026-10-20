@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { Printer, Loader2, ArrowLeft, MapPin, Globe } from 'lucide-react';
-import { useReactToPrint } from 'react-to-print';
+import { useImprimir } from '@/shared/hooks/useImprimir';
 import Link from 'next/link';
 import EditorToolbar from '@/shared/components/EditorToolbar';
 import VisorDocumentoA4 from '@/shared/components/VisorDocumentoA4';
@@ -16,7 +16,7 @@ export default function ReporteMaternidadPdfPage() {
   const [loading, setLoading] = useState(true);
   const componentRef = useRef<HTMLDivElement>(null);
 
-  const handlePrint = useReactToPrint({
+  const handlePrint = useImprimir({
     contentRef: componentRef,
     documentTitle: `Reporte_Historial_Maternidad_${data?.trabajador?.dni || 'Trabajador'}`
   });

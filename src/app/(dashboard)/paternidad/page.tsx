@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, FileSpreadsheet, FileText, PlusCircle, Search } from "lucide-react";
+import { Eye, FileSpreadsheet, FileText, PlusCircle, Search, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import NuevoCittModal from "@/shared/components/NuevoCittModal";
@@ -269,8 +269,20 @@ export default function PaternidadPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="py-10 text-center text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-600">
-                      Conectando con la Base de Datos...
+                    <td colSpan={7} className="py-14 text-center border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30">
+                      <div className="flex flex-col items-center justify-center space-y-3">
+                        <div className="w-12 h-12 rounded-2xl bg-sky-50 dark:bg-sky-900/30 border border-sky-200 dark:border-sky-800 flex items-center justify-center text-sky-600 dark:text-sky-400 shadow-xs">
+                          <Loader2 className="w-6 h-6 animate-spin" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                            Cargando licencias de paternidad...
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            Validando descansos por paternidad y días remunerados
+                          </p>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 ) : registrosFiltrados.length === 0 ? (

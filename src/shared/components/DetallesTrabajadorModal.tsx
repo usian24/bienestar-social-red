@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Pencil, Trash2, Calendar, FileText, User, Clock } from 'lucide-react';
+import { X, Pencil, Trash2, Calendar, FileText, User, Clock, Loader2 } from 'lucide-react';
 import NuevoCittModal from './NuevoCittModal';
 import { useSession } from 'next-auth/react';
 
@@ -102,7 +102,19 @@ export default function DetallesTrabajadorModal({ isOpen, onClose, trabajadorInf
 
           <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50">
             {loading ? (
-              <p className="text-center text-slate-500 dark:text-slate-400 py-10">Cargando expediente...</p>
+              <div className="py-16 flex flex-col items-center justify-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-xs">
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                    Cargando expediente del servidor...
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Consultando histórico de descansos y CITTs registrados
+                  </p>
+                </div>
+              </div>
             ) : (
               <>
                 {/* Tarjeta de Información del Servidor */}

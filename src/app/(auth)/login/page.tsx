@@ -26,18 +26,27 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    const result = await signIn("credentials", {
-      dni,
-      password,
-      redirect: false,
-    });
+    try {
+      const result = await signIn("credentials", {
+        dni,
+        password,
+        redirect: false,
+      });
 
-    if (result?.error) {
-      setError(result.error);
+      if (result?.error) {
+        setError(result.error);
+        setLoading(false);
+      } else if (result?.ok) {
+        // Usar window.location.href asegura que las cookies de sesión se confirmen en WebViews de Android
+        window.location.href = "/inicio";
+      } else {
+        setError("No se pudo iniciar sesión. Verifica tus credenciales.");
+        setLoading(false);
+      }
+    } catch (err: any) {
+      console.error("[Login] Error al iniciar sesión:", err);
+      setError(err?.message || "Error de conexión al servidor");
       setLoading(false);
-    } else {
-      // Usar window.location.href asegura que las cookies de sesión se confirmen en WebViews de Android
-      window.location.href = "/inicio";
     }
   };
 

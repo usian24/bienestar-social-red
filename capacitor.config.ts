@@ -5,8 +5,8 @@ const config: CapacitorConfig = {
   appName: 'Red de Salud Huánuco',
   webDir: 'public',
   server: {
-    // Con cable USB conectado, adb reverse permite que el celular entre directo por localhost:3000
-    url: 'http://localhost:3000',
+    // Conectado por Wi-Fi o Hotspot para que el celular funcione al 100% de manera inalámbrica
+    url: 'http://192.168.137.233:3000',
     cleartext: true
   },
   android: {

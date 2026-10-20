@@ -140,44 +140,56 @@ export default function InicioPage() {
 
   return (
     <div className="space-y-6">
-      {/* Tarjetas de Resumen Rápido (KPIs) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 flex items-center gap-4">
-            <div className="p-3 bg-blue-100 rounded-full">
-              <Users className="w-6 h-6 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-slate-500 text-sm font-medium">Total Trabajadores Registrados</p>
-              <h3 className="text-2xl font-bold text-slate-800">
-                {loadingKpis ? '...' : kpis.totalTrabajadores.toLocaleString()}
-              </h3>
-            </div>
+      {/* Tarjetas de Resumen Rápido (KPIs) - 3 en una fila en celular compactas, espaciosas en desktop */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 md:gap-6">
+        {/* 1. Total Trabajadores */}
+        <div className="bg-white p-2.5 sm:p-4 md:p-5 rounded-xl shadow-xs border border-slate-200 hover:border-blue-300 transition-colors flex flex-col justify-between sm:flex-row sm:items-center gap-1.5 sm:gap-3.5 overflow-hidden min-w-0">
+          <div className="w-7 h-7 sm:w-10 sm:h-10 bg-blue-50 text-blue-600 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0">
+            <Users className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
           </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 flex items-center gap-4">
-            <div className="p-3 bg-emerald-100 rounded-full">
-              <Activity className="w-6 h-6 text-emerald-600" />
-            </div>
-            <div>
-              <p className="text-slate-500 text-sm font-medium">Licencias Activas Totales</p>
-              <h3 className="text-2xl font-bold text-slate-800">
-                {loadingKpis ? '...' : kpis.licenciasActivas.toLocaleString()}
-              </h3>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 flex items-center gap-4">
-            <div className="p-3 bg-purple-100 rounded-full">
-              <FileCheck className="w-6 h-6 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-slate-500 text-sm font-medium">Subsidios Pendientes EsSalud</p>
-              <h3 className="text-2xl font-bold text-slate-800">
-                {loadingKpis ? '...' : kpis.subsidiosPendientes.toLocaleString()}
-              </h3>
-            </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-slate-400 text-[9px] sm:text-[11px] uppercase font-bold tracking-tight truncate">
+              <span className="sm:hidden">Personal</span>
+              <span className="hidden sm:inline">Total Trabajadores Registrados</span>
+            </p>
+            <h3 className="text-sm sm:text-xl md:text-2xl font-bold text-slate-800">
+              {loadingKpis ? '...' : kpis.totalTrabajadores.toLocaleString()}
+            </h3>
           </div>
         </div>
+
+        {/* 2. Licencias Activas */}
+        <div className="bg-white p-2.5 sm:p-4 md:p-5 rounded-xl shadow-xs border border-slate-200 hover:border-emerald-300 transition-colors flex flex-col justify-between sm:flex-row sm:items-center gap-1.5 sm:gap-3.5 overflow-hidden min-w-0">
+          <div className="w-7 h-7 sm:w-10 sm:h-10 bg-emerald-50 text-emerald-600 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0">
+            <Activity className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-slate-400 text-[9px] sm:text-[11px] uppercase font-bold tracking-tight truncate">
+              <span className="sm:hidden">Lic. Activas</span>
+              <span className="hidden sm:inline">Licencias Activas Totales</span>
+            </p>
+            <h3 className="text-sm sm:text-xl md:text-2xl font-bold text-slate-800">
+              {loadingKpis ? '...' : kpis.licenciasActivas.toLocaleString()}
+            </h3>
+          </div>
+        </div>
+
+        {/* 3. Subsidios Pendientes */}
+        <div className="bg-white p-2.5 sm:p-4 md:p-5 rounded-xl shadow-xs border border-slate-200 hover:border-purple-300 transition-colors flex flex-col justify-between sm:flex-row sm:items-center gap-1.5 sm:gap-3.5 overflow-hidden min-w-0">
+          <div className="w-7 h-7 sm:w-10 sm:h-10 bg-purple-50 text-purple-600 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0">
+            <FileCheck className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-slate-400 text-[9px] sm:text-[11px] uppercase font-bold tracking-tight truncate">
+              <span className="sm:hidden">Subsidios</span>
+              <span className="hidden sm:inline">Subsidios Pendientes EsSalud</span>
+            </p>
+            <h3 className="text-sm sm:text-xl md:text-2xl font-bold text-slate-800">
+              {loadingKpis ? '...' : kpis.subsidiosPendientes.toLocaleString()}
+            </h3>
+          </div>
+        </div>
+      </div>
 
       {/* Resumen Ejecutivo de Machine Learning & Modelos Predictivos */}
       <MLMiniCard />

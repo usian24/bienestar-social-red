@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useRef, useEffect, Suspense } from 'react';
 import { FileText, Printer, Loader2, ArrowLeft } from 'lucide-react';
-import { useReactToPrint } from 'react-to-print';
+import { useImprimir } from '@/shared/hooks/useImprimir';
 import { useSearchParams, useRouter } from 'next/navigation';
 import ReporteMensualTemplate from '@/shared/components/ReporteMensualTemplate';
 import EditorToolbar from '@/shared/components/EditorToolbar';
@@ -23,7 +23,7 @@ function ReporteRangoContent() {
 
   const componentRef = useRef<HTMLDivElement>(null);
 
-  const handlePrint = useReactToPrint({
+  const handlePrint = useImprimir({
     contentRef: componentRef,
     documentTitle: `Informe_Rango_${desde}_a_${hasta}`
   });

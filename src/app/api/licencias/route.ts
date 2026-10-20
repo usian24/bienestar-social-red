@@ -54,7 +54,10 @@ export async function POST(request: Request) {
       diasOtorgados,
       anioEjercicio,
       mesEjercicio,
-      archivoRuta
+      archivoRuta,
+      medico,
+      colegiatura,
+      diagnostico
     } = body;
 
     if (!trabajadorId || !numeroCertificado || !fechaInicio || !fechaFin || !diasOtorgados) {
@@ -73,8 +76,11 @@ export async function POST(request: Request) {
         anioEjercicio: Number(anioEjercicio),
         mesEjercicio: Number(mesEjercicio),
         archivoRuta,
+        medico: medico ? String(medico).trim() : null,
+        colegiatura: colegiatura ? String(colegiatura).trim() : null,
+        diagnostico: diagnostico ? String(diagnostico).trim() : null,
         registradoPorId: (session.user as any).id
-      }
+      } as any
     });
 
     await prisma.auditoria.create({

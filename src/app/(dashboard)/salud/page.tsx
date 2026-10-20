@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, FileSpreadsheet, FileText, PlusCircle, Search } from "lucide-react";
+import { Eye, FileSpreadsheet, FileText, PlusCircle, Search, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -373,8 +373,20 @@ export default function SaludPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className="py-10 text-center text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-600">
-                      Conectando con la Base de Datos...
+                    <td colSpan={9} className="py-14 text-center border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30">
+                      <div className="flex flex-col items-center justify-center space-y-3">
+                        <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-xs">
+                          <Loader2 className="w-6 h-6 animate-spin" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                            Cargando registros de licencias y subsidios...
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            Calculando días de la Red y contabilizando subsidios de EsSalud
+                          </p>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 ) : registrosFiltrados.length === 0 ? (

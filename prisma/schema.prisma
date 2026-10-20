@@ -93,6 +93,9 @@ model Licencia {
   mesEjercicio      Int
   
   archivoRuta       String?
+  medico            String?
+  colegiatura       String?
+  diagnostico       String?
   
   registradoPorId   String?
   registradoPor     Usuario?          @relation(fields: [registradoPorId], references: [id])

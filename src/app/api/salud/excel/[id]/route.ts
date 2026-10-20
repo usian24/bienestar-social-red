@@ -141,7 +141,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           condicion: (trabajador.condicionLaboral || '').toUpperCase(),
           establecimiento: (trabajador.establecimiento.nombre || '').toUpperCase(),
           dni: trabajador.dni,
-          citt: lic.numeroCertificado,
+          citt: (lic as any).colegiatura ? `${lic.numeroCertificado} (CMP: ${(lic as any).colegiatura})` : lic.numeroCertificado,
           inicio: fInicio,
           fin: fFin,
           fin20: fin20Str,

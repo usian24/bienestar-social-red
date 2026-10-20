@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, Search, CheckCircle2, AlertCircle, Camera, Upload, 
   Loader2, Check, FileText, Scan, RefreshCw, Image as ImageIcon,
-  Zap, RotateCw
+  Zap, RotateCw, Sparkles, Stethoscope, UserCheck
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { tienePermiso } from '@/shared/utils/permisos';
@@ -40,8 +40,12 @@ export default function NuevoCittModal({
   const [numeroCertificado, setNumeroCertificado] = useState('');
   const [fechaInicio, setFechaInicio] = useState('');
   const [diasOtorgados, setDiasOtorgados] = useState('');
+  const [medico, setMedico] = useState('');
+  const [colegiatura, setColegiatura] = useState('');
+  const [diagnostico, setDiagnostico] = useState('');
   
   const [guardando, setGuardando] = useState(false);
+  const [mensajeGuardado, setMensajeGuardado] = useState('Guardando descanso médico...');
   const [exito, setExito] = useState(false);
   const [error, setError] = useState('');
   const [archivoAdjunto, setArchivoAdjunto] = useState<File | null>(null);
@@ -49,9 +53,12 @@ export default function NuevoCittModal({
 
   // Estados para Escáner y Cámara Inteligente
   const [fotoCapturadaPreview, setFotoCapturadaPreview] = useState<string | null>(null);
+  const [previewUrlManual, setPreviewUrlManual] = useState<string | null>(null);
+  const [optimizandoFoto, setOptimizandoFoto] = useState(false);
   const [mostrarCamaraWebRTC, setMostrarCamaraWebRTC] = useState(false);
   const [errorCamara, setErrorCamara] = useState('');
   const [escaneandoIA, setEscaneandoIA] = useState(false);
+  const [pasoEscaneoIndex, setPasoEscaneoIndex] = useState(0);
   const [orientacionMarco, setOrientacionMarco] = useState<'horizontal' | 'vertical'>('horizontal');
   const [linternaEncendida, setLinternaEncendida] = useState(false);
   const [soportaLinterna, setSoportaLinterna] = useState(false);
@@ -60,7 +67,12 @@ export default function NuevoCittModal({
     numeroCertificado?: string;
     origen?: string;
     fechaInicio?: string;
+    fechaFin?: string;
     diasOtorgados?: number;
+    medico?: string;
+    colegiatura?: string;
+    diagnostico?: string;
+    tipoLicencia?: string;
     trabajadorNombre?: string;
     encontradoEnBD?: boolean;
     previewUrl?: string;
@@ -72,6 +84,7 @@ export default function NuevoCittModal({
   const guideBoxRef = useRef<HTMLDivElement>(null);
   const inputCamaraNativaRef = useRef<HTMLInputElement>(null);
   const inputArchivoRef = useRef<HTMLInputElement>(null);
+  const inputCamaraManualRef = useRef<HTMLInputElement>(null);
   const inputEvidenciaManualRef = useRef<HTMLInputElement>(null);
 
   // Inicializar o limpiar datos al abrir/cerrar
@@ -85,14 +98,24 @@ export default function NuevoCittModal({
         setFechaInicio(fecha.toISOString().split('T')[0]);
         setDiasOtorgados(editData.diasOtorgados.toString());
         setArchivoRutaServidor(editData.archivoRuta || null);
+        setMedico((editData as any).medico || '');
+        setColegiatura((editData as any).colegiatura || '');
+        setDiagnostico((editData as any).diagnostico || '');
       } else {
         setTabActiva('manual');
         setOrigen('ESSALUD_CITT');
         setNumeroCertificado('');
         setFechaInicio('');
         setDiasOtorgados('');
+        setMedico('');
+        setColegiatura('');
+        setDiagnostico('');
         setArchivoAdjunto(null);
         setArchivoRutaServidor(null);
+        if (previewUrlManual) {
+          URL.revokeObjectURL(previewUrlManual);
+          setPreviewUrlManual(null);
+        }
       }
 
       if (trabajadorFijo) {
@@ -106,6 +129,10 @@ export default function NuevoCittModal({
     } else {
       detenerCamara();
       setFotoCapturadaPreview(null);
+      if (previewUrlManual) {
+        URL.revokeObjectURL(previewUrlManual);
+        setPreviewUrlManual(null);
+      }
     }
   }, [isOpen, editData, trabajadorFijo]);
 
@@ -152,6 +179,84 @@ export default function NuevoCittModal({
     }, 400);
     return () => clearTimeout(delay);
   }, [busqueda, trabajadorSeleccionado]);
+
+  // --- COMPRESIÓN CLIENT-SIDE DE IMÁGENES (Subida ultrarrápida y ahorro de datos móviles) ---
+  const comprimirImagen = async (archivo: File, maxDimension = 1920, calidad = 0.82): Promise<File> => {
+    if (!archivo.type.startsWith('image/')) {
+      return archivo;
+    }
+    if (archivo.type === 'image/svg+xml' || archivo.type === 'image/gif') {
+      return archivo;
+    }
+
+    return new Promise((resolve) => {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(archivo);
+
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        let { width, height } = img;
+
+        if (!width || !height) {
+          resolve(archivo);
+          return;
+        }
+
+        // Si la foto supera la dimensión máxima, redimensionar manteniendo proporción
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(archivo);
+          return;
+        }
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              resolve(archivo);
+              return;
+            }
+            // Si la compresión resultó más pesada que el original, mantener original
+            if (blob.size >= archivo.size) {
+              resolve(archivo);
+              return;
+            }
+            const nombreBase = archivo.name.replace(/\.[^/.]+$/, "");
+            const archivoComprimido = new File([blob], `${nombreBase}.jpg`, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            resolve(archivoComprimido);
+          },
+          'image/jpeg',
+          calidad
+        );
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(archivo);
+      };
+
+      img.src = objectUrl;
+    });
+  };
 
   // --- MANEJO SEGURO DE CÁMARA (Compatible con móvil, escritorio, HTTP y HTTPS) ---
   const activarCamaraOSelector = () => {
@@ -321,19 +426,81 @@ export default function NuevoCittModal({
       if (!blob) return;
       const file = new File([blob], `citt-scan-${Date.now()}.jpg`, { type: 'image/jpeg' });
       detenerCamara();
-      procesarArchivoCitt(file);
+      iniciarEscaneoDesdeArchivo(file);
     }, 'image/jpeg', 0.92);
   };
 
+  // --- PASOS DINÁMICOS DE ESCANEO IA ---
+  const pasosEscaneo = [
+    { texto: 'Optimizando resolución y nitidez de la fotografía...', porcentaje: 25, badge: 'Paso 1/4' },
+    { texto: 'Analizando certificado con Inteligencia Artificial...', porcentaje: 52, badge: 'Paso 2/4' },
+    { texto: 'Extrayendo N° Certificado CITT, fechas y CMP...', porcentaje: 78, badge: 'Paso 3/4' },
+    { texto: 'Identificando diagnóstico CIE-10 y cruzando con la BD...', porcentaje: 92, badge: 'Paso 4/4' },
+  ];
+
+  // Progresión secuencial automática para dar feedback en tiempo real al usuario
+  useEffect(() => {
+    if (!escaneandoIA) {
+      setPasoEscaneoIndex(0);
+      return;
+    }
+    const t1 = setTimeout(() => setPasoEscaneoIndex(1), 2200);
+    const t2 = setTimeout(() => setPasoEscaneoIndex(2), 5500);
+    const t3 = setTimeout(() => setPasoEscaneoIndex(3), 9500);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [escaneandoIA]);
+
+  // Iniciar escaneo inmediatamente con feedback visual instantáneo (fondito de espera inmediato)
+  const iniciarEscaneoDesdeArchivo = async (archivoSeleccionado: File) => {
+    setTabActiva('escaner');
+    setEscaneandoIA(true);
+    setPasoEscaneoIndex(0);
+    setError('');
+    setResumenEscaneo(null);
+
+    // Crear preview de inmediato para que la pantalla con escáner láser aparezca al instante
+    let previewTemp: string | null = null;
+    if (archivoSeleccionado.type.startsWith('image/')) {
+      previewTemp = URL.createObjectURL(archivoSeleccionado);
+      setFotoCapturadaPreview(previewTemp);
+      setPreviewUrlManual(previewTemp);
+    } else {
+      setFotoCapturadaPreview(null);
+    }
+    setArchivoAdjunto(archivoSeleccionado);
+    setArchivoRutaServidor(null);
+
+    try {
+      let archivoAEnviar = archivoSeleccionado;
+      if (archivoSeleccionado.type.startsWith('image/')) {
+        archivoAEnviar = await comprimirImagen(archivoSeleccionado);
+        setArchivoAdjunto(archivoAEnviar);
+      }
+      await procesarArchivoCitt(archivoAEnviar, previewTemp);
+    } catch (err: any) {
+      console.error('Error preparando imagen:', err);
+      setError('No se pudo procesar el archivo seleccionado.');
+      setEscaneandoIA(false);
+    }
+  };
+
   // --- PROCESAMIENTO DEL CITT CON VISIÓN COMPUTACIONAL ---
-  const procesarArchivoCitt = async (archivo: File) => {
+  const procesarArchivoCitt = async (archivo: File, previewExistente?: string | null) => {
     setEscaneandoIA(true);
     setError('');
     setResumenEscaneo(null);
 
-    const previewUrl = URL.createObjectURL(archivo);
-    setFotoCapturadaPreview(previewUrl);
+    const previewUrl = previewExistente || (archivo.type.startsWith('image/') ? URL.createObjectURL(archivo) : null);
+    if (previewUrl) {
+      setFotoCapturadaPreview(previewUrl);
+      setPreviewUrlManual(previewUrl);
+    }
     setArchivoAdjunto(archivo);
+    setArchivoRutaServidor(null);
 
     try {
       const formData = new FormData();
@@ -350,17 +517,15 @@ export default function NuevoCittModal({
         throw new Error(data.error || 'No se pudo leer el certificado.');
       }
 
-      // Guardar URL de evidencia en servidor
-      if (data.archivoRuta) {
-        setArchivoRutaServidor(data.archivoRuta);
-      }
-
       // Pre-llenar campos
       if (data.datos) {
         if (data.datos.numeroCertificado) setNumeroCertificado(String(data.datos.numeroCertificado).toUpperCase());
         if (data.datos.origen) setOrigen(data.datos.origen);
         if (data.datos.fechaInicio) setFechaInicio(data.datos.fechaInicio);
         if (data.datos.diasOtorgados) setDiasOtorgados(String(data.datos.diasOtorgados));
+        if (data.datos.medico) setMedico(String(data.datos.medico).trim());
+        if (data.datos.colegiatura) setColegiatura(String(data.datos.colegiatura).trim());
+        if (data.datos.diagnostico) setDiagnostico(String(data.datos.diagnostico).trim());
       }
 
       // Auto-seleccionar si el trabajador fue hallado en BD
@@ -375,10 +540,15 @@ export default function NuevoCittModal({
         numeroCertificado: data.datos?.numeroCertificado,
         origen: data.datos?.origen,
         fechaInicio: data.datos?.fechaInicio,
+        fechaFin: data.datos?.fechaFin,
         diasOtorgados: data.datos?.diasOtorgados,
-        trabajadorNombre: data.trabajador ? data.trabajador.apellidosNombres : undefined,
+        medico: data.datos?.medico,
+        colegiatura: data.datos?.colegiatura,
+        diagnostico: data.datos?.diagnostico,
+        tipoLicencia: data.datos?.tipoLicencia,
+        trabajadorNombre: data.trabajador ? data.trabajador.apellidosNombres : (data.datos?.apellidosNombres || undefined),
         encontradoEnBD: Boolean(data.trabajador),
-        previewUrl
+        previewUrl: previewUrl || undefined
       });
 
     } catch (err: any) {
@@ -424,6 +594,10 @@ export default function NuevoCittModal({
 
     setGuardando(true);
     setError('');
+    setMensajeGuardado(archivoAdjunto && !archivoRutaServidor 
+      ? 'Subiendo evidencia médica de respaldo a la nube...' 
+      : 'Registrando descanso médico en la base de datos...'
+    );
 
     const fechaFinCalculada = calcularFechaFin(fechaInicio, parseInt(diasOtorgados));
     const fechaObj = new Date(fechaInicio + 'T00:00:00');
@@ -445,6 +619,8 @@ export default function NuevoCittModal({
         }
       }
 
+      setMensajeGuardado('Registrando licencia y calculando días de subsidio...');
+
       const url = editData ? `/api/licencias/${editData.id}` : '/api/licencias';
       const method = editData ? 'PUT' : 'POST';
 
@@ -461,7 +637,10 @@ export default function NuevoCittModal({
           diasOtorgados: parseInt(diasOtorgados),
           anioEjercicio: anioContable,
           mesEjercicio: mesContable,
-          archivoRuta: archivoRutaStr
+          archivoRuta: archivoRutaStr,
+          medico: medico.trim() || null,
+          colegiatura: colegiatura.trim() || null,
+          diagnostico: diagnostico.trim() || null
         })
       });
 
@@ -474,9 +653,17 @@ export default function NuevoCittModal({
         setNumeroCertificado('');
         setFechaInicio('');
         setDiasOtorgados('');
+        setMedico('');
+        setColegiatura('');
+        setDiagnostico('');
         setArchivoAdjunto(null);
         setArchivoRutaServidor(null);
+        if (previewUrlManual) {
+          URL.revokeObjectURL(previewUrlManual);
+          setPreviewUrlManual(null);
+        }
         setExito(false);
+        setGuardando(false);
         onSuccess(dniGuardado);
         onClose();
       }, 1300);
@@ -491,16 +678,43 @@ export default function NuevoCittModal({
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh] relative">
         
+        {/* Overlay de Carga durante el Guardado de Licencia */}
+        {guardando && (
+          <div className="absolute inset-0 z-40 bg-slate-900/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center select-none animate-in fade-in duration-200">
+            <div className="relative mb-4">
+              <div className="w-16 h-16 rounded-2xl bg-blue-600/20 border-2 border-blue-400/50 flex items-center justify-center shadow-[0_0_30px_rgba(59,130,246,0.5)]">
+                <Loader2 className="w-8 h-8 text-cyan-300 animate-spin" />
+              </div>
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-cyan-400 animate-ping" />
+            </div>
+            
+            <h4 className="text-base font-bold text-white tracking-wide">
+              {editData ? 'Actualizando Descanso Médico' : 'Registrando Descanso Médico'}
+            </h4>
+            
+            <p className="text-xs text-blue-200/90 mt-1.5 max-w-sm leading-relaxed">
+              {mensajeGuardado}
+            </p>
+            
+            {/* Barra de progreso pulsante */}
+            <div className="w-52 h-2 bg-slate-800/80 rounded-full overflow-hidden mt-4 border border-white/10 shadow-inner">
+              <div className="h-full bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400 animate-pulse rounded-full w-full" />
+            </div>
+            
+            <p className="text-[10px] text-slate-400 mt-2">
+              Sincronizando con la Red de Salud Huánuco...
+            </p>
+          </div>
+        )}
+
         {/* Pantalla de Éxito Flotante */}
         {exito && (
           <div className="absolute inset-0 z-30 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xs flex flex-col items-center justify-center">
             <CheckCircle2 className="w-16 h-16 text-emerald-500 mb-3 animate-bounce" />
             <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">¡Registrado con Éxito!</h2>
-            <p className="text-slate-500 text-sm mt-1">Guardando en la base de datos...</p>
+            <p className="text-slate-500 text-sm mt-1">Guardado en la base de datos.</p>
           </div>
         )}
-
-
 
         {/* Inputs ocultos para cámara de teléfono y archivos */}
         <input 
@@ -508,10 +722,11 @@ export default function NuevoCittModal({
           type="file" 
           accept="image/*" 
           capture="environment"
-          onChange={(e) => {
+          onChange={async (e) => {
             if (e.target.files && e.target.files[0]) {
-              procesarArchivoCitt(e.target.files[0]);
+              iniciarEscaneoDesdeArchivo(e.target.files[0]);
             }
+            e.target.value = '';
           }}
           className="hidden" 
         />
@@ -519,10 +734,37 @@ export default function NuevoCittModal({
           ref={inputArchivoRef}
           type="file" 
           accept="image/*,application/pdf"
-          onChange={(e) => {
+          onChange={async (e) => {
             if (e.target.files && e.target.files[0]) {
-              procesarArchivoCitt(e.target.files[0]);
+              iniciarEscaneoDesdeArchivo(e.target.files[0]);
             }
+            e.target.value = '';
+          }}
+          className="hidden" 
+        />
+        <input 
+          ref={inputCamaraManualRef}
+          type="file" 
+          accept="image/*" 
+          capture="environment"
+          onChange={async (e) => {
+            if (e.target.files && e.target.files[0]) {
+              setOptimizandoFoto(true);
+              try {
+                const file = await comprimirImagen(e.target.files[0]);
+                setArchivoAdjunto(file);
+                setArchivoRutaServidor(null);
+                if (previewUrlManual) URL.revokeObjectURL(previewUrlManual);
+                setPreviewUrlManual(URL.createObjectURL(file));
+              } catch (err) {
+                console.error("Error optimizando imagen de cámara:", err);
+                setArchivoAdjunto(e.target.files[0]);
+                setArchivoRutaServidor(null);
+              } finally {
+                setOptimizandoFoto(false);
+              }
+            }
+            e.target.value = '';
           }}
           className="hidden" 
         />
@@ -530,11 +772,31 @@ export default function NuevoCittModal({
           ref={inputEvidenciaManualRef}
           type="file" 
           accept="image/*,application/pdf"
-          onChange={(e) => {
+          onChange={async (e) => {
             if (e.target.files && e.target.files[0]) {
-              setArchivoAdjunto(e.target.files[0]);
-              setArchivoRutaServidor(null);
+              setOptimizandoFoto(true);
+              try {
+                const original = e.target.files[0];
+                const file = original.type.startsWith('image/')
+                  ? await comprimirImagen(original)
+                  : original;
+                setArchivoAdjunto(file);
+                setArchivoRutaServidor(null);
+                if (previewUrlManual) URL.revokeObjectURL(previewUrlManual);
+                if (file.type.startsWith('image/')) {
+                  setPreviewUrlManual(URL.createObjectURL(file));
+                } else {
+                  setPreviewUrlManual(null);
+                }
+              } catch (err) {
+                console.error("Error optimizando evidencia:", err);
+                setArchivoAdjunto(e.target.files[0]);
+                setArchivoRutaServidor(null);
+              } finally {
+                setOptimizandoFoto(false);
+              }
             }
+            e.target.value = '';
           }}
           className="hidden" 
         />
@@ -666,16 +928,17 @@ export default function NuevoCittModal({
                       className="w-full h-full object-contain filter contrast-105"
                     />
                   ) : (
-                    <div className="w-full h-full bg-slate-900 flex items-center justify-center">
-                      <Scan className="w-16 h-16 text-blue-500/40 animate-pulse" />
+                    <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center gap-3">
+                      <Scan className="w-16 h-16 text-cyan-400 animate-pulse" />
+                      <span className="text-xs text-cyan-300 font-medium">Cargando documento...</span>
                     </div>
                   )}
 
                   {/* Sombra de viñeta para destacar el escaneo */}
-                  <div className="absolute inset-0 bg-slate-950/25 pointer-events-none" />
+                  <div className="absolute inset-0 bg-slate-950/35 pointer-events-none" />
 
                   {/* Marco guía del escáner en pantalla */}
-                  <div className="absolute inset-4 sm:inset-6 border border-blue-400/40 rounded-xl pointer-events-none shadow-[0_0_25px_rgba(59,130,246,0.25)] flex flex-col justify-between p-3">
+                  <div className="absolute inset-4 sm:inset-6 border border-cyan-400/35 rounded-xl pointer-events-none shadow-[0_0_30px_rgba(34,211,238,0.2)] flex flex-col justify-between p-3">
                     {/* 4 Esquinas brillantes del escáner */}
                     <div className="absolute -top-1 -left-1 w-7 h-7 border-t-3 border-l-3 border-cyan-400 rounded-tl-sm shadow-[0_0_12px_rgba(34,211,238,0.9)]" />
                     <div className="absolute -top-1 -right-1 w-7 h-7 border-t-3 border-r-3 border-cyan-400 rounded-tr-sm shadow-[0_0_12px_rgba(34,211,238,0.9)]" />
@@ -687,32 +950,54 @@ export default function NuevoCittModal({
 
                     {/* Badge superior indicando escaneo activo */}
                     <div className="z-10 text-center">
-                      <span className="inline-flex items-center gap-2 px-3 py-1 bg-blue-950/90 text-cyan-300 text-[11px] font-bold tracking-wider uppercase rounded-full border border-cyan-400/50 shadow-lg backdrop-blur-md">
+                      <span className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-blue-950/90 text-cyan-300 text-[11px] font-bold tracking-wider uppercase rounded-full border border-cyan-400/50 shadow-lg backdrop-blur-md">
                         <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-                        Escaneando CITT en Pantalla
+                        Escaneando CITT con Inteligencia Artificial
                       </span>
                     </div>
 
                     {/* Badge inferior con detalle de análisis */}
-                    <div className="z-10 text-center">
-                      <span className="inline-block px-3.5 py-1 bg-slate-900/90 text-white text-[11px] font-medium rounded-full border border-white/10 shadow-md backdrop-blur-md">
-                        Leyendo DNI, CITT A-475, Fechas y Servidor en BD...
+                    <div className="z-10 text-center px-4 w-full">
+                      <span className="inline-block px-4 py-1.5 bg-slate-900/90 text-white text-[11px] font-medium rounded-full border border-white/10 shadow-md backdrop-blur-md transition-all duration-300">
+                        {pasosEscaneo[pasoEscaneoIndex]?.texto || 'Analizando certificado...'}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Barra de progreso interactiva */}
-                <div className="p-3 bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-xl flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2.5">
-                    <Loader2 className="w-4 h-4 text-blue-600 dark:text-blue-400 animate-spin" />
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">
-                      Evaluando evidencia fotográfica y reconociendo certificado...
-                    </span>
+                {/* Tarjeta de progreso dinámico con micro-pasos */}
+                <div className="p-4 bg-gradient-to-r from-blue-50/90 via-cyan-50/70 to-blue-50/90 dark:from-slate-900 dark:via-blue-950/50 dark:to-slate-900 border border-blue-200 dark:border-blue-900/60 rounded-2xl shadow-sm space-y-2.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-blue-600/10 dark:bg-blue-400/10 flex items-center justify-center text-blue-600 dark:text-cyan-400">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      </div>
+                      <div>
+                        <span className="font-bold text-slate-800 dark:text-slate-100 block">
+                          {pasosEscaneo[pasoEscaneoIndex]?.texto || 'Procesando certificado...'}
+                        </span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                          Reconociendo caracteres médicos y validando contra el padrón...
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-xs font-black text-blue-600 dark:text-cyan-400 font-mono">
+                        {pasosEscaneo[pasoEscaneoIndex]?.porcentaje || 50}%
+                      </span>
+                      <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                        {pasosEscaneo[pasoEscaneoIndex]?.badge || 'Paso 2/4'}
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400">
-                    Procesando
-                  </span>
+
+                  {/* Barra de progreso interactiva animada */}
+                  <div className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-300/40 dark:border-slate-700/60">
+                    <div 
+                      className="h-full bg-gradient-to-r from-blue-600 via-cyan-400 to-emerald-400 rounded-full transition-all duration-700 ease-out shadow-[0_0_12px_rgba(34,211,238,0.7)]"
+                      style={{ width: `${pasosEscaneo[pasoEscaneoIndex]?.porcentaje || 50}%` }}
+                    />
+                  </div>
                 </div>
               </div>
             )}
@@ -910,38 +1195,67 @@ export default function NuevoCittModal({
                     </div>
 
                     <div>
-                      <span className="text-slate-400 block text-[11px] mb-0.5">Número de Certificado</span>
-                      <p className="font-semibold text-slate-800 dark:text-slate-100 text-sm">
+                      <span className="text-slate-400 block text-[11px] mb-0.5 font-medium">Número de Certificado</span>
+                      <p className="font-bold text-slate-800 dark:text-slate-100 text-sm">
                         {resumenEscaneo.numeroCertificado || 'No detectado'}
                       </p>
                     </div>
 
                     <div>
-                      <span className="text-slate-400 block text-[11px] mb-0.5">Tipo de Origen</span>
+                      <span className="text-slate-400 block text-[11px] mb-0.5 font-medium">Tipo de Origen</span>
                       <p className="font-semibold text-slate-800 dark:text-slate-100">
                         {resumenEscaneo.origen === 'ESSALUD_CITT' ? 'EsSalud CITT' : 'Particular / MINSA'}
                       </p>
                     </div>
 
                     <div>
-                      <span className="text-slate-400 block text-[11px] mb-0.5">Fecha de Inicio</span>
+                      <span className="text-slate-400 block text-[11px] mb-0.5 font-medium">Periodo de Descanso</span>
                       <p className="font-semibold text-slate-800 dark:text-slate-100">
-                        {resumenEscaneo.fechaInicio || 'No detectada'}
+                        {resumenEscaneo.fechaInicio || '...'} {resumenEscaneo.fechaFin ? `al ${resumenEscaneo.fechaFin}` : ''}
                       </p>
                     </div>
 
                     <div>
-                      <span className="text-slate-400 block text-[11px] mb-0.5">Días Otorgados</span>
-                      <p className="font-semibold text-slate-800 dark:text-slate-100">
+                      <span className="text-slate-400 block text-[11px] mb-0.5 font-medium">Días Otorgados</span>
+                      <p className="font-bold text-blue-600 dark:text-blue-400">
                         {resumenEscaneo.diasOtorgados ? `${resumenEscaneo.diasOtorgados} día(s)` : 'No detectado'}
                       </p>
                     </div>
+
+                    <div>
+                      <span className="text-slate-400 block text-[11px] mb-0.5 font-medium">Médico Tratante</span>
+                      <p className="font-semibold text-slate-800 dark:text-slate-100 truncate" title={resumenEscaneo.medico}>
+                        {resumenEscaneo.medico || 'No detectado'}
+                      </p>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-400 block text-[11px] mb-0.5 font-medium">Colegiatura (CMP)</span>
+                      <div>
+                        {resumenEscaneo.colegiatura ? (
+                          <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold rounded text-xs">
+                            CMP {resumenEscaneo.colegiatura}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-xs">No detectada</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {resumenEscaneo.diagnostico && (
+                      <div className="sm:col-span-2">
+                        <span className="text-slate-400 block text-[11px] mb-0.5 font-medium">Diagnóstico / CIE-10</span>
+                        <p className="font-medium text-slate-700 dark:text-slate-300 text-xs bg-slate-100/70 dark:bg-slate-800/60 p-2 rounded-lg border border-slate-200/60 dark:border-slate-700/60">
+                          {resumenEscaneo.diagnostico}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div className="p-4 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-3">
                   <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    La evidencia escaneada ya fue adjuntada al trámite de descanso médico.
+                    Foto escaneada lista. Se guardará en el servidor al presionar &quot;Registrar Licencia&quot;.
                   </span>
                   <button
                     type="button"
@@ -1073,6 +1387,18 @@ export default function NuevoCittModal({
                   />
                 </div>
 
+                {/* Colegiatura CMP (Suficiente para identificar legalmente al médico ante EsSalud) */}
+                <div>
+                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1 font-medium">Colegiatura Médica (CMP)</label>
+                  <input 
+                    type="text" 
+                    value={colegiatura}
+                    onChange={(e) => setColegiatura(e.target.value)}
+                    placeholder="Ej. 094296"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-800 dark:text-slate-100 focus:outline-blue-500"
+                  />
+                </div>
+
                 <div>
                   <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1 font-medium">Fecha de Inicio</label>
                   <input 
@@ -1107,6 +1433,18 @@ export default function NuevoCittModal({
                   />
                 </div>
 
+                {/* Diagnóstico / CIE-10 */}
+                <div>
+                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1 font-medium">Diagnóstico / Código CIE-10</label>
+                  <input 
+                    type="text" 
+                    value={diagnostico}
+                    onChange={(e) => setDiagnostico(e.target.value)}
+                    placeholder="Ej. Contusión en zona lumbosacro (S30.0)"
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-800 dark:text-slate-100 focus:outline-blue-500"
+                  />
+                </div>
+
                 {/* SECCIÓN EVIDENCIA */}
                 <div className="sm:col-span-2 pt-1">
                   <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">
@@ -1118,20 +1456,26 @@ export default function NuevoCittModal({
                       <>
                         <button
                           type="button"
-                          onClick={activarCamaraOSelector}
-                          className="px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-md text-xs font-semibold flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
+                          onClick={() => inputCamaraManualRef.current?.click()}
+                          disabled={optimizandoFoto}
+                          className="px-3.5 py-2 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-blue-200 dark:border-blue-800 transition-colors cursor-pointer disabled:opacity-50"
                         >
-                          <Camera className="w-3.5 h-3.5" />
-                          Tomar Foto con Cámara
+                          {optimizandoFoto ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                          ) : (
+                            <Camera className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                          )}
+                          <span>Tomar Foto con Cámara</span>
                         </button>
 
                         <button
                           type="button"
                           onClick={() => inputEvidenciaManualRef.current?.click()}
-                          className="px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-md text-xs font-semibold flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
+                          disabled={optimizandoFoto}
+                          className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer disabled:opacity-50"
                         >
                           <Upload className="w-3.5 h-3.5" />
-                          Subir Archivo o PDF
+                          <span>Subir Archivo o PDF</span>
                         </button>
                       </>
                     ) : (
@@ -1140,6 +1484,27 @@ export default function NuevoCittModal({
                       </div>
                     )}
                   </div>
+
+                  {optimizandoFoto && (
+                    <div className="p-3 mb-3 bg-blue-50/90 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center justify-between text-xs animate-in fade-in duration-150">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-6 h-6 rounded-lg bg-blue-600/10 dark:bg-blue-400/10 flex items-center justify-center text-blue-600 dark:text-cyan-400">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div>
+                          <span className="font-bold text-slate-800 dark:text-slate-100 block">
+                            Optimizando evidencia fotográfica...
+                          </span>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                            Ajustando resolución para carga ultrarrápida sin pérdida de nitidez
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold text-blue-600 dark:text-cyan-400 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded-full shrink-0">
+                        Procesando
+                      </span>
+                    </div>
+                  )}
 
                   {/* Vista previa de archivo adjunto */}
                   {archivoRutaServidor ? (
@@ -1153,21 +1518,44 @@ export default function NuevoCittModal({
                       <button 
                         type="button" 
                         onClick={() => setArchivoRutaServidor(null)} 
-                        className="text-red-500 hover:text-red-700 text-xs font-bold px-2 py-0.5"
+                        className="text-red-500 hover:text-red-700 text-xs font-bold px-2 py-0.5 cursor-pointer"
                       >
                         Quitar
                       </button>
                     </div>
                   ) : archivoAdjunto ? (
-                    <div className="p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg flex justify-between items-center">
-                      <span className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate mr-3 flex items-center gap-1.5">
-                        <ImageIcon className="w-3.5 h-3.5 text-slate-500" />
-                        {archivoAdjunto.name}
-                      </span>
+                    <div className="p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg flex justify-between items-center gap-3">
+                      <div className="flex items-center gap-2.5 truncate">
+                        {previewUrlManual ? (
+                          <img 
+                            src={previewUrlManual} 
+                            alt="Vista previa evidencia" 
+                            className="w-10 h-10 object-cover rounded-md border border-slate-200 dark:border-slate-700 shrink-0 shadow-2xs" 
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-md bg-slate-200 dark:bg-slate-800 flex items-center justify-center shrink-0">
+                            <FileText className="w-5 h-5 text-slate-500" />
+                          </div>
+                        )}
+                        <div className="truncate">
+                          <p className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">
+                            {archivoAdjunto.name}
+                          </p>
+                          <p className="text-[11px] text-slate-400">
+                            {(archivoAdjunto.size / 1024).toFixed(0)} KB {archivoAdjunto.type.startsWith('image/') ? '• Optimizado' : ''}
+                          </p>
+                        </div>
+                      </div>
                       <button 
                         type="button" 
-                        onClick={() => setArchivoAdjunto(null)} 
-                        className="text-red-500 hover:text-red-700 text-xs font-bold px-2 py-0.5"
+                        onClick={() => {
+                          setArchivoAdjunto(null);
+                          if (previewUrlManual) {
+                            URL.revokeObjectURL(previewUrlManual);
+                            setPreviewUrlManual(null);
+                          }
+                        }} 
+                        className="text-red-500 hover:text-red-700 text-xs font-bold px-2.5 py-1 rounded-md hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer shrink-0"
                       >
                         Quitar
                       </button>

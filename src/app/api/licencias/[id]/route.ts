@@ -67,7 +67,10 @@ export async function PUT(
       diasOtorgados,
       anioEjercicio,
       mesEjercicio,
-      archivoRuta
+      archivoRuta,
+      medico,
+      colegiatura,
+      diagnostico
     } = body;
 
     if (!id) {
@@ -84,8 +87,11 @@ export async function PUT(
         diasOtorgados: Number(diasOtorgados),
         anioEjercicio: Number(anioEjercicio),
         mesEjercicio: Number(mesEjercicio),
-        ...(archivoRuta !== undefined && { archivoRuta })
-      }
+        ...(archivoRuta !== undefined && { archivoRuta }),
+        ...(medico !== undefined && { medico: medico ? String(medico).trim() : null }),
+        ...(colegiatura !== undefined && { colegiatura: colegiatura ? String(colegiatura).trim() : null }),
+        ...(diagnostico !== undefined && { diagnostico: diagnostico ? String(diagnostico).trim() : null })
+      } as any
     });
 
     await prisma.auditoria.create({

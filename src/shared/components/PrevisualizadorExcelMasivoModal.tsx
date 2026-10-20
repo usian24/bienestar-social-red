@@ -100,9 +100,18 @@ export default function PrevisualizadorExcelMasivoModal({ isOpen, onClose, filte
 
         <div className="flex-1 overflow-hidden flex flex-col bg-slate-100 dark:bg-slate-950">
           {loading ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-500">
-              <Loader2 className="w-8 h-8 animate-spin text-emerald-500 mb-3" />
-              <p>Generando bloques mensuales...</p>
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center shadow-xs">
+                <Loader2 className="w-7 h-7 animate-spin text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                  Generando reporte consolidado de subsidios...
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+                  Segmentando licencias por microred, aplicando la regla de 20 días y consolidando bloques mensuales
+                </p>
+              </div>
             </div>
           ) : error ? (
             <div className="flex-1 flex items-center justify-center text-rose-500 p-6 text-center">

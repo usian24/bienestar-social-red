@@ -34,6 +34,142 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const mobileChatContainerRef = useRef<HTMLDivElement>(null);
 
+  // --- LÓGICA DE BURBUJA FLOTANTE MÓVIL ARRASTRABLE Y MAGNÉTICA ---
+  const bubbleRef = useRef<HTMLDivElement>(null);
+  const [posicionBurbuja, setPosicionBurbuja] = useState<{ x: number; y: number } | null>(null);
+  const [arrastrandoBurbuja, setArrastrandoBurbuja] = useState(false);
+  const dragStartRef = useRef<{
+    startX: number;
+    startY: number;
+    initialX: number;
+    initialY: number;
+    hasMoved: boolean;
+  } | null>(null);
+  const ignoreClickRef = useRef(false);
+
+  // Posición inicial por defecto y adaptación al tamaño de pantalla
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const BUBBLE_SIZE = 56;
+    const MARGIN_BOTTOM = 86; // Por encima de la barra inferior de navegación (64px)
+    const MARGIN_SIDE = 14;
+
+    const inicialX = Math.max(MARGIN_SIDE, window.innerWidth - BUBBLE_SIZE - MARGIN_SIDE);
+    const inicialY = Math.max(80, window.innerHeight - MARGIN_BOTTOM - BUBBLE_SIZE);
+
+    setPosicionBurbuja({ x: inicialX, y: inicialY });
+
+    const handleResize = () => {
+      setPosicionBurbuja(prev => {
+        if (!prev) return null;
+        const maxX = window.innerWidth - BUBBLE_SIZE - MARGIN_SIDE;
+        const maxY = window.innerHeight - MARGIN_BOTTOM - BUBBLE_SIZE;
+        const snapX = prev.x > window.innerWidth / 2 ? maxX : MARGIN_SIDE;
+        const snapY = Math.min(Math.max(70, prev.y), maxY);
+        return { x: snapX, y: snapY };
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleBubblePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    if (!posicionBurbuja) return;
+
+    dragStartRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initialX: posicionBurbuja.x,
+      initialY: posicionBurbuja.y,
+      hasMoved: false,
+    };
+    setArrastrandoBurbuja(true);
+  };
+
+  // Manejadores globales en window mientras se arrastra (evita pérdidas de puntero y errores de releasePointerCapture)
+  useEffect(() => {
+    if (!arrastrandoBurbuja) return;
+
+    const handlePointerMove = (e: PointerEvent) => {
+      if (!dragStartRef.current) return;
+
+      const deltaX = e.clientX - dragStartRef.current.startX;
+      const deltaY = e.clientY - dragStartRef.current.startY;
+
+      if (!dragStartRef.current.hasMoved && Math.hypot(deltaX, deltaY) > 6) {
+        dragStartRef.current.hasMoved = true;
+        ignoreClickRef.current = true;
+      }
+
+      if (dragStartRef.current.hasMoved) {
+        const BUBBLE_SIZE = 56;
+        const MARGIN_TOP = 70;
+        const MARGIN_BOTTOM = 86;
+
+        const currentX = Math.min(
+          Math.max(4, dragStartRef.current.initialX + deltaX),
+          window.innerWidth - BUBBLE_SIZE - 4
+        );
+        const currentY = Math.min(
+          Math.max(MARGIN_TOP, dragStartRef.current.initialY + deltaY),
+          window.innerHeight - MARGIN_BOTTOM - BUBBLE_SIZE
+        );
+
+        setPosicionBurbuja({ x: currentX, y: currentY });
+      }
+    };
+
+    const handlePointerUp = () => {
+      if (!dragStartRef.current) return;
+      const { hasMoved } = dragStartRef.current;
+      dragStartRef.current = null;
+      setArrastrandoBurbuja(false);
+
+      if (hasMoved) {
+        // Fin de arrastre: efecto imán magnético hacia el lateral más cercano (izq o der)
+        setPosicionBurbuja(prev => {
+          if (!prev) return null;
+          const BUBBLE_SIZE = 56;
+          const MARGIN_SIDE = 12;
+          const MARGIN_TOP = 70;
+          const MARGIN_BOTTOM = 86;
+
+          const centroX = prev.x + BUBBLE_SIZE / 2;
+          const pantallaMitad = window.innerWidth / 2;
+          const snapX = centroX < pantallaMitad ? MARGIN_SIDE : window.innerWidth - BUBBLE_SIZE - MARGIN_SIDE;
+
+          const clampedY = Math.min(
+            Math.max(MARGIN_TOP, prev.y),
+            window.innerHeight - MARGIN_BOTTOM - BUBBLE_SIZE
+          );
+
+          return { x: snapX, y: clampedY };
+        });
+
+        // Prevenir que el evento click nativo subsecuente abra el modal
+        setTimeout(() => {
+          ignoreClickRef.current = false;
+        }, 150);
+      } else {
+        ignoreClickRef.current = false;
+        setModalMovilAbierto(true);
+      }
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+  }, [arrastrandoBurbuja]);
+
   // Inicializar mensaje de bienvenida cálido, empático e institucional
   useEffect(() => {
     if (!tieneAcceso) return;
@@ -315,19 +451,40 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
           </div>
         </div>
 
-        {/* Botón flotante del personaje en la esquina del celular para acceso rápido */}
+        {/* Botón flotante del personaje móvil: Arrastrable y con magnetismo al borde más cercano */}
         {!modalMovilAbierto && (
           <div 
-            onClick={() => setModalMovilAbierto(true)}
-            className="fixed bottom-5 right-5 z-40 flex items-center gap-2 group cursor-pointer"
-            title="Consultar con BienestarBot"
+            ref={bubbleRef}
+            onPointerDown={handleBubblePointerDown}
+            onClick={() => {
+              if (!ignoreClickRef.current) {
+                setModalMovilAbierto(true);
+              }
+            }}
+            style={posicionBurbuja ? {
+              left: `${posicionBurbuja.x}px`,
+              top: `${posicionBurbuja.y}px`,
+              transition: arrastrandoBurbuja 
+                ? 'none' 
+                : 'left 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28), top 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28), transform 0.15s ease',
+              touchAction: 'none'
+            } : {
+              right: '14px',
+              bottom: '86px',
+              touchAction: 'none'
+            }}
+            className={`fixed z-40 flex items-center select-none cursor-grab active:cursor-grabbing transition-transform ${
+              arrastrandoBurbuja ? 'scale-110 z-50' : 'hover:scale-105 active:scale-95'
+            }`}
+            title="Arrastra para mover o toca para consultar con BienestarBot"
           >
-            <div className="hidden sm:flex bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg px-3 py-1.5 rounded-full text-xs font-semibold text-slate-700 dark:text-slate-200 animate-bounce">
-              ¿Dudas con tu CITT? 👋
-            </div>
-            <div className="relative p-1.5 bg-white dark:bg-slate-800 rounded-full shadow-2xl border-2 border-emerald-400 hover:scale-105 active:scale-95 transition-transform">
-              <BienestarMascot size="sm" estado="waving" />
-              <span className="absolute top-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full animate-ping" />
+            <div className={`relative p-2 bg-white dark:bg-slate-800 rounded-full shadow-2xl border-2 transition-all duration-200 ${
+              arrastrandoBurbuja 
+                ? 'border-emerald-500 shadow-emerald-500/40 shadow-xl' 
+                : 'border-emerald-400 shadow-lg'
+            }`}>
+              <BienestarMascot size="sm" estado={arrastrandoBurbuja ? 'thinking' : 'waving'} />
+              <span className="absolute top-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-800 rounded-full animate-ping" />
             </div>
           </div>
         )}

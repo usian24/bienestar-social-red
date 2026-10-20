@@ -87,8 +87,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
          fin20Str = historicFin20Str;
       }
 
+      const etiquetaCertificado = (lic as any).colegiatura
+        ? `${lic.numeroCertificado} (CMP: ${(lic as any).colegiatura})`
+        : lic.numeroCertificado;
+
       resultRows.push({
-        origen: lic.numeroCertificado,
+        origen: etiquetaCertificado,
+        numeroCertificado: lic.numeroCertificado,
+        colegiatura: (lic as any).colegiatura || null,
+        medico: (lic as any).medico || null,
+        diagnostico: (lic as any).diagnostico || null,
         fechaInicio: fInicio,
         fechaFin: fFin,
         fin20Dias: fin20Str,

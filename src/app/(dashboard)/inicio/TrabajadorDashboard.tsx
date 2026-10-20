@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Activity, FileCheck, MapPin, Search, Calendar, Heart, BadgePlus } from 'lucide-react';
 import ChatbotAsistente from '@/shared/components/ChatbotAsistente';
-import VideoGuiaCard from '@/shared/components/VideoGuiaCard';
 
 export default function TrabajadorDashboard() {
   const [userData, setUserData] = useState<any>(null);
@@ -51,55 +50,75 @@ export default function TrabajadorDashboard() {
     <div className="space-y-6">
       
       {/* Saludo Personalizado */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-8 text-white shadow-md relative overflow-hidden">
-        <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl"></div>
-        <h1 className="text-3xl font-bold mb-2">¡Hola, {userData.nombres}! 👋</h1>
-        <p className="text-blue-100 opacity-90 max-w-xl">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-4 sm:p-6 md:p-8 text-white shadow-md relative overflow-hidden">
+        <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl pointer-events-none"></div>
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-1 sm:mb-2">¡Hola, {userData.nombres}! 👋</h1>
+        <p className="text-blue-100 opacity-90 text-xs sm:text-sm max-w-xl">
           Este es tu panel personal. Aquí puedes consultar el estado de tus trámites, licencias médicas y ver a qué establecimiento perteneces.
         </p>
       </div>
 
-      {/* Tarjetas de Resumen Personal */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Tarjetas de Resumen Personal (Compactas en 1 sola fila en celular) */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 md:gap-6">
         
-        {/* Datos de Red/Sede */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 flex items-center gap-4 hover:border-blue-300 transition-colors">
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-full shrink-0">
-            <MapPin className="w-6 h-6" />
+        {/* 1. Datos de Red/Sede */}
+        <div className="bg-white p-2 sm:p-4 md:p-5 rounded-xl shadow-xs border border-slate-200 hover:border-blue-300 transition-colors flex flex-col justify-between sm:flex-row sm:items-center gap-1.5 sm:gap-3.5 overflow-hidden min-w-0">
+          <div className="w-7 h-7 sm:w-10 sm:h-10 bg-indigo-50 text-indigo-600 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0">
+            <MapPin className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
           </div>
-          <div className="overflow-hidden">
-            <p className="text-slate-500 text-[11px] uppercase font-bold tracking-wider">Lugar de Trabajo</p>
-            <h3 className="text-lg font-bold text-slate-800 truncate" title={nombreEstablecimiento}>
+          <div className="min-w-0 flex-1">
+            <p className="text-slate-400 text-[9px] sm:text-[11px] uppercase font-bold tracking-tight truncate">
+              <span className="sm:hidden">Lugar</span>
+              <span className="hidden sm:inline">Lugar de Trabajo</span>
+            </p>
+            <h3 className="text-xs sm:text-base md:text-lg font-bold text-slate-800 truncate" title={nombreEstablecimiento}>
               {nombreEstablecimiento}
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5 truncate">Microred: {nombreMicrored} | DNI: {userData.dni}</p>
+            <p className="hidden md:block text-[11px] text-slate-400 mt-0.5 truncate">
+              Microred: {nombreMicrored} | DNI: {userData.dni}
+            </p>
           </div>
         </div>
 
-        {/* Licencias Totales */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 flex items-center gap-4 hover:border-blue-300 transition-colors">
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-full shrink-0">
-            <FileCheck className="w-6 h-6" />
+        {/* 2. Licencias Totales */}
+        <div className="bg-white p-2 sm:p-4 md:p-5 rounded-xl shadow-xs border border-slate-200 hover:border-blue-300 transition-colors flex flex-col justify-between sm:flex-row sm:items-center gap-1.5 sm:gap-3.5 overflow-hidden min-w-0">
+          <div className="w-7 h-7 sm:w-10 sm:h-10 bg-blue-50 text-blue-600 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0">
+            <FileCheck className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
           </div>
-          <div>
-            <p className="text-slate-500 text-[11px] uppercase font-bold tracking-wider">Historial de Licencias</p>
-            <div className="flex items-baseline gap-2">
-              <h3 className="text-2xl font-bold text-slate-800">{userData.licenciasPersonales?.length || 0}</h3>
-              <span className="text-xs font-semibold text-slate-500">Trámites totales</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-slate-400 text-[9px] sm:text-[11px] uppercase font-bold tracking-tight truncate">
+              <span className="sm:hidden">Licencias</span>
+              <span className="hidden sm:inline">Historial Licencias</span>
+            </p>
+            <div className="flex items-baseline gap-1 sm:gap-2">
+              <h3 className="text-sm sm:text-xl md:text-2xl font-bold text-slate-800">
+                {userData.licenciasPersonales?.length || 0}
+              </h3>
+              <span className="text-[9px] sm:text-xs font-semibold text-slate-500 truncate">
+                <span className="sm:hidden">totales</span>
+                <span className="hidden sm:inline">trámites</span>
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Días Otorgados Totales */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 flex items-center gap-4 hover:border-blue-300 transition-colors">
-          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-full shrink-0">
-            <Heart className="w-6 h-6" />
+        {/* 3. Días Otorgados Totales */}
+        <div className="bg-white p-2 sm:p-4 md:p-5 rounded-xl shadow-xs border border-slate-200 hover:border-blue-300 transition-colors flex flex-col justify-between sm:flex-row sm:items-center gap-1.5 sm:gap-3.5 overflow-hidden min-w-0">
+          <div className="w-7 h-7 sm:w-10 sm:h-10 bg-emerald-50 text-emerald-600 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0">
+            <Heart className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
           </div>
-          <div>
-            <p className="text-slate-500 text-[11px] uppercase font-bold tracking-wider">Días Descanso Histórico</p>
-            <div className="flex items-baseline gap-2">
-              <h3 className="text-2xl font-bold text-slate-800">{diasTotalesOtorgados}</h3>
-              <span className="text-xs font-semibold text-slate-500">días en total</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-slate-400 text-[9px] sm:text-[11px] uppercase font-bold tracking-tight truncate">
+              <span className="sm:hidden">Descanso</span>
+              <span className="hidden sm:inline">Días Descanso</span>
+            </p>
+            <div className="flex items-baseline gap-1 sm:gap-2">
+              <h3 className="text-sm sm:text-xl md:text-2xl font-bold text-slate-800">
+                {diasTotalesOtorgados}
+              </h3>
+              <span className="text-[9px] sm:text-xs font-semibold text-slate-500 truncate">
+                días
+              </span>
             </div>
           </div>
         </div>
@@ -193,13 +212,9 @@ export default function TrabajadorDashboard() {
           </div>
         </div>
 
-        {/* Columna Derecha: Asistente Virtual BienestarBot + Video Tutorial (1/3) */}
+        {/* Columna Derecha: Asistente Virtual BienestarBot (1/3) */}
         <div className="lg:col-span-1 space-y-6">
           <ChatbotAsistente modo="tarjeta" />
-          <VideoGuiaCard 
-            titulo="Video Tutorial para Servidores"
-            subtitulo="Aprende cómo consultar tus descansos médicos, saldo de días y los pasos para el canje de CITT."
-          />
         </div>
       </div>
 
