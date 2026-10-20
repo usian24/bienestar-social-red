@@ -195,8 +195,8 @@
       "establecimiento": "C.S AMARILIS",
       "microredId": 19,
       "microred": "MICRO RED AMARILIS",
-      "numLicencias": 2,
-      "diasTotales": 27
+      "numLicencias": 1,
+      "diasTotales": 24
     },
     {
       "id": "fb8b0f18-d03c-42a8-bf1a-a298f3507582",
@@ -3345,8 +3345,8 @@
       "establecimiento": "SEDE RED SALUD HUANUCO",
       "microredId": 17,
       "microred": "SEDE RED SALUD HUANUCO",
-      "numLicencias": 0,
-      "diasTotales": 0
+      "numLicencias": 1,
+      "diasTotales": 1
     },
     {
       "id": "e8ce15ce-c6a4-4864-a0eb-3013b74d94b1",
@@ -10149,8 +10149,8 @@
       "establecimiento": "P.S. LA ESPERANZA",
       "microredId": 19,
       "microred": "MICRO RED AMARILIS",
-      "numLicencias": 8,
-      "diasTotales": 25
+      "numLicencias": 7,
+      "diasTotales": 21
     },
     {
       "id": "21a29ab1-20e2-46bf-9e91-1382564fe0f3",
@@ -14181,8 +14181,8 @@
       "establecimiento": "SEDE RED SALUD HUANUCO",
       "microredId": 17,
       "microred": "SEDE RED SALUD HUANUCO",
-      "numLicencias": 0,
-      "diasTotales": 0
+      "numLicencias": 1,
+      "diasTotales": 6
     },
     {
       "id": "ed13460d-4fe8-4f90-a421-2599fb3ff0e9",
@@ -27321,25 +27321,6 @@
       "creadoEn": "2026-09-29T17:58:01.556Z"
     },
     {
-      "id": "8627f9ca-09ac-4279-833f-95984d2cf8d2",
-      "trabajadorId": "543ed711-55cf-49df-88a7-11a6221e108c",
-      "dni": "47805407",
-      "apellidosNombres": "AGUIRRE FABIAN, ROBINSON",
-      "cargo": "ENFERMERA(O)",
-      "condicionLaboral": "CAS",
-      "establecimiento": "C.S AMARILIS",
-      "microred": "MICRO RED AMARILIS",
-      "tipoLicencia": "ENFERMEDAD_COMUN",
-      "origen": "PARTICULAR",
-      "numeroCertificado": "LICENCIA POR ENFERMEDAD",
-      "fechaInicio": "2026-03-13",
-      "fechaFin": "2026-03-15",
-      "diasOtorgados": 3,
-      "anioEjercicio": 2026,
-      "mesEjercicio": 3,
-      "creadoEn": "2026-09-29T17:58:01.565Z"
-    },
-    {
       "id": "3a7ee7a2-861b-4ea2-b2d4-61f56744cc5c",
       "trabajadorId": "3f2b3a04-d18c-4faf-8602-925d993fc7a2",
       "dni": "42164813",
@@ -27511,23 +27492,42 @@
       "creadoEn": "2026-09-29T17:58:01.213Z"
     },
     {
-      "id": "751a891c-6391-47ce-a1f8-eee42b763d2e",
-      "trabajadorId": "f84f7025-f8a6-4909-942e-b1590bb89b71",
-      "dni": "22485361",
-      "apellidosNombres": "BARRANTES CAMPOS, ALBERTO",
-      "cargo": "0472-OBSTETRA II",
-      "condicionLaboral": "NOMBRADO",
-      "establecimiento": "P.S. LA ESPERANZA",
-      "microred": "MICRO RED AMARILIS",
+      "id": "061307c5-05b8-4e83-ade1-9624bdeedd8b",
+      "trabajadorId": "93250d77-831b-440d-aa50-0226e35216ee",
+      "dni": "44517165",
+      "apellidosNombres": "GONZALES LINARES, PEDRO LUIS NICOLAS",
+      "cargo": "INGENIERO DE SISTEMAS",
+      "condicionLaboral": "CAS",
+      "establecimiento": "SEDE RED SALUD HUANUCO",
+      "microred": "SEDE RED SALUD HUANUCO",
       "tipoLicencia": "ENFERMEDAD_COMUN",
       "origen": "ESSALUD_CITT",
-      "numeroCertificado": "92298",
-      "fechaInicio": "2026-10-24",
-      "fechaFin": "2026-10-27",
-      "diasOtorgados": 4,
+      "numeroCertificado": "A-475-00011426-26",
+      "fechaInicio": "2026-09-11",
+      "fechaFin": "2026-09-11",
+      "diasOtorgados": 1,
       "anioEjercicio": 2026,
-      "mesEjercicio": 10,
-      "creadoEn": "2026-10-10T15:39:18.308Z"
+      "mesEjercicio": 9,
+      "creadoEn": "2026-10-17T15:55:42.954Z"
+    },
+    {
+      "id": "777f3656-66c9-4036-a626-7d5b7998ad22",
+      "trabajadorId": "dee4ca19-a1c5-45fa-9875-2de4993de6b6",
+      "dni": "22530073",
+      "apellidosNombres": "GERONIMO TARAZONA, CLARIBEL",
+      "cargo": "0433-ENFERMERA/O III",
+      "condicionLaboral": "NOMBRADO",
+      "establecimiento": "SEDE RED SALUD HUANUCO",
+      "microred": "SEDE RED SALUD HUANUCO",
+      "tipoLicencia": "ENFERMEDAD_COMUN",
+      "origen": "ESSALUD_CITT",
+      "numeroCertificado": "A-296-00025013-26",
+      "fechaInicio": "2026-09-11",
+      "fechaFin": "2026-09-16",
+      "diasOtorgados": 6,
+      "anioEjercicio": 2026,
+      "mesEjercicio": 9,
+      "creadoEn": "2026-10-19T17:31:42.035Z"
     }
   ]
 }

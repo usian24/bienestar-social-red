@@ -2,11 +2,12 @@
 
 import React, { useState, useRef, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { FileText, Printer, Loader2, Brain, FileSpreadsheet, Calendar, Sparkles } from 'lucide-react';
+import { FileText, Printer, Loader2, Brain, FileSpreadsheet, Calendar, Sparkles, ShieldAlert, ArrowRight } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import Link from 'next/link';
 import { useImprimir } from '@/shared/hooks/useImprimir';
 import ReporteMensualTemplate from '@/shared/components/ReporteMensualTemplate';
 import EditorToolbar from '@/shared/components/EditorToolbar';
-import MLDashboardCard from '@/shared/components/MLDashboardCard';
 import VisorDocumentoA4 from '@/shared/components/VisorDocumentoA4';
 
 const meses = [
@@ -28,24 +29,18 @@ function ReportesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
-  const [activeTab, setActiveTab] = useState<'informe' | 'ml'>(tabParam === 'ml' ? 'ml' : 'informe');
+  const { data: session, status } = useSession();
 
+  const rol = (session?.user as any)?.rol;
+  const permisos = (session?.user as any)?.permisos || [];
+  const puedeVerReportes = rol === 'SUPER_ADMIN' || permisos.includes('VER_REPORTES');
+
+  // Redirigir de inmediato si se solicitó tab=ml hacia la página dedicada /analisis
   useEffect(() => {
     if (tabParam === 'ml') {
-      setActiveTab('ml');
-    } else {
-      setActiveTab('informe');
+      router.replace('/analisis');
     }
-  }, [tabParam]);
-
-  const handleTabChange = (tab: 'informe' | 'ml') => {
-    setActiveTab(tab);
-    if (tab === 'ml') {
-      router.push('/reportes?tab=ml');
-    } else {
-      router.push('/reportes');
-    }
-  };
+  }, [tabParam, router]);
 
   const currentMonth = new Date().getMonth() + 1;
   const [mesDesde, setMesDesde] = useState<number>(currentMonth);
@@ -107,51 +102,66 @@ function ReportesContent() {
     window.open(`/api/salud/excel-masivo?${queryParams.toString()}`, '_blank');
   };
 
+  if (status === 'loading') {
+    return <div className="p-8 text-center text-xs text-slate-400">Verificando permisos institucionales...</div>;
+  }
+
+  // Bloqueo Estricto de RBAC para roles que no tienen poder de emisión de reportes (ej: SEDE_ADMIN)
+  if (!puedeVerReportes) {
+    return (
+      <div className="max-w-xl mx-auto py-12 px-4 text-center animate-in fade-in duration-200">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-8 border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
+          <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 rounded-xl flex items-center justify-center mx-auto border border-amber-200 dark:border-amber-800">
+            <ShieldAlert className="w-6 h-6" />
+          </div>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+            Módulo Exclusivo para Generación de Informes Oficiales
+          </h2>
+          <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+            Tu cuenta no cuenta con el permiso <strong className="text-slate-800 dark:text-slate-200 font-semibold">VER_REPORTES</strong>. La emisión de informes ejecutivos institucionales y exportaciones consolidadas en Excel está reservada para el Súper Administrador y Jefatura.
+          </p>
+          <div className="pt-2">
+            <Link
+              href="/analisis"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition cursor-pointer"
+            >
+              <Brain className="w-4 h-4" />
+              <span>Ver Modelos de Inteligencia Predictiva (ML)</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-20 print:space-y-0 print:pb-0 print:m-0">
-      {/* Cabecera y Selector de Sección */}
+      {/* Cabecera Oficial de Reportes */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2.5">
-            <FileText className="w-6 h-6 text-slate-700" />
-            Reportes e Inteligencia Analítica
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
+            <FileText className="w-6 h-6 text-blue-600" />
+            Informes Oficiales y Exportación Masiva
           </h1>
           <p className="text-slate-500 text-sm mt-0.5">
-            Generación de informes mensuales oficiales, reportes masivos en Excel y modelos predictivos de la Red de Salud Huánuco.
+            Generación de informes ejecutivos con formato institucional A4 y descargas consolidadas en Excel de la Red de Salud Huánuco.
           </p>
         </div>
 
-        {/* Segmented Control tipo Apple para alternar entre Informe Mensual y Machine Learning */}
-        <div className="bg-slate-200/70 p-1 rounded-xl flex gap-1 self-start sm:self-auto">
-          <button
-            onClick={() => handleTabChange('informe')}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'informe'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>Informe Mensual & Excel Masivo</span>
-          </button>
-
-          <button
-            onClick={() => handleTabChange('ml')}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'ml'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Brain className="w-3.5 h-3.5" />
-            <span>Modelos Machine Learning</span>
-          </button>
-        </div>
+        {/* Enlace directo a Inteligencia Predictiva */}
+        <Link
+          href="/analisis"
+          className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition shadow-2xs self-start sm:self-auto"
+        >
+          <Brain className="w-4 h-4 text-blue-600" />
+          <span>Ver Inteligencia Predictiva (ML)</span>
+          <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+        </Link>
       </div>
 
-      {/* SECCIÓN 1: INFORME MENSUAL OFICIAL (PDF) Y EXCEL MASIVO */}
-      {activeTab === 'informe' && (
-        <div className="space-y-6">
+      {/* SECCIÓN ÚNICA Y ENFOCADA: INFORME MENSUAL OFICIAL (PDF) Y EXCEL MASIVO */}
+      <div className="space-y-6">
           {/* Controles de Generación y Filtros */}
           <div className="bg-white p-5 rounded-2xl shadow-xs border border-slate-200 space-y-4 print:hidden">
             {/* Fila superior de filtros */}
@@ -326,15 +336,7 @@ function ReportesContent() {
             </div>
           )}
         </div>
-      )}
-
-      {/* SECCIÓN 2: SUITE COMPLETA DE MACHINE LEARNING A LO GRANDE */}
-      {activeTab === 'ml' && (
-        <div className="space-y-6">
-          <MLDashboardCard />
-        </div>
-      )}
-    </div>
+      </div>
   );
 }
 

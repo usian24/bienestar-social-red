@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, RefreshCw, X, MessageCircle, ShieldCheck, User, ArrowLeft, HeartPulse } from 'lucide-react';
+import { Send, RefreshCw, X, MessageCircle, ShieldCheck, User, ArrowLeft, HeartPulse, Sparkles } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { puedeUsarChatbot } from '@/shared/utils/permisos';
 import BienestarMascot from './BienestarMascot';
@@ -177,8 +177,8 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
       id: 'saludo-1',
       remitente: 'asistente',
       texto: rol === 'TRABAJADOR'
-        ? `¡Hola, ${nombreUsuario}! 👋 Soy **BienestarBot**, tu orientador institucional de la Red de Salud Huánuco. Puedo ayudarte a consultar tus descansos médicos, saldo de días acumulados, requisitos de canje de CITT y subsidios. ¿En qué te oriento hoy?`
-        : `¡Hola, ${nombreUsuario}! 👋 Bienvenido al área de Bienestar Social. Como asistente de la Red de Salud Huánuco, puedo ayudarte a buscar expedientes por DNI/nombre, revisar alertas críticas de CITT y calcular subsidios EsSalud.`,
+        ? `¡Hola, ${nombreUsuario}! Soy **BienestarBot**, tu orientador institucional de la Red de Salud Huánuco. Puedo ayudarte a consultar tus descansos médicos, saldo de días acumulados, requisitos de canje de CITT y subsidios. ¿En qué te oriento hoy?`
+        : `¡Hola, ${nombreUsuario}! Bienvenido al área de Bienestar Social. Como asistente de la Red de Salud Huánuco, puedo ayudarte a buscar expedientes por DNI/nombre, revisar alertas críticas de CITT y calcular subsidios EsSalud.`,
       fecha: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     setMensajes([saludoInicial]);
@@ -365,9 +365,10 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
               key={i}
               onClick={() => enviarMensaje(sug)}
               disabled={cargando}
-              className="text-[11px] text-left bg-slate-100/90 hover:bg-emerald-50 dark:bg-slate-700/60 dark:hover:bg-emerald-950/40 text-slate-700 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-300 px-2.5 py-1 rounded-full border border-slate-200/80 dark:border-slate-600 transition-all font-medium cursor-pointer"
+              className="text-[11px] text-left bg-slate-100/90 hover:bg-emerald-50 dark:bg-slate-700/60 dark:hover:bg-emerald-950/40 text-slate-700 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-300 px-2.5 py-1 rounded-full border border-slate-200/80 dark:border-slate-600 transition-all font-medium cursor-pointer flex items-center gap-1.5"
             >
-              💡 {sug}
+              <Sparkles className="w-3 h-3 text-emerald-600 shrink-0" />
+              <span>{sug}</span>
             </button>
           ))}
         </div>
@@ -438,7 +439,7 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
               </div>
 
               <h4 className="font-bold text-slate-900 dark:text-white text-base leading-tight">
-                ¡Hola! Soy BienestarBot 👋
+                ¡Hola! Soy BienestarBot
               </h4>
               <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 line-clamp-2">
                 Tócame aquí para consultar tus descansos médicos, subsidios o el estado de tus trámites.

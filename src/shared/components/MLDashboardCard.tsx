@@ -16,7 +16,9 @@ import {
   DollarSign,
   BarChart3,
   Calendar,
-  Building2,
+  MapPin,
+  GitCompare,
+  Check,
   Sliders,
   CheckCircle2
 } from 'lucide-react';
@@ -160,21 +162,31 @@ export default function MLDashboardCard() {
   const [notification, setNotification] = useState<string | null>(null);
   const [filtroMicrored, setFiltroMicrored] = useState<string>('TODAS');
 
-  // Inicializar microred según la sesión
+  // Inicializar microred según la sesión o datos del backend
   useEffect(() => {
-    if (!esSuperAdmin && userMicroredNombre) {
-      setFiltroMicrored(userMicroredNombre);
+    if (!esSuperAdmin) {
+      const mr = userMicroredNombre || (data as any)?.microredFiltroAplicado || (data as any)?.usuarioMicrored;
+      if (mr) {
+        setFiltroMicrored(mr);
+      }
+      if (activeTab === 'clustering' || activeTab === 'origen') {
+        setActiveTab('forecasting');
+      }
     }
-  }, [esSuperAdmin, userMicroredNombre]);
+  }, [esSuperAdmin, userMicroredNombre, data, activeTab]);
 
   // Funciones de concordancia y normalización de nombres de microred
   const normalizeMr = (name: string): string => {
     if (!name) return '';
     return name
       .toUpperCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
       .replace(/^MICRO\s*RED\s+/i, '')
       .replace(/^MR\s+/i, '')
+      .replace(/SAN\s*FCO\.?/i, 'SAN FRANCISCO')
+      .replace(/STA\.?/i, 'SANTA')
       .replace(/\./g, '')
+      .replace(/\s+/g, ' ')
       .trim();
   };
 
@@ -214,19 +226,23 @@ export default function MLDashboardCard() {
     ? (microredItemClustering.diasSaludTotales / totalDiasProvinciales) 
     : 1;
 
-  // Casos atípicos filtrados (Modelo 2)
+  // Casos atípicos filtrados (Modelo 2) - Estrictamente aislados a la microred para no-superadmin
   const casosAtipicosFiltrados = useMemo(() => {
     if (!data?.modelo2_anomalias?.topCasosAtipicos) return [];
-    if (filtroMicrored === 'TODAS') return data.modelo2_anomalias.topCasosAtipicos;
-    return data.modelo2_anomalias.topCasosAtipicos.filter(c => matchMr(c.microred, filtroMicrored));
-  }, [data, filtroMicrored]);
+    if (esSuperAdmin && filtroMicrored === 'TODAS') return data.modelo2_anomalias.topCasosAtipicos;
+    const targetMr = filtroMicrored !== 'TODAS' ? filtroMicrored : (userMicroredNombre || (data as any)?.microredFiltroAplicado);
+    if (!targetMr) return esSuperAdmin ? data.modelo2_anomalias.topCasosAtipicos : [];
+    return data.modelo2_anomalias.topCasosAtipicos.filter(c => matchMr(c.microred, targetMr));
+  }, [data, filtroMicrored, esSuperAdmin, userMicroredNombre]);
 
-  // Certificados en riesgo filtrados (Modelo 3)
+  // Certificados en riesgo filtrados (Modelo 3) - Estrictamente aislados a la microred para no-superadmin
   const certificadosRiesgoFiltrados = useMemo(() => {
     if (!data?.modelo3_riesgo_citt?.topCertificadosRiesgo) return [];
-    if (filtroMicrored === 'TODAS') return data.modelo3_riesgo_citt.topCertificadosRiesgo;
-    return data.modelo3_riesgo_citt.topCertificadosRiesgo.filter(c => matchMr(c.microred, filtroMicrored));
-  }, [data, filtroMicrored]);
+    if (esSuperAdmin && filtroMicrored === 'TODAS') return data.modelo3_riesgo_citt.topCertificadosRiesgo;
+    const targetMr = filtroMicrored !== 'TODAS' ? filtroMicrored : (userMicroredNombre || (data as any)?.microredFiltroAplicado);
+    if (!targetMr) return esSuperAdmin ? data.modelo3_riesgo_citt.topCertificadosRiesgo : [];
+    return data.modelo3_riesgo_citt.topCertificadosRiesgo.filter(c => matchMr(c.microred, targetMr));
+  }, [data, filtroMicrored, esSuperAdmin, userMicroredNombre]);
 
   // Establecimientos filtrados (Modelo 5)
   const establecimientosFiltrados = useMemo(() => {
@@ -416,7 +432,7 @@ export default function MLDashboardCard() {
           {/* Barra de Segmentación Territorial por Microred */}
           <div className="px-5 py-3 bg-slate-100/80 border-b border-slate-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-slate-700 shrink-0" />
+              <MapPin className="w-4 h-4 text-slate-700 shrink-0" />
               <span className="text-xs font-semibold text-slate-800">
                 {esSuperAdmin ? 'Ámbito Territorial de Inteligencia ML:' : 'Jurisdicción Asignada:'}
               </span>
@@ -450,7 +466,7 @@ export default function MLDashboardCard() {
                   }}
                   className="bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-xs focus:ring-2 focus:ring-slate-400 focus:outline-none cursor-pointer"
                 >
-                  <option value="TODAS">🏢 Consolidado Provincial (Todas las 13 Microredes)</option>
+                  <option value="TODAS">Consolidado Provincial (Todas las 13 Microredes)</option>
                   {listaMicroredes.map((mr) => (
                     <option key={mr} value={mr}>
                       Microred: {mr}
@@ -469,8 +485,8 @@ export default function MLDashboardCard() {
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <span className="bg-emerald-100 text-emerald-900 text-xs font-bold px-3 py-1 rounded-lg border border-emerald-300 flex items-center gap-1.5 shadow-xs">
-                  <Building2 className="w-3.5 h-3.5 text-emerald-700" />
+                <span className="bg-slate-100 text-slate-800 text-xs font-bold px-3 py-1 rounded-lg border border-slate-300 flex items-center gap-1.5 shadow-xs">
+                  <MapPin className="w-3.5 h-3.5 text-slate-600" />
                   {userMicroredNombre || filtroMicrored}
                 </span>
                 <span className="text-[11px] text-slate-500 font-medium hidden sm:inline">
@@ -543,45 +559,50 @@ export default function MLDashboardCard() {
                 </div>
               </div>
 
-              <div className="flex-1 group relative">
-                <button
-                  onClick={() => setActiveTab('clustering')}
-                  className={`w-full py-2 px-3 text-xs font-medium rounded-lg transition-all text-center cursor-pointer flex items-center justify-center gap-1.5 ${
-                    activeTab === 'clustering'
-                      ? 'bg-white text-slate-900 shadow-xs font-semibold'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <Layers className="w-3.5 h-3.5 text-slate-600" />
-                  <span>4. Vulnerabilidad de Microredes</span>
-                </button>
-                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50">
-                  <div className="bg-slate-900 text-white text-[11px] font-normal py-1 px-2.5 rounded shadow-lg whitespace-nowrap">
-                    Agrupamiento de microredes (K-Means & PCA) para planificación de personal
+              {/* Pestañas 4 y 5 exclusivas para Súper Admin (Planificación Estratégica Provincial) */}
+              {esSuperAdmin && (
+                <>
+                  <div className="flex-1 group relative">
+                    <button
+                      onClick={() => setActiveTab('clustering')}
+                      className={`w-full py-2 px-3 text-xs font-medium rounded-lg transition-all text-center cursor-pointer flex items-center justify-center gap-1.5 ${
+                        activeTab === 'clustering'
+                          ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <Layers className="w-3.5 h-3.5 text-slate-600" />
+                      <span>4. Vulnerabilidad de Microredes</span>
+                    </button>
+                    <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50">
+                      <div className="bg-slate-900 text-white text-[11px] font-normal py-1 px-2.5 rounded shadow-lg whitespace-nowrap">
+                        Agrupamiento de microredes (K-Means & PCA) para planificación de personal
+                      </div>
+                      <div className="w-1.5 h-1.5 bg-slate-900 rotate-45 -mt-0.5" />
+                    </div>
                   </div>
-                  <div className="w-1.5 h-1.5 bg-slate-900 rotate-45 -mt-0.5" />
-                </div>
-              </div>
 
-              <div className="flex-1 group relative">
-                <button
-                  onClick={() => setActiveTab('origen')}
-                  className={`w-full py-2 px-3 text-xs font-medium rounded-lg transition-all text-center cursor-pointer flex items-center justify-center gap-1.5 ${
-                    activeTab === 'origen'
-                      ? 'bg-white text-slate-900 shadow-xs font-semibold'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <Building2 className="w-3.5 h-3.5 text-slate-600" />
-                  <span>5. Procedencia (EsSalud vs Particular)</span>
-                </button>
-                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50">
-                  <div className="bg-slate-900 text-white text-[11px] font-normal py-1 px-2.5 rounded shadow-lg whitespace-nowrap">
-                    Estimación y clasificación de certificados particulares vs CITT EsSalud en todos los establecimientos
+                  <div className="flex-1 group relative">
+                    <button
+                      onClick={() => setActiveTab('origen')}
+                      className={`w-full py-2 px-3 text-xs font-medium rounded-lg transition-all text-center cursor-pointer flex items-center justify-center gap-1.5 ${
+                        activeTab === 'origen'
+                          ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <GitCompare className="w-3.5 h-3.5 text-slate-600" />
+                      <span>5. Procedencia (EsSalud vs Particular)</span>
+                    </button>
+                    <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50">
+                      <div className="bg-slate-900 text-white text-[11px] font-normal py-1 px-2.5 rounded shadow-lg whitespace-nowrap">
+                        Estimación y clasificación de certificados particulares vs CITT EsSalud en todos los establecimientos
+                      </div>
+                      <div className="w-1.5 h-1.5 bg-slate-900 rotate-45 -mt-0.5" />
+                    </div>
                   </div>
-                  <div className="w-1.5 h-1.5 bg-slate-900 rotate-45 -mt-0.5" />
-                </div>
-              </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -1236,7 +1257,7 @@ export default function MLDashboardCard() {
                                   : 'bg-slate-50 text-slate-600 border border-slate-200'
                               }`}
                             >
-                              {m} {isCurrentMr && '✓'}
+                              {m} {isCurrentMr && <Check className="w-3 h-3 text-white inline ml-1 shrink-0" />}
                             </span>
                           );
                         })}
@@ -1399,7 +1420,7 @@ export default function MLDashboardCard() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-slate-200 text-slate-800 rounded-lg">
-                      <Building2 className="w-5 h-5" />
+                      <GitCompare className="w-5 h-5 text-slate-700" />
                     </div>
                     <div>
                       <h4 className="font-semibold text-slate-900 text-sm">

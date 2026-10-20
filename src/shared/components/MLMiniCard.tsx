@@ -7,7 +7,7 @@ import {
   ShieldAlert,
   Clock,
   ArrowRight,
-  Building2
+  GitCompare
 } from 'lucide-react';
 
 interface MLMiniData {
@@ -89,10 +89,10 @@ export default function MLMiniCard() {
         </div>
 
         <Link
-          href="/reportes?tab=ml"
+          href="/analisis"
           className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium rounded-lg transition self-start sm:self-auto cursor-pointer"
         >
-          <span>Ver Análisis Completo en Reportes</span>
+          <span>Ver Análisis Predictivo Completo</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </div>
@@ -130,7 +130,7 @@ export default function MLMiniCard() {
 
             <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
               <span className="text-[10px] text-slate-500 flex items-center gap-1">
-                <Building2 className="w-3 h-3 text-slate-600" />
+                <GitCompare className="w-3 h-3 text-slate-600" />
                 Procedencia
               </span>
               <span className="text-xs font-bold text-slate-900 font-mono block mt-0.5">
@@ -192,8 +192,8 @@ export default function MLMiniCard() {
 
           <div className="flex items-center justify-between text-[10px] text-slate-400 mt-2">
             <span>Canal regional: {data.modelo5_origen_canjes?.metricas.pctGlobalEsSalud || 63.1}% EsSalud CITT vs {data.modelo5_origen_canjes?.metricas.pctGlobalParticular || 36.9}% Particulares</span>
-            <Link href="/reportes?tab=ml" className="text-slate-700 hover:underline font-medium">
-              Explorar los 5 modelos predictivos en Reportes →
+            <Link href="/analisis" className="text-slate-700 hover:underline font-medium">
+              Explorar modelos predictivos de tu jurisdicción →
             </Link>
           </div>
         </div>

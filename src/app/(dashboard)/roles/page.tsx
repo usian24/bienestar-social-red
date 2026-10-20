@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Shield, PlusCircle, Trash2, X, Pencil, Users, Heart, Settings, FileText, Folder, Terminal, Bot } from "lucide-react";
+import { Shield, PlusCircle, Trash2, X, Pencil, Users, Heart, Settings, FileText, Folder, Terminal, Bot, Info } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { PERMISOS_DESCRIPCION, Permiso } from '@/shared/utils/permisos';
 
@@ -204,8 +204,11 @@ export default function RolesPage() {
                   <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-700 pb-2">Información del Rol</h3>
                   
                   {isEditing && roles.find(r => r.id === editId)?.esFijo && (
-                    <div className="text-xs bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 p-2.5 rounded-lg border border-amber-200 dark:border-amber-800">
-                      💡 <strong>Rol base del sistema:</strong> Puedes agregar o quitar poderes libremente y actualizar la descripción. El nombre clave interno se mantiene protegido.
+                    <div className="text-xs bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 p-2.5 rounded-lg border border-amber-200 dark:border-amber-800 flex items-start gap-2">
+                      <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <strong>Rol base del sistema:</strong> Puedes agregar o quitar poderes libremente y actualizar la descripción. El nombre clave interno se mantiene protegido.
+                      </div>
                     </div>
                   )}
                   
@@ -235,8 +238,9 @@ export default function RolesPage() {
                   <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-700 pb-2">Poderes Asignados (Haz clic para dar poder al rol)</h3>
                   
                   {roles.find(r => r.id === editId)?.nombre === 'SUPER_ADMIN' ? (
-                    <div className="text-sm text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 p-4 rounded-md font-medium border border-blue-100 dark:border-blue-800">
-                      🛡️ El Súper Administrador tiene acceso total al sistema. No puedes modificar sus poderes base.
+                    <div className="text-sm text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 p-4 rounded-md font-medium border border-blue-100 dark:border-blue-800 flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                      <span>El Súper Administrador tiene acceso total al sistema. No puedes modificar sus poderes base.</span>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">

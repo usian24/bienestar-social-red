@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Menu, Heart, Search, Home, Moon, Sun, Shield, Settings, Users, LogOut, ChevronLeft, Bell, Activity, FileText, FolderOpen, Terminal, X } from 'lucide-react';
+import { Menu, Heart, Search, Home, Moon, Sun, Shield, Settings, Users, LogOut, ChevronLeft, Bell, Activity, FileText, FolderOpen, Terminal, X, Brain } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -202,26 +202,53 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </>
         )}
 
-        {tienePermiso(permisos, rol, 'VER_REPORTES') && showMenu('Reportes') && (
-        <>
-          {isSidebarOpen && (
-            <div className="px-6 pt-4 pb-1 text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-2 border-t border-slate-200 dark:border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">
-              Estadísticas
-            </div>
-          )}
-          {!isSidebarOpen && <div className="border-t border-slate-200 dark:border-slate-700 mx-3 mt-4 pt-4"></div>}
-          <nav className={`space-y-1 ${isSidebarOpen ? 'px-3' : 'px-2'}`}>
-            <div className={`flex items-center rounded text-slate-900 dark:text-slate-100 font-medium ${isSidebarOpen ? 'gap-3 px-3 py-2' : 'justify-center p-3'}`} title="Reportes">
-              <FileText className="w-5 h-5 text-slate-800 dark:text-slate-200 shrink-0" />
-              {isSidebarOpen && <span>Reportes</span>}
-            </div>
-            <div className={`${isSidebarOpen ? 'pl-9 pr-3 py-1 space-y-1' : 'flex flex-col gap-2 mt-2'}`}>
-              <Link href="/reportes" className={`block rounded-md text-sm font-medium transition-colors ${isSidebarOpen ? 'px-3 py-2' : 'text-center text-[10px] py-2'} ${pathname === "/reportes" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`} title="Generales">
-                {isSidebarOpen ? 'Generales' : 'REP'}
-              </Link>
-            </div>
-          </nav>
-        </>
+        {/* Sección Estadísticas e Inteligencia Predictiva */}
+        {rol !== 'TRABAJADOR' && (
+          <>
+            {isSidebarOpen && (
+              <div className="px-6 pt-4 pb-1 text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-2 border-t border-slate-200 dark:border-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">
+                Inteligencia & Reportes
+              </div>
+            )}
+            {!isSidebarOpen && <div className="border-t border-slate-200 dark:border-slate-700 mx-3 mt-4 pt-4"></div>}
+            <nav className={`space-y-1 ${isSidebarOpen ? 'px-3' : 'px-2'}`}>
+              {/* Enlace directo a Análisis Predictivo ML (accesible para Sede Admin y Super Admin) */}
+              {showMenu('Análisis') && (
+                <Link
+                  href="/analisis"
+                  className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
+                    isSidebarOpen ? 'gap-3 px-3 py-2' : 'justify-center p-3'
+                  } ${
+                    pathname === "/analisis"
+                      ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400"
+                      : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  }`}
+                  title="Análisis Predictivo ML"
+                >
+                  <Brain className="w-5 h-5 text-blue-600 shrink-0" />
+                  {isSidebarOpen && <span>Análisis Predictivo</span>}
+                </Link>
+              )}
+
+              {/* Informes Oficiales en PDF/Excel (Estrictamente si tiene VER_REPORTES) */}
+              {tienePermiso(permisos, rol, 'VER_REPORTES') && showMenu('Reportes') && (
+                <Link
+                  href="/reportes"
+                  className={`flex items-center rounded-lg text-sm font-medium transition-colors ${
+                    isSidebarOpen ? 'gap-3 px-3 py-2' : 'justify-center p-3'
+                  } ${
+                    pathname === "/reportes"
+                      ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400"
+                      : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  }`}
+                  title="Informes Oficiales"
+                >
+                  <FileText className="w-5 h-5 text-slate-600 dark:text-slate-400 shrink-0" />
+                  {isSidebarOpen && <span>Informes Oficiales</span>}
+                </Link>
+              )}
+            </nav>
+          </>
         )}
 
         {tienePermiso(permisos, rol, 'VER_ARCHIVO_HISTORICO') && showMenu('Archivo') && (
@@ -413,17 +440,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           )}
 
-          {/* Estadísticas */}
-          {tienePermiso(permisos, rol, 'VER_REPORTES') && showMenu('Reportes') && (
+          {/* Inteligencia & Estadísticas */}
+          {rol !== 'TRABAJADOR' && (
             <div className="space-y-1">
-              <div className="px-3 pt-2 text-[10px] uppercase font-bold text-slate-400 tracking-wider">Estadísticas</div>
+              <div className="px-3 pt-2 text-[10px] uppercase font-bold text-slate-400 tracking-wider">Inteligencia & Reportes</div>
               <Link 
-                href="/reportes" 
+                href="/analisis" 
                 onClick={() => setIsMobileMenuOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${pathname === "/reportes" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100"}`}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${pathname === "/analisis" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100"}`}
               >
-                <FileText className="w-4 h-4 text-amber-500" /> Reportes Generales
+                <Brain className="w-4 h-4 text-blue-600" /> Análisis Predictivo ML
               </Link>
+              {tienePermiso(permisos, rol, 'VER_REPORTES') && showMenu('Reportes') && (
+                <Link 
+                  href="/reportes" 
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${pathname === "/reportes" ? "bg-blue-50 text-blue-700 font-bold dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100"}`}
+                >
+                  <FileText className="w-4 h-4 text-slate-500" /> Informes Oficiales
+                </Link>
+              )}
             </div>
           )}
 

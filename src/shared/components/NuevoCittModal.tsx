@@ -1178,8 +1178,9 @@ export default function NuevoCittModal({
                           alt="Evidencia CITT" 
                           className="w-full h-full object-contain"
                         />
-                        <span className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/75 text-emerald-400 text-[9px] font-bold rounded">
-                          ✓ Escaneado
+                        <span className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/75 text-emerald-400 text-[9px] font-bold rounded flex items-center gap-1">
+                          <Check className="w-2.5 h-2.5" />
+                          <span>Escaneado</span>
                         </span>
                       </div>
                       <span className="text-[10px] text-slate-400 mt-1">Evidencia adjuntada</span>
@@ -1296,7 +1297,7 @@ export default function NuevoCittModal({
                 <div className="p-4 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-3">
                   <span className="text-[11px] text-slate-500 dark:text-slate-400">
                     {resumenEscaneo.bloqueadoPorMicrored
-                      ? "⚠️ Certificado bloqueado: El servidor pertenece a otra microred y no tienes autorización para tramitarlo."
+                      ? "Certificado bloqueado: El servidor pertenece a otra microred y no tienes autorización para tramitarlo."
                       : "Foto escaneada lista. Se guardará en el servidor al presionar \"Registrar Licencia\"."}
                   </span>
 

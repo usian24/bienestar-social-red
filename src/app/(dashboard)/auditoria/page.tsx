@@ -25,7 +25,8 @@ import {
   Terminal, 
   Bot, 
   HeartPulse, 
-  HardDrive 
+  HardDrive,
+  X 
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 
@@ -104,14 +105,14 @@ export default function AuditoriaPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setMensajeFeedback('✅ ¡Evento de error simulado registrado! Comprueba la lista abajo.');
+        setMensajeFeedback('Evento de error simulado registrado exitosamente. Comprueba la bitácora abajo.');
         await cargarDatos();
         await cargarSalud();
       } else {
-        setMensajeFeedback('❌ Error al ejecutar prueba: ' + data.error);
+        setMensajeFeedback('Error al ejecutar prueba: ' + data.error);
       }
     } catch (err: any) {
-      setMensajeFeedback('❌ Error de conexión: ' + err.message);
+      setMensajeFeedback('Error de conexión: ' + err.message);
     } finally {
       setEjecutandoPrueba(false);
       setTimeout(() => setMensajeFeedback(null), 5000);
@@ -126,7 +127,7 @@ export default function AuditoriaPage() {
       const res = await fetch('/api/auditoria?soloErrores=true', { method: 'DELETE' });
       const data = await res.json();
       if (res.ok) {
-        setMensajeFeedback(`🧹 Se eliminaron ${data.eliminados} registros de la bitácora.`);
+        setMensajeFeedback(`Se eliminaron ${data.eliminados} registros de la bitácora.`);
         await cargarDatos();
         await cargarSalud();
       }
@@ -246,7 +247,9 @@ export default function AuditoriaPage() {
       {mensajeFeedback && (
         <div className="p-3.5 rounded-xl bg-slate-900 text-white text-xs font-medium flex items-center justify-between shadow-lg animate-in fade-in duration-200">
           <span>{mensajeFeedback}</span>
-          <button onClick={() => setMensajeFeedback(null)} className="text-slate-400 hover:text-white font-bold ml-4">✕</button>
+          <button onClick={() => setMensajeFeedback(null)} className="text-slate-400 hover:text-white p-1 ml-4 rounded hover:bg-slate-800 transition cursor-pointer" title="Cerrar">
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
@@ -376,7 +379,9 @@ export default function AuditoriaPage() {
                 className="w-full bg-transparent text-sm focus:outline-none dark:text-white placeholder:text-slate-400"
               />
               {busqueda && (
-                <button onClick={() => setBusqueda('')} className="text-xs text-slate-400 hover:text-slate-600 font-bold">✕</button>
+                <button onClick={() => setBusqueda('')} className="text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer" title="Limpiar búsqueda">
+                  <X className="w-3.5 h-3.5" />
+                </button>
               )}
             </div>
 
@@ -405,9 +410,9 @@ export default function AuditoriaPage() {
                   className="text-xs font-semibold bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2.5 py-1.5 focus:outline-none dark:text-white cursor-pointer"
                 >
                   <option value="TODOS">Todos los Niveles</option>
-                  <option value="CRITICO">🔴 Crítico</option>
-                  <option value="ERROR">❌ Error</option>
-                  <option value="ADVERTENCIA">⚠️ Advertencia</option>
+                  <option value="CRITICO">Crítico</option>
+                  <option value="ERROR">Error</option>
+                  <option value="ADVERTENCIA">Advertencia</option>
                 </select>
               )}
             </div>

@@ -412,8 +412,9 @@ export default function UsuariosPage() {
                         <p className="text-emerald-700 dark:text-emerald-300 text-[11px] mt-0.5">
                           {trabajadorVinculado.cargo} • {trabajadorVinculado.establecimiento?.nombre} ({trabajadorVinculado.establecimiento?.microred?.nombre})
                         </p>
-                        <span className="text-[10px] text-emerald-600/90 dark:text-emerald-400 block mt-1">
-                          🔒 Datos y microred bloqueados automáticamente según padrón oficial.
+                        <span className="text-[10px] text-emerald-600/90 dark:text-emerald-400 flex items-center gap-1 mt-1">
+                          <Lock className="w-3 h-3 shrink-0" />
+                          <span>Datos y microred vinculados automáticamente según padrón oficial.</span>
                         </span>
                       </div>
                     )}

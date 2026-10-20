@@ -52,7 +52,7 @@ export default function TrabajadorDashboard() {
       {/* Saludo Personalizado */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-4 sm:p-6 md:p-8 text-white shadow-md relative overflow-hidden">
         <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl pointer-events-none"></div>
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-1 sm:mb-2">¡Hola, {userData.nombres}! 👋</h1>
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-1 sm:mb-2">¡Hola, {userData.nombres}!</h1>
         <p className="text-blue-100 opacity-90 text-xs sm:text-sm max-w-xl">
           Este es tu panel personal. Aquí puedes consultar el estado de tus trámites, licencias médicas y ver a qué establecimiento perteneces.
         </p>

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Users, Activity, FileCheck, Bell, CheckCircle2, CheckCircle, 
-  Calendar, BookOpen, History, ExternalLink, ChevronLeft, ChevronRight, Eye 
+  Calendar, BookOpen, History, ExternalLink, ChevronLeft, ChevronRight, Eye, X 
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import TrabajadorDashboard from './TrabajadorDashboard';
@@ -501,7 +501,9 @@ export default function InicioPage() {
               <h3 className="font-bold text-slate-800 flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-emerald-500" /> Finalizar Canje
               </h3>
-              <button onClick={() => setAlertaSeleccionada(null)} className="text-slate-400 hover:text-slate-600">✕</button>
+              <button onClick={() => setAlertaSeleccionada(null)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
             </div>
             <form onSubmit={handleCanjeRapido} className="p-6 space-y-4">
               <p className="text-sm text-slate-600">
