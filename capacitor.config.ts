@@ -5,8 +5,8 @@ const config: CapacitorConfig = {
   appName: 'Red de Salud Huánuco',
   webDir: 'public',
   server: {
-    // Conectado por Wi-Fi o Hotspot para que el celular funcione al 100% de manera inalámbrica
-    url: 'http://192.168.137.233:3000',
+    // Conectado por Wi-Fi a la IP activa de la laptop para que el celular funcione al 100%
+    url: 'http://192.168.1.161:3000',
     cleartext: true
   },
   android: {

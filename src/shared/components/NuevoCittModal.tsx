@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, Search, CheckCircle2, AlertCircle, Camera, Upload, 
   Loader2, Check, FileText, Scan, RefreshCw, Image as ImageIcon,
-  Zap, RotateCw, Sparkles, Stethoscope, UserCheck, ShieldAlert, Lock, AlertTriangle
+  Sparkles, Stethoscope, UserCheck, ShieldAlert, Lock, AlertTriangle, ShieldCheck
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { tienePermiso } from '@/shared/utils/permisos';
@@ -13,7 +13,7 @@ interface NuevoCittModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (dni?: string) => void;
-  tipoPorDefecto?: 'ENFERMEDAD_COMUN' | 'MATERNIDAD' | 'PATERNIDAD';
+  tipoPorDefecto?: 'ENFERMEDAD_COMUN' | 'ACCIDENTE_COMUN' | 'MATERNIDAD' | 'PATERNIDAD' | 'LEY_30012';
   editData?: any; // Datos de la licencia a editar
   trabajadorFijo?: any; // Si ya sabemos de qué trabajador es
 }
@@ -37,6 +37,7 @@ export default function NuevoCittModal({
 
   // Estados del Formulario del CITT
   const [origen, setOrigen] = useState('ESSALUD_CITT');
+  const [tipoLicencia, setTipoLicencia] = useState<'ENFERMEDAD_COMUN' | 'ACCIDENTE_COMUN' | 'MATERNIDAD' | 'PATERNIDAD' | 'LEY_30012'>(tipoPorDefecto);
   const [numeroCertificado, setNumeroCertificado] = useState('');
   const [fechaInicio, setFechaInicio] = useState('');
   const [diasOtorgados, setDiasOtorgados] = useState('');
@@ -51,17 +52,11 @@ export default function NuevoCittModal({
   const [archivoAdjunto, setArchivoAdjunto] = useState<File | null>(null);
   const [archivoRutaServidor, setArchivoRutaServidor] = useState<string | null>(null);
 
-  // Estados para Escáner y Cámara Inteligente
+  // Estados para Escáner y Cámara
   const [fotoCapturadaPreview, setFotoCapturadaPreview] = useState<string | null>(null);
   const [previewUrlManual, setPreviewUrlManual] = useState<string | null>(null);
   const [optimizandoFoto, setOptimizandoFoto] = useState(false);
-  const [mostrarCamaraWebRTC, setMostrarCamaraWebRTC] = useState(false);
-  const [errorCamara, setErrorCamara] = useState('');
   const [escaneandoIA, setEscaneandoIA] = useState(false);
-  const [pasoEscaneoIndex, setPasoEscaneoIndex] = useState(0);
-  const [orientacionMarco, setOrientacionMarco] = useState<'horizontal' | 'vertical'>('horizontal');
-  const [linternaEncendida, setLinternaEncendida] = useState(false);
-  const [soportaLinterna, setSoportaLinterna] = useState(false);
   const [resumenEscaneo, setResumenEscaneo] = useState<{
     dni?: string;
     numeroCertificado?: string;
@@ -82,14 +77,11 @@ export default function NuevoCittModal({
     microredUsuario?: string | null;
   } | null>(null);
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const scannerContainerRef = useRef<HTMLDivElement>(null);
-  const guideBoxRef = useRef<HTMLDivElement>(null);
   const inputCamaraNativaRef = useRef<HTMLInputElement>(null);
   const inputArchivoRef = useRef<HTMLInputElement>(null);
   const inputCamaraManualRef = useRef<HTMLInputElement>(null);
   const inputEvidenciaManualRef = useRef<HTMLInputElement>(null);
+  const abortScanRef = useRef<AbortController | null>(null);
 
   // Inicializar o limpiar datos al abrir/cerrar
   useEffect(() => {
@@ -97,6 +89,7 @@ export default function NuevoCittModal({
       if (editData) {
         setTabActiva('manual');
         setOrigen(editData.origen);
+        setTipoLicencia(editData.tipoLicencia || tipoPorDefecto || 'ENFERMEDAD_COMUN');
         setNumeroCertificado(editData.numeroCertificado);
         const fecha = new Date(editData.fechaInicio);
         setFechaInicio(fecha.toISOString().split('T')[0]);
@@ -107,7 +100,8 @@ export default function NuevoCittModal({
         setDiagnostico((editData as any).diagnostico || '');
       } else {
         setTabActiva('manual');
-        setOrigen('ESSALUD_CITT');
+        setOrigen(tipoPorDefecto === 'LEY_30012' ? 'PARTICULAR' : 'ESSALUD_CITT');
+        setTipoLicencia(tipoPorDefecto || 'ENFERMEDAD_COMUN');
         setNumeroCertificado('');
         setFechaInicio('');
         setDiasOtorgados('');
@@ -131,7 +125,6 @@ export default function NuevoCittModal({
       setResumenEscaneo(null);
       setFotoCapturadaPreview(null);
     } else {
-      detenerCamara();
       setFotoCapturadaPreview(null);
       if (previewUrlManual) {
         URL.revokeObjectURL(previewUrlManual);
@@ -139,28 +132,6 @@ export default function NuevoCittModal({
       }
     }
   }, [isOpen, editData, trabajadorFijo]);
-
-  // Limpiar cámara al desmontar
-  useEffect(() => {
-    return () => {
-      detenerCamara();
-    };
-  }, []);
-
-  // Limpiar cámara al cambiar de pestaña
-  useEffect(() => {
-    if (tabActiva !== 'escaner') {
-      detenerCamara();
-    }
-  }, [tabActiva]);
-
-  // Asegurar reproducción del video al montarse el visor
-  useEffect(() => {
-    if (mostrarCamaraWebRTC && videoRef.current && streamRef.current) {
-      videoRef.current.srcObject = streamRef.current;
-      videoRef.current.play().catch(e => console.warn('Error reproduciendo stream de video:', e));
-    }
-  }, [mostrarCamaraWebRTC]);
 
   // Buscar trabajador cuando escriben el DNI o Nombre
   useEffect(() => {
@@ -185,28 +156,23 @@ export default function NuevoCittModal({
   }, [busqueda, trabajadorSeleccionado]);
 
   // --- COMPRESIÓN CLIENT-SIDE DE IMÁGENES (Subida ultrarrápida y ahorro de datos móviles) ---
-  const comprimirImagen = async (archivo: File, maxDimension = 1920, calidad = 0.82): Promise<File> => {
-    if (!archivo.type.startsWith('image/')) {
+  // --- COMPRESIÓN CLIENT-SIDE RESILIENTE Y ULTRA-RÁPIDA (Hardware móvil en GPU/C++ <30ms) ---
+  const comprimirImagen = async (archivo: File, maxDimension = 1200, calidad = 0.82): Promise<File> => {
+    if (!archivo || !archivo.type.startsWith('image/') || archivo.type === 'image/svg+xml' || archivo.type === 'image/gif') {
       return archivo;
     }
-    if (archivo.type === 'image/svg+xml' || archivo.type === 'image/gif') {
+    // Si la imagen ya es súper liviana (< 300 KB), no tocarla
+    if (archivo.size < 300 * 1024) {
       return archivo;
     }
 
-    return new Promise((resolve) => {
-      const img = new Image();
-      const objectUrl = URL.createObjectURL(archivo);
+    const nombreBase = (archivo.name || "citt-scan").replace(/\.[^/.]+$/, "") || "citt";
 
-      img.onload = () => {
-        URL.revokeObjectURL(objectUrl);
-        let { width, height } = img;
-
-        if (!width || !height) {
-          resolve(archivo);
-          return;
-        }
-
-        // Si la foto supera la dimensión máxima, redimensionar manteniendo proporción
+    // ESTRATEGIA 1: createImageBitmap (Hardware móvil ultra-rápido en GPU/C++, <30ms sin congelar la UI)
+    if (typeof window !== 'undefined' && typeof window.createImageBitmap === 'function') {
+      try {
+        const bitmap = await window.createImageBitmap(archivo);
+        let { width, height } = bitmap;
         if (width > maxDimension || height > maxDimension) {
           if (width > height) {
             height = Math.round((height * maxDimension) / width);
@@ -216,253 +182,111 @@ export default function NuevoCittModal({
             height = maxDimension;
           }
         }
-
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(archivo);
-          return;
+        if (ctx) {
+          ctx.drawImage(bitmap, 0, 0, width, height);
+          bitmap.close(); // Liberar memoria nativa de GPU inmediatamente
+
+          // toDataURL síncrono ultra-estable
+          const dataUrl = canvas.toDataURL('image/jpeg', calidad);
+          const parts = dataUrl.split(',');
+          const byteString = atob(parts[1]);
+          const ab = new ArrayBuffer(byteString.length);
+          const ia = new Uint8Array(ab);
+          for (let i = 0; i < byteString.length; i++) {
+            ia[i] = byteString.charCodeAt(i);
+          }
+          const blob = new Blob([ab], { type: 'image/jpeg' });
+          if (blob.size < archivo.size) {
+            console.log(`[OCR CITT] Imagen comprimida con hardware móvil de ${Math.round(archivo.size / 1024)} KB a ${Math.round(blob.size / 1024)} KB`);
+            return new File([blob], `${nombreBase}.jpg`, { type: 'image/jpeg', lastModified: Date.now() });
+          }
         }
+      } catch (errBitmap) {
+        console.warn('createImageBitmap no disponible o falló, usando método estándar:', errBitmap);
+      }
+    }
 
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, 0, 0, width, height);
+    // ESTRATEGIA 2: Canvas tradicional con new Image() y FileReader
+    return new Promise<File>((resolve) => {
+      let objectUrl: string | null = null;
+      try {
+        objectUrl = URL.createObjectURL(archivo);
+        const img = new Image();
 
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
+        img.onload = () => {
+          try {
+            let { width, height } = img;
+            if (!width || !height) {
+              if (objectUrl) URL.revokeObjectURL(objectUrl);
               resolve(archivo);
               return;
             }
-            // Si la compresión resultó más pesada que el original, mantener original
-            if (blob.size >= archivo.size) {
+
+            if (width > maxDimension || height > maxDimension) {
+              if (width > height) {
+                height = Math.round((height * maxDimension) / width);
+                width = maxDimension;
+              } else {
+                width = Math.round((width * maxDimension) / height);
+                height = maxDimension;
+              }
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              if (objectUrl) URL.revokeObjectURL(objectUrl);
               resolve(archivo);
               return;
             }
-            const nombreBase = archivo.name.replace(/\.[^/.]+$/, "");
-            const archivoComprimido = new File([blob], `${nombreBase}.jpg`, {
-              type: 'image/jpeg',
-              lastModified: Date.now(),
-            });
-            resolve(archivoComprimido);
-          },
-          'image/jpeg',
-          calidad
-        );
-      };
 
-      img.onerror = () => {
-        URL.revokeObjectURL(objectUrl);
+            ctx.drawImage(img, 0, 0, width, height);
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+
+            const dataUrl = canvas.toDataURL('image/jpeg', calidad);
+            const parts = dataUrl.split(',');
+            const byteString = atob(parts[1]);
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            for (let i = 0; i < byteString.length; i++) {
+              ia[i] = byteString.charCodeAt(i);
+            }
+            const blob = new Blob([ab], { type: 'image/jpeg' });
+            if (blob.size < archivo.size) {
+              console.log(`[OCR CITT] Imagen comprimida con Canvas estándar de ${Math.round(archivo.size / 1024)} KB a ${Math.round(blob.size / 1024)} KB`);
+              resolve(new File([blob], `${nombreBase}.jpg`, { type: 'image/jpeg', lastModified: Date.now() }));
+            } else {
+              resolve(archivo);
+            }
+          } catch (e) {
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+            resolve(archivo);
+          }
+        };
+
+        img.onerror = () => {
+          if (objectUrl) URL.revokeObjectURL(objectUrl);
+          resolve(archivo);
+        };
+
+        img.src = objectUrl;
+      } catch (err) {
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
         resolve(archivo);
-      };
-
-      img.src = objectUrl;
+      }
     });
   };
 
-  // --- MANEJO SEGURO DE CÁMARA (Compatible con móvil, escritorio, HTTP y HTTPS) ---
-  const activarCamaraOSelector = () => {
-    const soporteWebRTC = typeof window !== 'undefined' && 
-                          typeof navigator !== 'undefined' && 
-                          Boolean(navigator.mediaDevices?.getUserMedia);
-
-    if (soporteWebRTC) {
-      iniciarCamara();
-    } else {
-      // Si el navegador no tiene getUserMedia (por ej. en IP HTTP de red local), abre la cámara nativa del celular
-      inputCamaraNativaRef.current?.click();
-    }
-  };
-
-  const iniciarCamara = async () => {
-    try {
-      setErrorCamara('');
-      if (!navigator.mediaDevices?.getUserMedia) {
-        inputCamaraNativaRef.current?.click();
-        return;
-      }
-
-      setMostrarCamaraWebRTC(true);
-      let stream: MediaStream;
-
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { 
-            facingMode: { ideal: 'environment' },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
-          },
-          audio: false
-        });
-      } catch (e) {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      }
-
-      streamRef.current = stream;
-
-      // Verificar soporte de linterna en el sensor de cámara
-      const track = stream.getVideoTracks()[0];
-      const capabilities = (track as any)?.getCapabilities?.();
-      if (capabilities && 'torch' in capabilities) {
-        setSoportaLinterna(true);
-      } else {
-        setSoportaLinterna(false);
-      }
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play().catch(e => console.warn('Error al iniciar video:', e));
-      }
-    } catch (err: any) {
-      console.warn('WebRTC no disponible, utilizando cámara del sistema:', err);
-      setMostrarCamaraWebRTC(false);
-      inputCamaraNativaRef.current?.click();
-    }
-  };
-
-  const toggleLinterna = async () => {
-    if (!streamRef.current) return;
-    const track = streamRef.current.getVideoTracks()[0];
-    if (!track) return;
-    try {
-      const nuevoEstado = !linternaEncendida;
-      await (track as any).applyConstraints({
-        advanced: [{ torch: nuevoEstado }]
-      });
-      setLinternaEncendida(nuevoEstado);
-    } catch (e) {
-      console.warn('No se pudo alternar la linterna:', e);
-    }
-  };
-
-  const detenerCamara = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => {
-        try {
-          track.stop();
-        } catch (e) {}
-      });
-      streamRef.current = null;
-    }
-    setMostrarCamaraWebRTC(false);
-    setLinternaEncendida(false);
-    setErrorCamara('');
-  };
-
-  // Escaneo y recorte de alta precisión al documento encuadrado
-  const escanearDocumento = () => {
-    if (!videoRef.current) return;
-    const video = videoRef.current;
-    const container = scannerContainerRef.current;
-    const frame = guideBoxRef.current;
-
-    const vWidth = video.videoWidth || 1280;
-    const vHeight = video.videoHeight || 720;
-
-    let sx = 0;
-    let sy = 0;
-    let sw = vWidth;
-    let sh = vHeight;
-
-    // Calcular exactamente la región delimitada por el cuadro guía en pantalla
-    if (container && frame) {
-      const cRect = container.getBoundingClientRect();
-      const fRect = frame.getBoundingClientRect();
-
-      const frameLeft = fRect.left - cRect.left;
-      const frameTop = fRect.top - cRect.top;
-      const frameWidth = fRect.width;
-      const frameHeight = fRect.height;
-
-      const containerRatio = cRect.width / cRect.height;
-      const videoRatio = vWidth / vHeight;
-
-      let scale = 1;
-      let offsetX = 0;
-      let offsetY = 0;
-
-      if (videoRatio > containerRatio) {
-        scale = vHeight / cRect.height;
-        const renderedWidth = vWidth / scale;
-        offsetX = (renderedWidth - cRect.width) / 2;
-      } else {
-        scale = vWidth / cRect.width;
-        const renderedHeight = vHeight / scale;
-        offsetY = (renderedHeight - cRect.height) / 2;
-      }
-
-      sx = (frameLeft + offsetX) * scale;
-      sy = (frameTop + offsetY) * scale;
-      sw = frameWidth * scale;
-      sh = frameHeight * scale;
-
-      // Margen de seguridad del 4% para asegurar que los bordes del papel y sellos queden intactos
-      const marginX = sw * 0.04;
-      const marginY = sh * 0.04;
-
-      sx = Math.max(0, sx - marginX);
-      sy = Math.max(0, sy - marginY);
-      sw = Math.min(vWidth - sx, sw + marginX * 2);
-      sh = Math.min(vHeight - sy, sh + marginY * 2);
-    }
-
-    const canvas = document.createElement('canvas');
-    if (sw > 80 && sh > 80) {
-      canvas.width = Math.round(sw);
-      canvas.height = Math.round(sh);
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-      }
-    } else {
-      // Fallback a cuadro completo
-      canvas.width = vWidth;
-      canvas.height = vHeight;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      }
-    }
-
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      const file = new File([blob], `citt-scan-${Date.now()}.jpg`, { type: 'image/jpeg' });
-      detenerCamara();
-      iniciarEscaneoDesdeArchivo(file);
-    }, 'image/jpeg', 0.92);
-  };
-
-  // --- PASOS DINÁMICOS DE ESCANEO IA ---
-  const pasosEscaneo = [
-    { texto: 'Optimizando resolución y nitidez de la fotografía...', porcentaje: 25, badge: 'Paso 1/4' },
-    { texto: 'Analizando certificado con Inteligencia Artificial...', porcentaje: 52, badge: 'Paso 2/4' },
-    { texto: 'Extrayendo N° Certificado CITT, fechas y CMP...', porcentaje: 78, badge: 'Paso 3/4' },
-    { texto: 'Identificando diagnóstico CIE-10 y cruzando con la BD...', porcentaje: 92, badge: 'Paso 4/4' },
-  ];
-
-  // Progresión secuencial automática para dar feedback en tiempo real al usuario
-  useEffect(() => {
-    if (!escaneandoIA) {
-      setPasoEscaneoIndex(0);
-      return;
-    }
-    const t1 = setTimeout(() => setPasoEscaneoIndex(1), 2200);
-    const t2 = setTimeout(() => setPasoEscaneoIndex(2), 5500);
-    const t3 = setTimeout(() => setPasoEscaneoIndex(3), 9500);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
-  }, [escaneandoIA]);
-
-  // Iniciar escaneo inmediatamente con feedback visual instantáneo (fondito de espera inmediato)
+  // Iniciar escaneo inmediatamente con feedback visual instantáneo (overlay sobrepuesto)
   const iniciarEscaneoDesdeArchivo = async (archivoSeleccionado: File) => {
     setTabActiva('escaner');
     setEscaneandoIA(true);
-    setPasoEscaneoIndex(0);
     setError('');
     setResumenEscaneo(null);
 
@@ -479,12 +303,18 @@ export default function NuevoCittModal({
     setArchivoRutaServidor(null);
 
     try {
-      let archivoAEnviar = archivoSeleccionado;
+      // Optimizar en el cliente para subida instantánea (reduce fotos de 20MB de móvil a ~300KB en ~50ms)
+      let archivoParaEnviar = archivoSeleccionado;
       if (archivoSeleccionado.type.startsWith('image/')) {
-        archivoAEnviar = await comprimirImagen(archivoSeleccionado);
-        setArchivoAdjunto(archivoAEnviar);
+        try {
+          archivoParaEnviar = await comprimirImagen(archivoSeleccionado, 1200, 0.82);
+        } catch (e) {
+          console.warn('Aviso comprimiendo foto, enviando original:', e);
+          archivoParaEnviar = archivoSeleccionado;
+        }
+        setArchivoAdjunto(archivoParaEnviar);
       }
-      await procesarArchivoCitt(archivoAEnviar, previewTemp);
+      await procesarArchivoCitt(archivoParaEnviar, previewTemp);
     } catch (err: any) {
       console.error('Error preparando imagen:', err);
       setError('No se pudo procesar el archivo seleccionado.');
@@ -492,8 +322,17 @@ export default function NuevoCittModal({
     }
   };
 
+
+
   // --- PROCESAMIENTO DEL CITT CON VISIÓN COMPUTACIONAL ---
   const procesarArchivoCitt = async (archivo: File, previewExistente?: string | null) => {
+    // Abortar cualquier escaneo previo en vuelo para evitar condiciones de carrera
+    if (abortScanRef.current) {
+      abortScanRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortScanRef.current = controller;
+
     setEscaneandoIA(true);
     setError('');
     setResumenEscaneo(null);
@@ -507,24 +346,55 @@ export default function NuevoCittModal({
     setArchivoRutaServidor(null);
 
     try {
-      const formData = new FormData();
-      formData.append('file', archivo);
+      let res: Response;
+      try {
+        // 1. Envío ultrarrápido vía JSON con base64 para evitar cuellos de botella de streaming multipart en Android
+        const base64Data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(archivo);
+        });
 
-      const res = await fetch('/api/licencias/escanear-citt', {
-        method: 'POST',
-        body: formData
-      });
+        res = await fetch('/api/licencias/escanear-citt', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            imagenBase64: base64Data,
+            nombreArchivo: archivo.name,
+            tipoMime: archivo.type
+          }),
+          signal: controller.signal
+        });
+      } catch (jsonErr: any) {
+        if (jsonErr?.name === 'AbortError') throw jsonErr;
+        console.warn('Fallback a FormData tras error en JSON:', jsonErr);
+        const formData = new FormData();
+        formData.append('file', archivo);
+        res = await fetch('/api/licencias/escanear-citt', {
+          method: 'POST',
+          body: formData,
+          signal: controller.signal
+        });
+      }
 
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'No se pudo leer el certificado.');
+        setError(data?.error || 'No se pudo leer el certificado médico. Asegúrese de que esté bien iluminado y enfocado.');
+        setResumenEscaneo(null);
+        return;
       }
+
+      setError(''); // Limpiar cualquier error previo
 
       // Pre-llenar campos
       if (data.datos) {
         if (data.datos.numeroCertificado) setNumeroCertificado(String(data.datos.numeroCertificado).toUpperCase());
         if (data.datos.origen) setOrigen(data.datos.origen);
+        if (data.datos.tipoLicencia) setTipoLicencia(data.datos.tipoLicencia);
         if (data.datos.fechaInicio) setFechaInicio(data.datos.fechaInicio);
         if (data.datos.diasOtorgados) setDiasOtorgados(String(data.datos.diasOtorgados));
         if (data.datos.medico) setMedico(String(data.datos.medico).trim());
@@ -564,8 +434,10 @@ export default function NuevoCittModal({
       });
 
     } catch (err: any) {
-      console.error('Error procesando CITT:', err);
-      setError('No se pudo extraer la información automáticamente. Puedes completar los campos en el Registro Manual.');
+      if (err?.name === 'AbortError') return; // Cancelado limpiamente por nueva acción
+      console.warn('Aviso procesando CITT:', err?.message || err);
+      setError(err?.message || 'No se pudo extraer la información automáticamente. Puedes completar los campos en el Registro Manual.');
+      setResumenEscaneo(null);
     } finally {
       setEscaneandoIA(false);
     }
@@ -651,7 +523,7 @@ export default function NuevoCittModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           trabajadorId: trabajadorSeleccionado.id,
-          tipoLicencia: tipoPorDefecto,
+          tipoLicencia: tipoLicencia || tipoPorDefecto,
           origen,
           numeroCertificado,
           fechaInicio,
@@ -771,20 +643,12 @@ export default function NuevoCittModal({
           capture="environment"
           onChange={async (e) => {
             if (e.target.files && e.target.files[0]) {
-              setOptimizandoFoto(true);
-              try {
-                const file = await comprimirImagen(e.target.files[0]);
-                setArchivoAdjunto(file);
-                setArchivoRutaServidor(null);
-                if (previewUrlManual) URL.revokeObjectURL(previewUrlManual);
-                setPreviewUrlManual(URL.createObjectURL(file));
-              } catch (err) {
-                console.error("Error optimizando imagen de cámara:", err);
-                setArchivoAdjunto(e.target.files[0]);
-                setArchivoRutaServidor(null);
-              } finally {
-                setOptimizandoFoto(false);
-              }
+              const file = e.target.files[0];
+              const optimizado = await comprimirImagen(file, 1600, 0.85);
+              setArchivoAdjunto(optimizado);
+              setArchivoRutaServidor(null);
+              if (previewUrlManual) URL.revokeObjectURL(previewUrlManual);
+              setPreviewUrlManual(URL.createObjectURL(optimizado));
             }
             e.target.value = '';
           }}
@@ -796,26 +660,18 @@ export default function NuevoCittModal({
           accept="image/*,application/pdf"
           onChange={async (e) => {
             if (e.target.files && e.target.files[0]) {
-              setOptimizandoFoto(true);
-              try {
-                const original = e.target.files[0];
-                const file = original.type.startsWith('image/')
-                  ? await comprimirImagen(original)
-                  : original;
-                setArchivoAdjunto(file);
-                setArchivoRutaServidor(null);
-                if (previewUrlManual) URL.revokeObjectURL(previewUrlManual);
-                if (file.type.startsWith('image/')) {
-                  setPreviewUrlManual(URL.createObjectURL(file));
-                } else {
-                  setPreviewUrlManual(null);
-                }
-              } catch (err) {
-                console.error("Error optimizando evidencia:", err);
-                setArchivoAdjunto(e.target.files[0]);
-                setArchivoRutaServidor(null);
-              } finally {
-                setOptimizandoFoto(false);
+              const original = e.target.files[0];
+              let finalFile = original;
+              if (original.type.startsWith('image/')) {
+                finalFile = await comprimirImagen(original, 1600, 0.85);
+              }
+              setArchivoAdjunto(finalFile);
+              setArchivoRutaServidor(null);
+              if (previewUrlManual) URL.revokeObjectURL(previewUrlManual);
+              if (finalFile.type.startsWith('image/')) {
+                setPreviewUrlManual(URL.createObjectURL(finalFile));
+              } else {
+                setPreviewUrlManual(null);
               }
             }
             e.target.value = '';
@@ -874,7 +730,7 @@ export default function NuevoCittModal({
         </div>
 
         {/* Mensaje de Error General */}
-        {error && (
+        {error && !resumenEscaneo && (
           <div className="mx-6 mt-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-300 rounded-lg flex items-center gap-2 text-xs">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
@@ -901,204 +757,69 @@ export default function NuevoCittModal({
                 </p>
               </div>
 
-              {mostrarCamaraWebRTC && !escaneandoIA && !resumenEscaneo && (
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {soportaLinterna && (
-                    <button
-                      type="button"
-                      onClick={toggleLinterna}
-                      title={linternaEncendida ? 'Apagar linterna' : 'Encender linterna'}
-                      className={`p-2 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
-                        linternaEncendida 
-                          ? 'bg-amber-400 text-slate-950 border-amber-500 shadow-xs' 
-                          : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                      }`}
-                    >
-                      <Zap className="w-4 h-4" />
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setOrientacionMarco(prev => prev === 'horizontal' ? 'vertical' : 'horizontal')}
-                    title="Girar orientación del marco guía"
-                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
-                  >
-                    <RotateCw className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                    <span className="capitalize">{orientacionMarco}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={detenerCamara}
-                    title="Cerrar cámara"
-                    className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
+
             </div>
 
-            {/* CASO 1: SEGUNDA EVALUACIÓN - ESCANEO LÁSER EN TIEMPO REAL SOBRE LA FOTO TOMADA */}
+            {/* CASO 1: ESTADO DE CARGA SOBREPUESTO DIRECTO EN LA IMAGEN */}
             {escaneandoIA && (
-              <div className="space-y-4">
-                <div className="relative w-full h-[340px] sm:h-[400px] bg-slate-950 rounded-2xl overflow-hidden border-2 border-blue-500/50 shadow-2xl flex items-center justify-center select-none">
-                  {/* Foto capturada visible en alta fidelidad */}
-                  {fotoCapturadaPreview ? (
-                    <img
-                      src={fotoCapturadaPreview}
-                      alt="CITT Capturado"
-                      className="w-full h-full object-contain filter contrast-105"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center gap-3">
-                      <Scan className="w-16 h-16 text-cyan-400 animate-pulse" />
-                      <span className="text-xs text-cyan-300 font-medium">Cargando documento...</span>
-                    </div>
-                  )}
-
-                  {/* Sombra de viñeta para destacar el escaneo */}
-                  <div className="absolute inset-0 bg-slate-950/35 pointer-events-none" />
-
-                  {/* Marco guía del escáner en pantalla */}
-                  <div className="absolute inset-4 sm:inset-6 border border-cyan-400/35 rounded-xl pointer-events-none shadow-[0_0_30px_rgba(34,211,238,0.2)] flex flex-col justify-between p-3">
-                    {/* 4 Esquinas brillantes del escáner */}
-                    <div className="absolute -top-1 -left-1 w-7 h-7 border-t-3 border-l-3 border-cyan-400 rounded-tl-sm shadow-[0_0_12px_rgba(34,211,238,0.9)]" />
-                    <div className="absolute -top-1 -right-1 w-7 h-7 border-t-3 border-r-3 border-cyan-400 rounded-tr-sm shadow-[0_0_12px_rgba(34,211,238,0.9)]" />
-                    <div className="absolute -bottom-1 -left-1 w-7 h-7 border-b-3 border-l-3 border-cyan-400 rounded-bl-sm shadow-[0_0_12px_rgba(34,211,238,0.9)]" />
-                    <div className="absolute -bottom-1 -right-1 w-7 h-7 border-b-3 border-r-3 border-cyan-400 rounded-br-sm shadow-[0_0_12px_rgba(34,211,238,0.9)]" />
-
-                    {/* Línea láser de barrido animada en tiempo real */}
-                    <div className="absolute inset-x-2 h-1 bg-gradient-to-r from-transparent via-cyan-300 to-transparent shadow-[0_0_20px_rgba(34,211,238,1)] animate-laser-scan" />
-
-                    {/* Badge superior indicando escaneo activo */}
-                    <div className="z-10 text-center">
-                      <span className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-blue-950/90 text-cyan-300 text-[11px] font-bold tracking-wider uppercase rounded-full border border-cyan-400/50 shadow-lg backdrop-blur-md">
-                        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-                        Escaneando CITT con Inteligencia Artificial
-                      </span>
-                    </div>
-
-                    {/* Badge inferior con detalle de análisis */}
-                    <div className="z-10 text-center px-4 w-full">
-                      <span className="inline-block px-4 py-1.5 bg-slate-900/90 text-white text-[11px] font-medium rounded-full border border-white/10 shadow-md backdrop-blur-md transition-all duration-300">
-                        {pasosEscaneo[pasoEscaneoIndex]?.texto || 'Analizando certificado...'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Tarjeta de progreso dinámico con micro-pasos */}
-                <div className="p-4 bg-gradient-to-r from-blue-50/90 via-cyan-50/70 to-blue-50/90 dark:from-slate-900 dark:via-blue-950/50 dark:to-slate-900 border border-blue-200 dark:border-blue-900/60 rounded-2xl shadow-sm space-y-2.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-blue-600/10 dark:bg-blue-400/10 flex items-center justify-center text-blue-600 dark:text-cyan-400">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      </div>
-                      <div>
-                        <span className="font-bold text-slate-800 dark:text-slate-100 block">
-                          {pasosEscaneo[pasoEscaneoIndex]?.texto || 'Procesando certificado...'}
-                        </span>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                          Reconociendo caracteres médicos y validando contra el padrón...
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className="text-xs font-black text-blue-600 dark:text-cyan-400 font-mono">
-                        {pasosEscaneo[pasoEscaneoIndex]?.porcentaje || 50}%
-                      </span>
-                      <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                        {pasosEscaneo[pasoEscaneoIndex]?.badge || 'Paso 2/4'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Barra de progreso interactiva animada */}
-                  <div className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-300/40 dark:border-slate-700/60">
-                    <div 
-                      className="h-full bg-gradient-to-r from-blue-600 via-cyan-400 to-emerald-400 rounded-full transition-all duration-700 ease-out shadow-[0_0_12px_rgba(34,211,238,0.7)]"
-                      style={{ width: `${pasosEscaneo[pasoEscaneoIndex]?.porcentaje || 50}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* CASO 2: CÁMARA EN VIVO WEBRTC (Para laptop o si el usuario decide activarla) */}
-            {mostrarCamaraWebRTC && !escaneandoIA && !resumenEscaneo && (
-              <div className="space-y-3">
-                <div 
-                  ref={scannerContainerRef}
-                  className="relative w-full h-[320px] sm:h-[380px] bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 shadow-xl select-none"
-                >
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="absolute inset-0 w-full h-full object-cover"
+              <div className="relative w-full h-[360px] sm:h-[420px] bg-slate-950 rounded-2xl overflow-hidden border border-slate-700/80 shadow-2xl flex items-center justify-center select-none">
+                {/* Foto capturada de fondo */}
+                {fotoCapturadaPreview ? (
+                  <img
+                    src={fotoCapturadaPreview}
+                    alt="CITT Capturado"
+                    className="w-full h-full object-contain filter contrast-105 opacity-40 blur-[1px]"
                   />
+                ) : (
+                  <div className="w-full h-full bg-slate-900" />
+                )}
 
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-4">
-                    <div
-                      ref={guideBoxRef}
-                      className={`relative transition-all duration-300 flex flex-col justify-between items-center p-3 ${
-                        orientacionMarco === 'horizontal'
-                          ? 'w-[90%] max-w-[460px] aspect-[1.44/1]'
-                          : 'h-[86%] max-h-[350px] aspect-[1/1.44]'
-                      }`}
-                      style={{
-                        boxShadow: '0 0 0 9999px rgba(15, 23, 42, 0.65)'
-                      }}
-                    >
-                      <div className="absolute -top-1 -left-1 w-6 sm:w-7 h-6 sm:h-7 border-t-3 border-l-3 border-blue-500 rounded-tl-sm shadow-[0_0_8px_rgba(59,130,246,0.7)]" />
-                      <div className="absolute -top-1 -right-1 w-6 sm:w-7 h-6 sm:h-7 border-t-3 border-r-3 border-blue-500 rounded-tr-sm shadow-[0_0_8px_rgba(59,130,246,0.7)]" />
-                      <div className="absolute -bottom-1 -left-1 w-6 sm:w-7 h-6 sm:h-7 border-b-3 border-l-3 border-blue-500 rounded-bl-sm shadow-[0_0_8px_rgba(59,130,246,0.7)]" />
-                      <div className="absolute -bottom-1 -right-1 w-6 sm:w-7 h-6 sm:h-7 border-b-3 border-r-3 border-blue-500 rounded-br-sm shadow-[0_0_8px_rgba(59,130,246,0.7)]" />
-                      <div className="absolute inset-0 border border-blue-400/25 rounded-xs" />
-                      <div className="absolute inset-x-2 h-0.5 bg-gradient-to-r from-transparent via-blue-400 to-transparent shadow-[0_0_12px_rgba(59,130,246,0.95)] animate-laser-scan" />
-
-                      <div className="z-10 mt-1">
-                        <span className="px-2.5 py-0.5 bg-slate-900/80 backdrop-blur-md text-blue-300 text-[10px] font-semibold tracking-wider uppercase rounded-full border border-blue-500/30 shadow-xs">
-                          Marco de Documento ({orientacionMarco})
-                        </span>
-                      </div>
-
-                      <div className="z-10 mb-1">
-                        <span className="px-3 py-1 bg-black/75 backdrop-blur-md text-white text-[11px] font-medium rounded-full border border-white/10 shadow-xs">
-                          Alinee los bordes del papel dentro del recuadro
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="absolute bottom-3 left-3 z-20">
-                    <button
-                      type="button"
-                      onClick={() => setOrientacionMarco(prev => prev === 'horizontal' ? 'vertical' : 'horizontal')}
-                      className="px-2.5 py-1.5 bg-slate-900/80 hover:bg-slate-900 text-white/90 text-[11px] font-medium rounded-lg backdrop-blur-md border border-white/15 flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                    >
-                      <RotateCw className="w-3.5 h-3.5 text-blue-400" />
-                      <span>{orientacionMarco === 'horizontal' ? 'Formato Vertical' : 'Formato Horizontal'}</span>
-                    </button>
-                  </div>
+                {/* Marco y esquinas luminosas */}
+                <div className="absolute inset-4 sm:inset-6 border border-cyan-400/25 rounded-xl pointer-events-none z-10 shadow-[0_0_25px_rgba(34,211,238,0.15)]">
+                  <div className="absolute -top-1 -left-1 w-6 h-6 border-t-2 border-l-2 border-cyan-400 rounded-tl-sm shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
+                  <div className="absolute -top-1 -right-1 w-6 h-6 border-t-2 border-r-2 border-cyan-400 rounded-tr-sm shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
+                  <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-2 border-l-2 border-cyan-400 rounded-bl-sm shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-2 border-r-2 border-cyan-400 rounded-br-sm shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
                 </div>
 
-                <div className="flex flex-col items-center justify-center gap-2 pt-1">
+                {/* Línea láser de barrido vertical animada */}
+                <div className="absolute inset-x-2 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_18px_rgba(34,211,238,0.95)] animate-laser-scan z-10 pointer-events-none" />
+
+                {/* OVERLAY SOBREPUESTO (HUD centrado y limpio sin falsas etapas ni barras engañosas) */}
+                <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] flex flex-col items-center justify-center p-6 text-center z-20">
+                  <div className="w-14 h-14 rounded-2xl bg-blue-500/15 border border-blue-400/30 flex items-center justify-center text-blue-400 mb-3 shadow-lg shadow-blue-500/10">
+                    <Loader2 className="w-7 h-7 animate-spin text-blue-400" />
+                  </div>
+
+                  <h4 className="text-base font-bold text-white mb-1.5 flex items-center justify-center gap-2">
+                    <Scan className="w-4 h-4 text-cyan-400" />
+                    <span>Analizando Certificado CITT...</span>
+                  </h4>
+
+                  <p className="text-xs text-slate-300 max-w-sm leading-relaxed mb-4">
+                    Extrayendo DNI, fechas de descanso, diagnóstico y médico tratante. Por favor, espera un momento...
+                  </p>
+
                   <button
                     type="button"
-                    onClick={escanearDocumento}
-                    className="w-full sm:w-auto px-10 py-3 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2.5 shadow-lg shadow-blue-600/30 transition-all cursor-pointer"
+                    onClick={() => {
+                      if (abortScanRef.current) abortScanRef.current.abort();
+                      setEscaneandoIA(false);
+                      setFotoCapturadaPreview(null);
+                    }}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-slate-200 border border-white/20 transition-all cursor-pointer active:scale-95 flex items-center gap-1.5 shadow-sm"
                   >
-                    <Scan className="w-5 h-5 text-blue-200" />
-                    <span>Escanear Documento</span>
+                    <X className="w-3.5 h-3.5" />
+                    <span>Cancelar</span>
                   </button>
                 </div>
               </div>
             )}
 
-            {/* CASO 3: ESTADO INICIAL (Paso 1: Tomar foto o subir archivo) */}
-            {!mostrarCamaraWebRTC && !escaneandoIA && !resumenEscaneo && (
+
+
+            {/* ESTADO INICIAL (Paso 1: Tomar foto o subir archivo) */}
+            {!escaneandoIA && !resumenEscaneo && (
               <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 text-center bg-slate-50/70 dark:bg-slate-900/40 flex flex-col items-center justify-center space-y-4">
                 <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-xs">
                   <Scan className="w-8 h-8" />
@@ -1129,18 +850,6 @@ export default function NuevoCittModal({
                   >
                     <Upload className="w-4 h-4 text-slate-500" />
                     <span>Subir Imagen o PDF</span>
-                  </button>
-                </div>
-
-                {/* Opción secundaria para activar webcam en laptop si se desea */}
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={activarCamaraOSelector}
-                    className="text-[11px] text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1.5 cursor-pointer underline transition-colors"
-                  >
-                    <Camera className="w-3.5 h-3.5" />
-                    <span>Abrir visor de cámara en vivo (Webcam)</span>
                   </button>
                 </div>
               </div>
@@ -1243,10 +952,22 @@ export default function NuevoCittModal({
                     </div>
 
                     <div>
-                      <span className="text-slate-400 block text-[11px] mb-0.5 font-medium">Tipo de Origen</span>
-                      <p className="font-semibold text-slate-800 dark:text-slate-100">
-                        {resumenEscaneo.origen === 'ESSALUD_CITT' ? 'EsSalud CITT' : 'Particular / MINSA'}
-                      </p>
+                      <span className="text-slate-400 block text-[11px] mb-0.5 font-medium">Tipo de Certificado</span>
+                      <div>
+                        {resumenEscaneo.tipoLicencia === 'LEY_30012' ? (
+                          <span className="inline-flex items-center px-2 py-0.5 bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 font-bold rounded text-xs border border-purple-200 dark:border-purple-800">
+                            MINSA - Ley Nº 30012 (Familiar Grave)
+                          </span>
+                        ) : resumenEscaneo.origen === 'ESSALUD_CITT' ? (
+                          <span className="inline-flex items-center px-2 py-0.5 bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 font-semibold text-xs rounded">
+                            EsSalud CITT
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-semibold text-xs rounded">
+                            Certificado Particular / MINSA
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div>
@@ -1317,7 +1038,6 @@ export default function NuevoCittModal({
                       onClick={() => setTabActiva('manual')}
                       className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm cursor-pointer transition-colors active:scale-98"
                     >
-                      <Check className="w-3.5 h-3.5" />
                       <span>Pasar al Formulario y Guardar</span>
                     </button>
                   )}
@@ -1406,29 +1126,75 @@ export default function NuevoCittModal({
               <form id="citt-form" onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 
                 <div className="sm:col-span-2">
-                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">Origen del Certificado</label>
-                  <div className="flex flex-wrap gap-5">
-                    <label className="flex items-center gap-2 cursor-pointer">
+                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">Origen / Tipo de Certificado</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <label className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                      origen === 'ESSALUD_CITT' && tipoLicencia !== 'LEY_30012'
+                        ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 shadow-xs' 
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900'
+                    }`}>
                       <input 
                         type="radio" 
+                        name="origenCertificado"
                         value="ESSALUD_CITT" 
-                        checked={origen === 'ESSALUD_CITT'} 
-                        onChange={(e) => setOrigen(e.target.value)} 
-                        className="w-4 h-4 text-blue-600" 
+                        checked={origen === 'ESSALUD_CITT' && tipoLicencia !== 'LEY_30012'} 
+                        onChange={() => {
+                          setOrigen('ESSALUD_CITT');
+                          setTipoLicencia(tipoPorDefecto === 'LEY_30012' ? 'ENFERMEDAD_COMUN' : (tipoPorDefecto || 'ENFERMEDAD_COMUN'));
+                        }} 
+                        className="w-4 h-4 text-blue-600 mt-0.5" 
                       />
-                      <span className="text-sm text-slate-700 dark:text-slate-200 font-medium">CITT EsSalud</span>
+                      <div className="text-xs">
+                        <span className="font-bold block text-slate-800 dark:text-slate-100">CITT EsSalud</span>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">Descanso médico institucional</span>
+                      </div>
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
+
+                    <label className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                      origen === 'PARTICULAR' && tipoLicencia !== 'LEY_30012'
+                        ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 shadow-xs' 
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900'
+                    }`}>
                       <input 
                         type="radio" 
+                        name="origenCertificado"
                         value="PARTICULAR" 
-                        checked={origen === 'PARTICULAR'} 
-                        onChange={(e) => setOrigen(e.target.value)} 
-                        className="w-4 h-4 text-blue-600" 
+                        checked={origen === 'PARTICULAR' && tipoLicencia !== 'LEY_30012'} 
+                        onChange={() => {
+                          setOrigen('PARTICULAR');
+                          setTipoLicencia(tipoPorDefecto === 'LEY_30012' ? 'ENFERMEDAD_COMUN' : (tipoPorDefecto || 'ENFERMEDAD_COMUN'));
+                        }} 
+                        className="w-4 h-4 text-emerald-600 mt-0.5" 
                       />
-                      <span className="text-sm text-slate-700 dark:text-slate-200 font-medium">Certificado Particular (Especie Valorada)</span>
+                      <div className="text-xs">
+                        <span className="font-bold block text-slate-800 dark:text-slate-100">Particular (CMP)</span>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">Especie valorada o clínica</span>
+                      </div>
+                    </label>
+
+                    <label className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                      tipoLicencia === 'LEY_30012'
+                        ? 'border-purple-500 bg-purple-50/70 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200 shadow-xs' 
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900'
+                    }`}>
+                      <input 
+                        type="radio" 
+                        name="origenCertificado"
+                        value="LEY_30012" 
+                        checked={tipoLicencia === 'LEY_30012'} 
+                        onChange={() => {
+                          setOrigen('PARTICULAR');
+                          setTipoLicencia('LEY_30012');
+                        }} 
+                        className="w-4 h-4 text-purple-600 mt-0.5" 
+                      />
+                      <div className="text-xs">
+                        <span className="font-bold block text-purple-800 dark:text-purple-300">MINSA (Ley Nº 30012)</span>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">Familiar grave o terminal</span>
+                      </div>
                     </label>
                   </div>
+
                 </div>
 
                 <div>

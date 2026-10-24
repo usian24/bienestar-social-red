@@ -152,20 +152,27 @@ export default function DetallesTrabajadorModal({ isOpen, onClose, trabajadorInf
                   ) : (
                     licencias.map(lic => (
                       <div key={lic.id} className="bg-white dark:bg-slate-800 border border-slate-200 rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow relative">
-                        {/* Banda de color según el origen */}
-                        <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${lic.origen === 'ESSALUD_CITT' ? 'bg-blue-500' : 'bg-emerald-500'}`}></div>
+                        {/* Banda de color según el origen y tipo */}
+                        <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${
+                          lic.tipoLicencia === 'LEY_30012' ? 'bg-purple-500' :
+                          lic.origen === 'ESSALUD_CITT' ? 'bg-blue-500' : 'bg-emerald-500'
+                        }`}></div>
                         
                         <div className="p-5 pl-7">
                           {/* Cabecera de la Cartilla */}
                           <div className="flex justify-between items-start mb-4">
                             <div>
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide ${
-                                lic.origen === 'ESSALUD_CITT' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
+                                lic.tipoLicencia === 'LEY_30012'
+                                  ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300'
+                                  : lic.origen === 'ESSALUD_CITT' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
                               }`}>
-                                {lic.origen === 'ESSALUD_CITT' ? 'CITT EsSalud' : 'Certificado Particular'}
+                                {lic.tipoLicencia === 'LEY_30012'
+                                  ? 'MINSA - Ley Nº 30012'
+                                  : (lic.origen === 'ESSALUD_CITT' ? 'CITT EsSalud' : 'Certificado Particular')}
                               </span>
                               <h5 className="text-lg font-bold text-slate-800 dark:text-slate-100 mt-2">
-                                {lic.tipoLicencia.replace('_', ' ')}
+                                {lic.tipoLicencia === 'LEY_30012' ? 'Ley Nº 30012 (Familiar Grave)' : lic.tipoLicencia.replace('_', ' ')}
                               </h5>
                             </div>
                             

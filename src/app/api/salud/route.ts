@@ -13,11 +13,11 @@ export async function GET(request: Request) {
     const isSuperAdmin = (session.user as any)?.rol === 'SUPER_ADMIN';
     const userMicroredId = (session.user as any)?.microredId;
 
-    // Filtro base: Solo trabajadores con licencias de SALUD (Enfermedad o Accidente)
+    // Filtro base: Trabajadores con licencias de SALUD (Enfermedad o Accidente) o LEY_30012
     const whereClause: any = {
       licencias: {
         some: {
-          tipoLicencia: { in: ['ENFERMEDAD_COMUN', 'ACCIDENTE_COMUN'] }
+          tipoLicencia: { in: ['ENFERMEDAD_COMUN', 'ACCIDENTE_COMUN', 'LEY_30012'] }
         }
       }
     };
@@ -37,7 +37,8 @@ export async function GET(request: Request) {
           include: { microred: true }
         },
         licencias: {
-          where: { tipoLicencia: { in: ['ENFERMEDAD_COMUN', 'ACCIDENTE_COMUN'] } }
+          where: { tipoLicencia: { in: ['ENFERMEDAD_COMUN', 'ACCIDENTE_COMUN', 'LEY_30012'] } },
+          orderBy: { fechaInicio: 'desc' }
         }
       }
     });

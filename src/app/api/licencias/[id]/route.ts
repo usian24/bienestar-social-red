@@ -60,6 +60,7 @@ export async function PUT(
     
     const body = await request.json();
     const {
+      tipoLicencia,
       origen,
       numeroCertificado,
       fechaInicio,
@@ -80,6 +81,7 @@ export async function PUT(
     const licenciaActualizada = await prisma.licencia.update({
       where: { id },
       data: {
+        ...(tipoLicencia !== undefined && { tipoLicencia }),
         origen,
         numeroCertificado,
         fechaInicio: new Date(fechaInicio),

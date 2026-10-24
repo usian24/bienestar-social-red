@@ -121,7 +121,22 @@ export default function SaludPage() {
       }
     }
 
-    return matchAmbito && matchDni && matchMicrored && matchEstablecimiento && matchCondicion && matchFechas;
+    // Filtrado por Tipo de Licencia
+    let matchTipoLicencia = true;
+    if (tipoLicencia !== '--TODOS--') {
+      if (r.licencias && r.licencias.length > 0) {
+        matchTipoLicencia = r.licencias.some((lic: any) => {
+          if (tipoLicencia === 'SALUD') {
+            return lic.tipoLicencia === 'ENFERMEDAD_COMUN' || lic.tipoLicencia === 'ACCIDENTE_COMUN';
+          }
+          return lic.tipoLicencia === tipoLicencia;
+        });
+      } else {
+        matchTipoLicencia = false;
+      }
+    }
+
+    return matchAmbito && matchDni && matchMicrored && matchEstablecimiento && matchCondicion && matchFechas && matchTipoLicencia;
   });
 
   // LOGICA DE ORDENAMIENTO
@@ -273,6 +288,7 @@ export default function SaludPage() {
               >
                 <option value="--TODOS--">--TODOS--</option>
                 <option value="SALUD">Salud (Enfermedad/Accidente)</option>
+                <option value="LEY_30012">Ley Nº 30012 (Familiar Grave/Terminal)</option>
                 <option value="MATERNIDAD">Maternidad</option>
                 <option value="PATERNIDAD">Paternidad</option>
               </select>
