@@ -27,7 +27,21 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Usuario no encontrado o inactivo");
         }
         
-        const isPasswordValid = await bcrypt.compare(credentials.password, user.passwordHash);
+        let isPasswordValid = false;
+        if (user.passwordHash.startsWith('$2a$') || user.passwordHash.startsWith('$2b$')) {
+          isPasswordValid = await bcrypt.compare(credentials.password, user.passwordHash);
+        } else {
+          // Fallback seguro: migración automática inmediata si la contraseña estaba sin hashear
+          isPasswordValid = (credentials.password === user.passwordHash);
+          if (isPasswordValid) {
+            const migratedHash = await bcrypt.hash(credentials.password, 10);
+            await prisma.usuario.update({
+              where: { id: user.id },
+              data: { passwordHash: migratedHash }
+            });
+            await logger.info('SEGURIDAD', 'PASSWORD_AUTO_MIGRADO', `Contraseña del usuario ${user.dni} migrada automáticamente a hash bcrypt.`);
+          }
+        }
         
         if (!isPasswordValid) {
           await logger.advertencia('AUTH', 'PASSWORD_INCORRECTO', `Contraseña incorrecta para el usuario: ${credentials.dni} (${user.nombres})`, {

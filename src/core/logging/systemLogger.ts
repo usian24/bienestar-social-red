@@ -9,6 +9,7 @@ export type ModuloLog =
   | 'USUARIOS' 
   | 'ROLES' 
   | 'AUTH' 
+  | 'SEGURIDAD'
   | 'SISTEMA' 
   | 'BD'
   | 'REPORTES_PDF';

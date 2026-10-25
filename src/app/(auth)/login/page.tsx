@@ -168,6 +168,13 @@ export default function LoginPage() {
                   {loading ? "Iniciando..." : "Iniciar Sesión"}
                 </button>
               </div>
+
+              {/* Nota Institucional de Recuperación */}
+              <div className="pt-2 text-center">
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  ¿Olvidaste tu contraseña? Comunícate con la <strong className="text-slate-600 font-semibold">Unidad de Recursos Humanos / Bienestar Social</strong> de la Red de Salud Huánuco para su restablecimiento administrativo.
+                </p>
+              </div>
             </form>
           </div>
         </div>

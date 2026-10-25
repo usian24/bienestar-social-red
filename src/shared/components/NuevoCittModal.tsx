@@ -52,6 +52,11 @@ export default function NuevoCittModal({
   const [archivoAdjunto, setArchivoAdjunto] = useState<File | null>(null);
   const [archivoRutaServidor, setArchivoRutaServidor] = useState<string | null>(null);
 
+  // Estados para Detección de Anomalías en Vivo
+  const [ignorarSugerenciaMaternidad, setIgnorarSugerenciaMaternidad] = useState(false);
+  const [ignorarSugerenciaSalud, setIgnorarSugerenciaSalud] = useState(false);
+  const [ignorarSugerenciaPaternidad, setIgnorarSugerenciaPaternidad] = useState(false);
+
   // Estados para Escáner y Cámara
   const [fotoCapturadaPreview, setFotoCapturadaPreview] = useState<string | null>(null);
   const [previewUrlManual, setPreviewUrlManual] = useState<string | null>(null);
@@ -124,6 +129,9 @@ export default function NuevoCittModal({
       setError('');
       setResumenEscaneo(null);
       setFotoCapturadaPreview(null);
+      setIgnorarSugerenciaMaternidad(false);
+      setIgnorarSugerenciaSalud(false);
+      setIgnorarSugerenciaPaternidad(false);
     } else {
       setFotoCapturadaPreview(null);
       if (previewUrlManual) {
@@ -389,6 +397,9 @@ export default function NuevoCittModal({
       }
 
       setError(''); // Limpiar cualquier error previo
+      setIgnorarSugerenciaMaternidad(false);
+      setIgnorarSugerenciaSalud(false);
+      setIgnorarSugerenciaPaternidad(false);
 
       // Pre-llenar campos
       if (data.datos) {
@@ -457,6 +468,78 @@ export default function NuevoCittModal({
     date.setDate(date.getDate() + (dias - 1));
     return date.toISOString().split('T')[0];
   };
+
+  const getNombreModulo = (tipo?: string) => {
+    switch (tipo) {
+      case 'MATERNIDAD':
+        return 'Maternidad';
+      case 'PATERNIDAD':
+        return 'Paternidad';
+      case 'LEY_30012':
+        return 'Salud (Ley Nº 30012)';
+      case 'ACCIDENTE_COMUN':
+        return 'Salud (Accidente Común)';
+      case 'ENFERMEDAD_COMUN':
+      default:
+        return 'Salud (Enfermedad Común)';
+    }
+  };
+
+  const normalizarTexto = (texto: string) => {
+    return (texto || '')
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+  };
+
+  const diasNum = parseInt(diasOtorgados || '0', 10);
+  const diagNormalizado = normalizarTexto(diagnostico);
+
+  const palabrasMaternidad = [
+    'maternidad', 'parto', 'cesarea', 'prenatal', 'postnatal', 'pre natal', 'post natal',
+    'puerperio', 'embarazo', 'alumbramiento', 'gestacion', 'gestante', 'nacimiento'
+  ];
+  const cieMaternidadRegex = /\b(o8[0-4]|z3[459])\b/i;
+  const esDiagnosticoMaternidad = palabrasMaternidad.some(p => diagNormalizado.includes(p)) || cieMaternidadRegex.test(diagnostico);
+  const esDiasMaternidad = diasNum >= 90 && diasNum <= 105;
+
+  const palabrasPaternidad = ['paternidad', 'nacimiento de hijo', 'nacimiento del hijo', 'alumbramiento de conyuge'];
+  const esDiagnosticoPaternidad = palabrasPaternidad.some(p => diagNormalizado.includes(p));
+
+  const palabrasEnfermedadComun = [
+    'lumbalgia', 'fractura', 'contusion', 'faringitis', 'infeccion', 'bronquitis',
+    'neumonia', 'gripe', 'cefalea', 'gastritis', 'gastroenteritis', 'covid', 'apendicitis',
+    'dengue', 'esguince', 'hernia', 'luxacion', 'artritis', 'rinofaringitis'
+  ];
+  const esDiagnosticoEnfermedadComun = palabrasEnfermedadComun.some(p => diagNormalizado.includes(p));
+
+  // Anomalía 1: Maternidad detectada en Salud o Paternidad
+  const alertaMaternidadEnSalud = 
+    !editData &&
+    tipoPorDefecto !== 'MATERNIDAD' && 
+    tipoLicencia !== 'MATERNIDAD' && 
+    !ignorarSugerenciaMaternidad && 
+    (esDiasMaternidad || esDiagnosticoMaternidad);
+
+  // Anomalía 2: Enfermedad común detectada en Maternidad
+  const alertaSaludEnMaternidad = 
+    !editData &&
+    tipoPorDefecto === 'MATERNIDAD' && 
+    tipoLicencia === 'MATERNIDAD' && 
+    !ignorarSugerenciaSalud && 
+    ((diasNum > 0 && diasNum <= 30 && esDiagnosticoEnfermedadComun) || (diasNum > 0 && diasNum <= 20 && diagNormalizado.length > 3 && !esDiagnosticoMaternidad));
+
+  // Anomalía 3: Paternidad detectada en Salud o Maternidad
+  const alertaPaternidadEnOtro = 
+    !editData &&
+    tipoPorDefecto !== 'PATERNIDAD' && 
+    tipoLicencia !== 'PATERNIDAD' && 
+    !ignorarSugerenciaPaternidad && 
+    esDiagnosticoPaternidad;
+
+  // Bandera de si el CITT fue reasignado
+  const fueRedirigido = !editData && tipoLicencia !== tipoPorDefecto;
+  const tipoFinal = tipoLicencia || tipoPorDefecto;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -560,7 +643,7 @@ export default function NuevoCittModal({
         setGuardando(false);
         onSuccess(dniGuardado);
         onClose();
-      }, 1300);
+      }, 1800);
       
     } catch (err) {
       setError('Hubo un problema guardando el registro.');
@@ -603,10 +686,30 @@ export default function NuevoCittModal({
 
         {/* Pantalla de Éxito Flotante */}
         {exito && (
-          <div className="absolute inset-0 z-30 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xs flex flex-col items-center justify-center">
-            <CheckCircle2 className="w-16 h-16 text-emerald-500 mb-3 animate-bounce" />
-            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">¡Registrado con Éxito!</h2>
-            <p className="text-slate-500 text-sm mt-1">Guardado en la base de datos.</p>
+          <div className="absolute inset-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center select-none animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-3 shadow-lg shadow-emerald-500/10">
+              <CheckCircle2 className="w-10 h-10 animate-bounce" />
+            </div>
+            
+            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+              {editData ? '¡Descanso Actualizado!' : '¡Descanso Registrado con Éxito!'}
+            </h2>
+            
+            {/* Destino claro del registro */}
+            <div className="mt-3 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-cyan-300 border border-blue-200 dark:border-blue-800 shadow-xs">
+              <Check className="w-3.5 h-3.5 text-blue-600 dark:text-cyan-400" />
+              <span>Archivado en: <strong>Módulo de {getNombreModulo(tipoFinal)}</strong></span>
+            </div>
+
+            {fueRedirigido && (
+              <p className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 px-3 py-1 rounded-md border border-amber-200 dark:border-amber-800 mt-2">
+                Redireccionado automáticamente según el tipo de descanso detectado.
+              </p>
+            )}
+
+            <p className="text-slate-500 dark:text-slate-400 text-xs mt-2 max-w-xs">
+              {trabajadorSeleccionado?.apellidosNombres || `${trabajadorSeleccionado?.apellidos || ''} ${trabajadorSeleccionado?.nombres || ''}`.trim() || 'Servidor vinculado'} • CITT {numeroCertificado}
+            </p>
           </div>
         )}
 
@@ -952,11 +1055,11 @@ export default function NuevoCittModal({
                     </div>
 
                     <div>
-                      <span className="text-slate-400 block text-[11px] mb-0.5 font-medium">Tipo de Certificado</span>
-                      <div>
+                      <span className="text-slate-400 block text-[11px] mb-0.5 font-medium">Tipo y Destino</span>
+                      <div className="flex flex-wrap gap-1.5 items-center">
                         {resumenEscaneo.tipoLicencia === 'LEY_30012' ? (
                           <span className="inline-flex items-center px-2 py-0.5 bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 font-bold rounded text-xs border border-purple-200 dark:border-purple-800">
-                            MINSA - Ley Nº 30012 (Familiar Grave)
+                            MINSA - Ley Nº 30012
                           </span>
                         ) : resumenEscaneo.origen === 'ESSALUD_CITT' ? (
                           <span className="inline-flex items-center px-2 py-0.5 bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 font-semibold text-xs rounded">
@@ -964,9 +1067,12 @@ export default function NuevoCittModal({
                           </span>
                         ) : (
                           <span className="inline-flex items-center px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-semibold text-xs rounded">
-                            Certificado Particular / MINSA
+                            Particular / MINSA
                           </span>
                         )}
+                        <span className="inline-flex items-center px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded text-xs border border-slate-200 dark:border-slate-700">
+                          ➜ {getNombreModulo(tipoFinal)}
+                        </span>
                       </div>
                     </div>
 
@@ -1010,6 +1116,25 @@ export default function NuevoCittModal({
                         <p className="font-medium text-slate-700 dark:text-slate-300 text-xs bg-slate-100/70 dark:bg-slate-800/60 p-2 rounded-lg border border-slate-200/60 dark:border-slate-700/60">
                           {resumenEscaneo.diagnostico}
                         </p>
+                      </div>
+                    )}
+
+                    {/* Alerta inteligente en el escáner si detectó una categoría diferente */}
+                    {resumenEscaneo.tipoLicencia && resumenEscaneo.tipoLicencia !== tipoPorDefecto && (
+                      <div className="sm:col-span-2 p-2.5 bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-300 dark:border-cyan-800 rounded-xl flex items-center justify-between text-xs animate-in fade-in duration-150">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
+                          <span className="text-cyan-950 dark:text-cyan-100">
+                            Detección inteligente: El escáner identificó este descanso como <strong>{getNombreModulo(resumenEscaneo.tipoLicencia)}</strong>. Se guardará directamente en ese módulo.
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setTipoLicencia(tipoPorDefecto)}
+                          className="text-[11px] font-bold text-cyan-800 dark:text-cyan-300 hover:underline cursor-pointer shrink-0 ml-2"
+                        >
+                          Mantener en {getNombreModulo(tipoPorDefecto)}
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1140,7 +1265,9 @@ export default function NuevoCittModal({
                         checked={origen === 'ESSALUD_CITT' && tipoLicencia !== 'LEY_30012'} 
                         onChange={() => {
                           setOrigen('ESSALUD_CITT');
-                          setTipoLicencia(tipoPorDefecto === 'LEY_30012' ? 'ENFERMEDAD_COMUN' : (tipoPorDefecto || 'ENFERMEDAD_COMUN'));
+                          if (tipoLicencia === 'LEY_30012') {
+                            setTipoLicencia(tipoPorDefecto === 'LEY_30012' ? 'ENFERMEDAD_COMUN' : (tipoPorDefecto || 'ENFERMEDAD_COMUN'));
+                          }
                         }} 
                         className="w-4 h-4 text-blue-600 mt-0.5" 
                       />
@@ -1162,7 +1289,9 @@ export default function NuevoCittModal({
                         checked={origen === 'PARTICULAR' && tipoLicencia !== 'LEY_30012'} 
                         onChange={() => {
                           setOrigen('PARTICULAR');
-                          setTipoLicencia(tipoPorDefecto === 'LEY_30012' ? 'ENFERMEDAD_COMUN' : (tipoPorDefecto || 'ENFERMEDAD_COMUN'));
+                          if (tipoLicencia === 'LEY_30012') {
+                            setTipoLicencia(tipoPorDefecto === 'LEY_30012' ? 'ENFERMEDAD_COMUN' : (tipoPorDefecto || 'ENFERMEDAD_COMUN'));
+                          }
                         }} 
                         className="w-4 h-4 text-emerald-600 mt-0.5" 
                       />
@@ -1266,6 +1395,142 @@ export default function NuevoCittModal({
                     className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-800 dark:text-slate-100 focus:outline-blue-500"
                   />
                 </div>
+
+                {/* --- DETECCIÓN DE ANOMALÍAS EN VIVO (Sin selectores ruidosos) --- */}
+
+                {/* Caso A: Maternidad detectada en Salud */}
+                {alertaMaternidadEnSalud && (
+                  <div className="sm:col-span-2 p-3 bg-rose-50/90 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="flex items-start gap-2.5">
+                      <div className="p-1.5 bg-rose-100 dark:bg-rose-900/60 rounded-lg text-rose-600 dark:text-rose-300 shrink-0 mt-0.5">
+                        <AlertTriangle className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-rose-900 dark:text-rose-100">
+                          ¿Este descanso corresponde a Maternidad?
+                        </p>
+                        <p className="text-[11px] text-rose-700 dark:text-rose-300 mt-0.5">
+                          {esDiasMaternidad ? `${diasNum} días coinciden con el periodo legal de descanso por maternidad (98 días).` : 'El diagnóstico ingresado indica descanso pre o post natal.'}
+                          {` Actualmente estás en el módulo de ${getNombreModulo(tipoPorDefecto)}.`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setIgnorarSugerenciaMaternidad(true)}
+                        className="px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800 rounded-md transition-colors cursor-pointer"
+                      >
+                        Mantener en Salud
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTipoLicencia('MATERNIDAD');
+                          setIgnorarSugerenciaMaternidad(false);
+                        }}
+                        className="px-3 py-1.5 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
+                      >
+                        <span>Mover a Maternidad</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Caso B: Enfermedad Común detectada en Maternidad */}
+                {alertaSaludEnMaternidad && (
+                  <div className="sm:col-span-2 p-3 bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="flex items-start gap-2.5">
+                      <div className="p-1.5 bg-amber-100 dark:bg-amber-900/60 rounded-lg text-amber-600 dark:text-amber-300 shrink-0 mt-0.5">
+                        <AlertTriangle className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-amber-900 dark:text-amber-100">
+                          ¿Este descanso es por Enfermedad Común?
+                        </p>
+                        <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">
+                          El periodo es de {diasNum} día(s) y el diagnóstico no coincide con maternidad (98 días). Estás en el módulo de Maternidad.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setIgnorarSugerenciaSalud(true)}
+                        className="px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800 rounded-md transition-colors cursor-pointer"
+                      >
+                        Mantener en Maternidad
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTipoLicencia('ENFERMEDAD_COMUN');
+                          setIgnorarSugerenciaSalud(false);
+                        }}
+                        className="px-3 py-1.5 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
+                      >
+                        <span>Mover a Salud</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Caso C: Paternidad detectada */}
+                {alertaPaternidadEnOtro && (
+                  <div className="sm:col-span-2 p-3 bg-blue-50/90 dark:bg-blue-950/40 border border-blue-300 dark:border-blue-800 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="flex items-start gap-2.5">
+                      <div className="p-1.5 bg-blue-100 dark:bg-blue-900/60 rounded-lg text-blue-600 dark:text-blue-300 shrink-0 mt-0.5">
+                        <AlertTriangle className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-blue-900 dark:text-blue-100">
+                          ¿Este descanso corresponde a Paternidad?
+                        </p>
+                        <p className="text-[11px] text-blue-700 dark:text-blue-300 mt-0.5">
+                          El diagnóstico indica descanso por paternidad o alumbramiento del cónyuge.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setIgnorarSugerenciaPaternidad(true)}
+                        className="px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800 rounded-md transition-colors cursor-pointer"
+                      >
+                        Mantener
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTipoLicencia('PATERNIDAD');
+                          setIgnorarSugerenciaPaternidad(false);
+                        }}
+                        className="px-3 py-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
+                      >
+                        <span>Mover a Paternidad</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Badge confirmando redirección activa si el usuario aceptó moverlo */}
+                {fueRedirigido && !alertaMaternidadEnSalud && !alertaSaludEnMaternidad && !alertaPaternidadEnOtro && (
+                  <div className="sm:col-span-2 p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-xl flex items-center justify-between text-xs animate-in fade-in duration-150">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <span className="text-emerald-900 dark:text-emerald-100 font-medium">
+                        Destino reasignado: Se archivará en el <strong>Módulo de {getNombreModulo(tipoLicencia)}</strong> (en lugar de {getNombreModulo(tipoPorDefecto)}).
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setTipoLicencia(tipoPorDefecto)}
+                      className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 hover:underline cursor-pointer ml-2 shrink-0"
+                    >
+                      Revertir a {getNombreModulo(tipoPorDefecto)}
+                    </button>
+                  </div>
+                )}
 
                 {/* SECCIÓN EVIDENCIA */}
                 <div className="sm:col-span-2 pt-1">
