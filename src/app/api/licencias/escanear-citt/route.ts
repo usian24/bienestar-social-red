@@ -140,7 +140,8 @@ Responde ÚNICAMENTE un objeto JSON válido con estas claves exactas.`;
         diasOtorgados: { type: "INTEGER", description: "Número entero de días otorgados" },
         medico: { type: "STRING", description: "Nombre completo del médico tratante que firma o sella" },
         colegiatura: { type: "STRING", description: "Número de colegiatura CMP del médico" },
-        diagnostico: { type: "STRING", description: "Diagnóstico médico y/o código CIE-10 (incluyendo paciente y parentesco en Ley 30012)" }
+        diagnostico: { type: "STRING", description: "Diagnóstico médico y/o código CIE-10 (incluyendo paciente y parentesco en Ley 30012)" },
+        familiarPaciente: { type: "STRING", description: "En formato Ley Nº 30012: Nombre completo del familiar/paciente atendido y parentesco (ej: 'Justina Morduee Pérez (Madre)'). De lo contrario dejar vacío." }
       },
       required: ["dni", "numeroCertificado", "fechaInicio", "fechaFin", "diasOtorgados"]
     };
@@ -314,6 +315,12 @@ Responde ÚNICAMENTE un objeto JSON válido con estas claves exactas.`;
         const diagM = jsonLimpio.match(/"diagnostico"\s*:\s*"([^"\r\n]+)"/i) ||
                       rawText.match(/(?:Diagn[oó]stico|CIE-?10)\s*[:.]?\s*([^\r\n,]{4,60})/i);
         if (diagM) datosExtraidos.diagnostico = diagM[1].trim();
+      }
+
+      if (!datosExtraidos.familiarPaciente) {
+        const famM = jsonLimpio.match(/"familiarPaciente"\s*:\s*"([^"\r\n]+)"/i) ||
+                     rawText.match(/(?:Familiar(?:\s+Directo)?|Paciente(?:\s+Atendido)?)\s*[:.]?\s*([A-ZÁÉÍÓÚÑa-záéíóúñ\.\s\(\)]{4,50})/i);
+        if (famM) datosExtraidos.familiarPaciente = famM[1].trim();
       }
     }
 

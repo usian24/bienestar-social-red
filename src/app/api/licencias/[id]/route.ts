@@ -71,7 +71,8 @@ export async function PUT(
       archivoRuta,
       medico,
       colegiatura,
-      diagnostico
+      diagnostico,
+      familiarPaciente
     } = body;
 
     if (!id) {
@@ -95,6 +96,18 @@ export async function PUT(
         ...(diagnostico !== undefined && { diagnostico: diagnostico ? String(diagnostico).trim() : null })
       } as any
     });
+
+    if (familiarPaciente !== undefined) {
+      try {
+        await prisma.$executeRawUnsafe(
+          `UPDATE "Licencia" SET "familiarPaciente" = $1 WHERE "id" = $2`,
+          familiarPaciente ? String(familiarPaciente).trim() : null,
+          id
+        );
+      } catch (errFam) {
+        console.warn('Aviso actualizando familiarPaciente:', errFam);
+      }
+    }
 
     await prisma.auditoria.create({
       data: {

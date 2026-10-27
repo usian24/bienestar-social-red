@@ -40,10 +40,12 @@ export default function NuevoCittModal({
   const [tipoLicencia, setTipoLicencia] = useState<'ENFERMEDAD_COMUN' | 'ACCIDENTE_COMUN' | 'MATERNIDAD' | 'PATERNIDAD' | 'LEY_30012'>(tipoPorDefecto);
   const [numeroCertificado, setNumeroCertificado] = useState('');
   const [fechaInicio, setFechaInicio] = useState('');
+  const [fechaFin, setFechaFin] = useState('');
   const [diasOtorgados, setDiasOtorgados] = useState('');
   const [medico, setMedico] = useState('');
   const [colegiatura, setColegiatura] = useState('');
   const [diagnostico, setDiagnostico] = useState('');
+  const [familiarPaciente, setFamiliarPaciente] = useState('');
   
   const [guardando, setGuardando] = useState(false);
   const [mensajeGuardado, setMensajeGuardado] = useState('Guardando descanso médico...');
@@ -72,6 +74,7 @@ export default function NuevoCittModal({
     medico?: string;
     colegiatura?: string;
     diagnostico?: string;
+    familiarPaciente?: string;
     tipoLicencia?: string;
     trabajadorNombre?: string;
     encontradoEnBD?: boolean;
@@ -98,21 +101,32 @@ export default function NuevoCittModal({
         setNumeroCertificado(editData.numeroCertificado);
         const fecha = new Date(editData.fechaInicio);
         setFechaInicio(fecha.toISOString().split('T')[0]);
+        if (editData.fechaFin) {
+          const fechaF = new Date(editData.fechaFin);
+          setFechaFin(fechaF.toISOString().split('T')[0]);
+        } else {
+          const fechaF = new Date(fecha);
+          fechaF.setDate(fechaF.getDate() + (Number(editData.diasOtorgados) - 1));
+          setFechaFin(fechaF.toISOString().split('T')[0]);
+        }
         setDiasOtorgados(editData.diasOtorgados.toString());
         setArchivoRutaServidor(editData.archivoRuta || null);
         setMedico((editData as any).medico || '');
         setColegiatura((editData as any).colegiatura || '');
         setDiagnostico((editData as any).diagnostico || '');
+        setFamiliarPaciente((editData as any).familiarPaciente || '');
       } else {
         setTabActiva('manual');
         setOrigen(tipoPorDefecto === 'LEY_30012' ? 'PARTICULAR' : 'ESSALUD_CITT');
         setTipoLicencia(tipoPorDefecto || 'ENFERMEDAD_COMUN');
         setNumeroCertificado('');
         setFechaInicio('');
+        setFechaFin('');
         setDiasOtorgados('');
         setMedico('');
         setColegiatura('');
         setDiagnostico('');
+        setFamiliarPaciente('');
         setArchivoAdjunto(null);
         setArchivoRutaServidor(null);
         if (previewUrlManual) {
@@ -407,10 +421,24 @@ export default function NuevoCittModal({
         if (data.datos.origen) setOrigen(data.datos.origen);
         if (data.datos.tipoLicencia) setTipoLicencia(data.datos.tipoLicencia);
         if (data.datos.fechaInicio) setFechaInicio(data.datos.fechaInicio);
-        if (data.datos.diasOtorgados) setDiasOtorgados(String(data.datos.diasOtorgados));
+        if (data.datos.fechaFin) setFechaFin(data.datos.fechaFin);
+
+        // Sincronizar días calculados automáticamente de fechaInicio y fechaFin
+        if (data.datos.fechaInicio && data.datos.fechaFin) {
+          const dCalc = calcularDiasEntreFechas(data.datos.fechaInicio, data.datos.fechaFin);
+          setDiasOtorgados(dCalc > 0 ? dCalc.toString() : (data.datos.diasOtorgados ? String(data.datos.diasOtorgados) : ''));
+        } else if (data.datos.diasOtorgados) {
+          setDiasOtorgados(String(data.datos.diasOtorgados));
+        }
         if (data.datos.medico) setMedico(String(data.datos.medico).trim());
         if (data.datos.colegiatura) setColegiatura(String(data.datos.colegiatura).trim());
         if (data.datos.diagnostico) setDiagnostico(String(data.datos.diagnostico).trim());
+        if (data.datos.familiarPaciente) {
+          setFamiliarPaciente(String(data.datos.familiarPaciente).trim());
+        } else if (data.datos.tipoLicencia === 'LEY_30012' && data.datos.diagnostico) {
+          const m = data.datos.diagnostico.match(/Paciente:\s*([^)]+\)?)/i);
+          if (m) setFamiliarPaciente(m[1].trim());
+        }
       }
 
       // Auto-seleccionar si el trabajador fue hallado en BD Y NO está bloqueado por microred
@@ -434,6 +462,7 @@ export default function NuevoCittModal({
         medico: data.datos?.medico,
         colegiatura: data.datos?.colegiatura,
         diagnostico: data.datos?.diagnostico,
+        familiarPaciente: data.datos?.familiarPaciente,
         tipoLicencia: data.datos?.tipoLicencia,
         trabajadorNombre: data.trabajador ? data.trabajador.apellidosNombres : (data.datos?.apellidosNombres || undefined),
         encontradoEnBD: Boolean(data.trabajador),
@@ -462,12 +491,40 @@ export default function NuevoCittModal({
     setTrabajadores([]);
   };
 
-  const calcularFechaFin = (inicio: string, dias: number) => {
-    if (!inicio || !dias) return '';
-    const date = new Date(inicio + 'T00:00:00');
-    date.setDate(date.getDate() + (dias - 1));
-    return date.toISOString().split('T')[0];
+  const calcularDiasEntreFechas = (inicio: string, fin: string): number => {
+    if (!inicio || !fin) return 0;
+    const [y1, m1, d1] = inicio.split('-').map(Number);
+    const [y2, m2, d2] = fin.split('-').map(Number);
+    if (!y1 || !m1 || !d1 || !y2 || !m2 || !d2) return 0;
+    const utc1 = Date.UTC(y1, m1 - 1, d1);
+    const utc2 = Date.UTC(y2, m2 - 1, d2);
+    const diffMs = utc2 - utc1;
+    if (diffMs < 0) return 0;
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1;
   };
+
+  const handleFechaInicioChange = (nuevaInicio: string) => {
+    setFechaInicio(nuevaInicio);
+    if (nuevaInicio && fechaFin) {
+      const dias = calcularDiasEntreFechas(nuevaInicio, fechaFin);
+      setDiasOtorgados(dias > 0 ? dias.toString() : '');
+    } else if (!nuevaInicio) {
+      setDiasOtorgados('');
+    }
+  };
+
+  const handleFechaFinChange = (nuevaFin: string) => {
+    setFechaFin(nuevaFin);
+    if (fechaInicio && nuevaFin) {
+      const dias = calcularDiasEntreFechas(fechaInicio, nuevaFin);
+      setDiasOtorgados(dias > 0 ? dias.toString() : '');
+    } else if (!nuevaFin) {
+      setDiasOtorgados('');
+    }
+  };
+
+  // La Ley Nº 30012 aplica únicamente al módulo de Salud (Enfermedad Común), no a Maternidad ni Paternidad
+  const permitirLey30012 = tipoPorDefecto !== 'MATERNIDAD' && tipoPorDefecto !== 'PATERNIDAD';
 
   const getNombreModulo = (tipo?: string) => {
     switch (tipo) {
@@ -557,8 +614,20 @@ export default function NuevoCittModal({
       return;
     }
 
-    if (!fechaInicio || !diasOtorgados || !numeroCertificado) {
-      setError('Por favor completa todos los campos.');
+    if (!fechaInicio || !fechaFin || !numeroCertificado) {
+      setError('Por favor completa todos los campos requeridos (Fecha de Inicio, Fecha de Fin y N° de Certificado).');
+      return;
+    }
+
+    const tipoFinalAGuardar = tipoLicencia || tipoPorDefecto;
+    if (tipoFinalAGuardar === 'LEY_30012' && !familiarPaciente.trim()) {
+      setError('Para licencias bajo Ley Nº 30012, es obligatorio ingresar el nombre y parentesco del familiar o paciente atendido.');
+      return;
+    }
+
+    const diasCalculados = calcularDiasEntreFechas(fechaInicio, fechaFin);
+    if (diasCalculados <= 0) {
+      setError('La fecha de fin no puede ser anterior a la fecha de inicio.');
       return;
     }
     
@@ -576,7 +645,6 @@ export default function NuevoCittModal({
       : 'Registrando descanso médico en la base de datos...'
     );
 
-    const fechaFinCalculada = calcularFechaFin(fechaInicio, parseInt(diasOtorgados));
     const fechaObj = new Date(fechaInicio + 'T00:00:00');
     const mesContable = fechaObj.getMonth() + 1;
     const anioContable = fechaObj.getFullYear();
@@ -610,14 +678,15 @@ export default function NuevoCittModal({
           origen,
           numeroCertificado,
           fechaInicio,
-          fechaFin: fechaFinCalculada,
-          diasOtorgados: parseInt(diasOtorgados),
+          fechaFin,
+          diasOtorgados: diasCalculados,
           anioEjercicio: anioContable,
           mesEjercicio: mesContable,
           archivoRuta: archivoRutaStr,
           medico: medico.trim() || null,
           colegiatura: colegiatura.trim() || null,
-          diagnostico: diagnostico.trim() || null
+          diagnostico: diagnostico.trim() || null,
+          familiarPaciente: tipoFinalAGuardar === 'LEY_30012' ? (familiarPaciente.trim() || null) : null
         })
       });
 
@@ -629,10 +698,12 @@ export default function NuevoCittModal({
         setTrabajadorSeleccionado(null);
         setNumeroCertificado('');
         setFechaInicio('');
+        setFechaFin('');
         setDiasOtorgados('');
         setMedico('');
         setColegiatura('');
         setDiagnostico('');
+        setFamiliarPaciente('');
         setArchivoAdjunto(null);
         setArchivoRutaServidor(null);
         if (previewUrlManual) {
@@ -849,7 +920,7 @@ export default function NuevoCittModal({
               <div>
                 <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                   <Scan className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  Escáner Inteligente CITT
+                  Escáner CITT
                 </h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   {escaneandoIA 
@@ -1119,13 +1190,24 @@ export default function NuevoCittModal({
                       </div>
                     )}
 
+                    {resumenEscaneo.tipoLicencia === 'LEY_30012' && resumenEscaneo.familiarPaciente && (
+                      <div className="sm:col-span-2 p-2.5 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-lg">
+                        <span className="text-purple-600 dark:text-purple-400 block text-[11px] mb-0.5 font-bold uppercase tracking-wider">
+                          Familiar / Paciente Atendido (Ley Nº 30012)
+                        </span>
+                        <p className="font-bold text-xs text-purple-900 dark:text-purple-100">
+                          {resumenEscaneo.familiarPaciente}
+                        </p>
+                      </div>
+                    )}
+
                     {/* Alerta inteligente en el escáner si detectó una categoría diferente */}
                     {resumenEscaneo.tipoLicencia && resumenEscaneo.tipoLicencia !== tipoPorDefecto && (
                       <div className="sm:col-span-2 p-2.5 bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-300 dark:border-cyan-800 rounded-xl flex items-center justify-between text-xs animate-in fade-in duration-150">
                         <div className="flex items-center gap-2">
                           <Sparkles className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
                           <span className="text-cyan-950 dark:text-cyan-100">
-                            Detección inteligente: El escáner identificó este descanso como <strong>{getNombreModulo(resumenEscaneo.tipoLicencia)}</strong>. Se guardará directamente en ese módulo.
+                            Alerta: El escáner identificó este descanso como <strong>{getNombreModulo(resumenEscaneo.tipoLicencia)}</strong>. Se guardará directamente en ese módulo.
                           </span>
                         </div>
                         <button
@@ -1249,10 +1331,9 @@ export default function NuevoCittModal({
               </h4>
               
               <form id="citt-form" onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                
                 <div className="sm:col-span-2">
                   <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">Origen / Tipo de Certificado</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div className={`grid grid-cols-1 ${permitirLey30012 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-2.5`}>
                     <label className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${
                       origen === 'ESSALUD_CITT' && tipoLicencia !== 'LEY_30012'
                         ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 shadow-xs' 
@@ -1301,29 +1382,30 @@ export default function NuevoCittModal({
                       </div>
                     </label>
 
-                    <label className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${
-                      tipoLicencia === 'LEY_30012'
-                        ? 'border-purple-500 bg-purple-50/70 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200 shadow-xs' 
-                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900'
-                    }`}>
-                      <input 
-                        type="radio" 
-                        name="origenCertificado"
-                        value="LEY_30012" 
-                        checked={tipoLicencia === 'LEY_30012'} 
-                        onChange={() => {
-                          setOrigen('PARTICULAR');
-                          setTipoLicencia('LEY_30012');
-                        }} 
-                        className="w-4 h-4 text-purple-600 mt-0.5" 
-                      />
-                      <div className="text-xs">
-                        <span className="font-bold block text-purple-800 dark:text-purple-300">MINSA (Ley Nº 30012)</span>
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400">Familiar grave o terminal</span>
-                      </div>
-                    </label>
+                    {permitirLey30012 && (
+                      <label className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                        tipoLicencia === 'LEY_30012'
+                          ? 'border-purple-500 bg-purple-50/70 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200 shadow-xs' 
+                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900'
+                      }`}>
+                        <input 
+                          type="radio" 
+                          name="origenCertificado"
+                          value="LEY_30012" 
+                          checked={tipoLicencia === 'LEY_30012'} 
+                          onChange={() => {
+                            setOrigen('PARTICULAR');
+                            setTipoLicencia('LEY_30012');
+                          }} 
+                          className="w-4 h-4 text-purple-600 mt-0.5" 
+                        />
+                        <div className="text-xs">
+                          <span className="font-bold block text-purple-800 dark:text-purple-300">MINSA (Ley Nº 30012)</span>
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400">Familiar grave o terminal</span>
+                        </div>
+                      </label>
+                    )}
                   </div>
-
                 </div>
 
                 <div>
@@ -1350,38 +1432,66 @@ export default function NuevoCittModal({
                   />
                 </div>
 
+                {/* Fecha de Inicio (Desde) */}
                 <div>
-                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1 font-medium">Fecha de Inicio</label>
+                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1 font-medium flex items-center justify-between">
+                    <span>Fecha de Inicio (Desde)</span>
+                    <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">Primer día</span>
+                  </label>
                   <input 
                     type="date" 
                     required
                     value={fechaInicio}
-                    onChange={(e) => setFechaInicio(e.target.value)}
+                    onChange={(e) => handleFechaInicioChange(e.target.value)}
                     className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-800 dark:text-slate-100 focus:outline-blue-500"
                   />
                 </div>
 
+                {/* Fecha de Fin (Hasta) */}
                 <div>
-                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1 font-medium">Cantidad de Días Otorgados</label>
-                  <input 
-                    type="number" 
-                    min="1"
-                    required
-                    value={diasOtorgados}
-                    onChange={(e) => setDiasOtorgados(e.target.value)}
-                    placeholder="Ej. 15"
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-800 dark:text-slate-100 focus:outline-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1 font-medium">Fecha de Fin (Calculada)</label>
+                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1 font-medium flex items-center justify-between">
+                    <span>Fecha de Fin (Hasta)</span>
+                    <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">Último día</span>
+                  </label>
                   <input 
                     type="date" 
-                    disabled
-                    value={calcularFechaFin(fechaInicio, parseInt(diasOtorgados || '0'))}
-                    className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-md text-sm text-slate-500 dark:text-slate-400 cursor-not-allowed"
+                    required
+                    min={fechaInicio || undefined}
+                    value={fechaFin}
+                    onChange={(e) => handleFechaFinChange(e.target.value)}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-800 dark:text-slate-100 focus:outline-blue-500"
                   />
+                </div>
+
+                {/* Cantidad de Días Otorgados (Cálculo Automático) */}
+                <div>
+                  <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1 font-medium flex items-center justify-between">
+                    <span>Días de Descanso Otorgados</span>
+                  </label>
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      readOnly
+                      tabIndex={-1}
+                      value={
+                        fechaInicio && fechaFin 
+                          ? (calcularDiasEntreFechas(fechaInicio, fechaFin) > 0 
+                              ? `${calcularDiasEntreFechas(fechaInicio, fechaFin)} día(s) de descanso` 
+                              : 'Fecha inválida (fin anterior a inicio)') 
+                          : (fechaInicio ? 'Seleccione fecha final' : 'Esperando fechas...')
+                      }
+                      className={`w-full px-3 py-2 border rounded-md text-sm font-semibold select-none cursor-default transition-colors ${
+                        fechaInicio && fechaFin && calcularDiasEntreFechas(fechaInicio, fechaFin) > 0
+                          ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                          : fechaInicio && fechaFin && calcularDiasEntreFechas(fechaInicio, fechaFin) <= 0
+                            ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300'
+                            : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500'
+                      }`}
+                    />
+                  </div>
+                  {fechaInicio && fechaFin && calcularDiasEntreFechas(fechaInicio, fechaFin) <= 0 && (
+                    <p className="text-[11px] text-rose-500 mt-1 font-medium">La fecha de fin no puede ser anterior a la de inicio.</p>
+                  )}
                 </div>
 
                 {/* Diagnóstico / CIE-10 */}
@@ -1395,6 +1505,33 @@ export default function NuevoCittModal({
                     className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-800 dark:text-slate-100 focus:outline-blue-500"
                   />
                 </div>
+
+                {/* Campo Específico Ley Nº 30012: Familiar / Paciente Atendido */}
+                {tipoLicencia === 'LEY_30012' && (
+                  <div className="sm:col-span-2 p-3.5 bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-xl space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-purple-100 dark:bg-purple-900/60 rounded-lg text-purple-700 dark:text-purple-300 shrink-0">
+                        <UserCheck className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-purple-900 dark:text-purple-200">
+                          Nombre del Familiar Directo / Paciente Atendido (Ley Nº 30012)
+                        </label>
+                        <p className="text-[11px] text-purple-700 dark:text-purple-300">
+                          Especifique el nombre completo del familiar en atención médica y su parentesco (padre, madre, hijo/a o cónyuge).
+                        </p>
+                      </div>
+                    </div>
+                    <input 
+                      type="text" 
+                      required
+                      value={familiarPaciente}
+                      onChange={(e) => setFamiliarPaciente(e.target.value)}
+                      placeholder="Ej. Justina Morduee Pérez (Madre) / Manuel Rojas (Hijo)"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-700 rounded-md text-sm text-slate-800 dark:text-slate-100 focus:outline-purple-500 font-medium"
+                    />
+                  </div>
+                )}
 
                 {/* --- DETECCIÓN DE ANOMALÍAS EN VIVO (Sin selectores ruidosos) --- */}
 

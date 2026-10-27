@@ -39,10 +39,17 @@ export async function GET(request: Request) {
       };
     }
 
+    const whereJurisdiccion: any = {};
+    if (!isSuperAdmin && userMicroredId) {
+      whereJurisdiccion.establecimiento = {
+        microredId: Number(userMicroredId)
+      };
+    }
+
     const skip = (page - 1) * limit;
 
-    // Buscar trabajadores y contar el total para paginación
-    const [trabajadores, total] = await Promise.all([
+    // Buscar trabajadores, total y condiciones que realmente existen en esta jurisdicción
+    const [trabajadores, total, rawCondiciones] = await Promise.all([
       prisma.trabajador.findMany({
         where: whereClause,
         include: {
@@ -57,10 +64,19 @@ export async function GET(request: Request) {
           { nombres: 'asc' }
         ]
       }),
-      prisma.trabajador.count({ where: whereClause })
+      prisma.trabajador.count({ where: whereClause }),
+      prisma.trabajador.groupBy({
+        by: ['condicionLaboral'],
+        where: whereJurisdiccion
+      })
     ]);
 
-    return NextResponse.json({ trabajadores, total });
+    const condiciones = rawCondiciones
+      .map(c => c.condicionLaboral)
+      .filter((c): c is string => Boolean(c))
+      .sort();
+
+    return NextResponse.json({ trabajadores, total, condiciones });
   } catch (error) {
     console.error('Error buscando trabajadores:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });

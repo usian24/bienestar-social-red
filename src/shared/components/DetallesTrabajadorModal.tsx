@@ -174,6 +174,14 @@ export default function DetallesTrabajadorModal({ isOpen, onClose, trabajadorInf
                               <h5 className="text-lg font-bold text-slate-800 dark:text-slate-100 mt-2">
                                 {lic.tipoLicencia === 'LEY_30012' ? 'Ley Nº 30012 (Familiar Grave)' : lic.tipoLicencia.replace('_', ' ')}
                               </h5>
+                              {(lic as any).familiarPaciente && (
+                                <p className="text-xs font-semibold text-purple-700 dark:text-purple-300 mt-1 flex items-center gap-1.5">
+                                  <span className="px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/60 text-[10px] uppercase font-bold text-purple-800 dark:text-purple-200">
+                                    Familiar / Paciente:
+                                  </span>
+                                  <span>{(lic as any).familiarPaciente}</span>
+                                </p>
+                              )}
                             </div>
                             
                             {/* Acciones integradas en el mini documento */}

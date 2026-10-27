@@ -57,7 +57,8 @@ export async function POST(request: Request) {
       archivoRuta,
       medico,
       colegiatura,
-      diagnostico
+      diagnostico,
+      familiarPaciente
     } = body;
 
     if (!trabajadorId || !numeroCertificado || !fechaInicio || !fechaFin || !diasOtorgados) {
@@ -108,6 +109,18 @@ export async function POST(request: Request) {
         registradoPorId: (session.user as any).id
       } as any
     });
+
+    if (familiarPaciente) {
+      try {
+        await prisma.$executeRawUnsafe(
+          `UPDATE "Licencia" SET "familiarPaciente" = $1 WHERE "id" = $2`,
+          String(familiarPaciente).trim(),
+          nuevaLicencia.id
+        );
+      } catch (errFam) {
+        console.warn('Aviso guardando familiarPaciente en columna dedicada:', errFam);
+      }
+    }
 
     await prisma.auditoria.create({
       data: {

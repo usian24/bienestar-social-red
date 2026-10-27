@@ -6,6 +6,7 @@ import { Search, UserPlus, ChevronLeft, ChevronRight } from 'lucide-react';
 export default function PersonalPage() {
   const [busqueda, setBusqueda] = useState('');
   const [condicion, setCondicion] = useState('');
+  const [condicionesDisponibles, setCondicionesDisponibles] = useState<string[]>([]);
   const [resultados, setResultados] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [buscando, setBuscando] = useState(true);
@@ -27,6 +28,9 @@ export default function PersonalPage() {
       const data = await res.json();
       setResultados(data.trabajadores || []);
       setTotal(data.total || 0);
+      if (Array.isArray(data.condiciones)) {
+        setCondicionesDisponibles(data.condiciones);
+      }
     } catch (error) {
       console.error("Error buscando", error);
     } finally {
@@ -73,12 +77,14 @@ export default function PersonalPage() {
             <select
               value={condicion}
               onChange={(e) => setCondicion(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-300 rounded-md px-4 py-2 text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+              className="w-full bg-slate-50 border border-slate-300 rounded-md px-4 py-2 text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium text-sm"
             >
               <option value="">Todas las Condiciones</option>
-              <option value="NOMBRADO">Nombrados</option>
-              <option value="CAS">CAS</option>
-              <option value="CAS DIRESA">CAS DIRESA</option>
+              {condicionesDisponibles.map((c) => (
+                <option key={c} value={c}>
+                  {c === 'NOMBRADO' ? 'Nombrados (D.L. 276)' : c === 'CAS' ? 'CAS (D.L. 1057)' : c}
+                </option>
+              ))}
             </select>
           </div>
           <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md font-medium shadow-sm transition-colors flex items-center justify-center gap-2">
