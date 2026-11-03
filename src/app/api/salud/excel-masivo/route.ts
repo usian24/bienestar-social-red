@@ -217,16 +217,24 @@ export async function GET(request: Request) {
         return { ...t, allChunks, historicFin20Str };
       });
 
-      const hasAnyDataForAnyMonth = workersData.some(w => {
-         if (mDesde !== null && mHasta !== null) {
-            return w.allChunks.some(c => c.month >= mDesde && c.month <= mHasta);
-         }
-         if (reqMonth !== null) {
-            return w.allChunks.some(c => c.month === reqMonth);
-         }
-         return w.allChunks.length > 0;
-      });
-      if (!hasAnyDataForAnyMonth) continue;
+      // Filtrar trabajadores y chunks para el período solicitado
+      const workersInRange = workersData
+        .map(w => {
+          const rangeChunks = w.allChunks.filter(c => {
+            if (c.start && c.start.getFullYear() !== anio) return false;
+            if (mDesde !== null && mHasta !== null) {
+              return c.month >= mDesde && c.month <= mHasta;
+            }
+            if (reqMonth !== null) {
+              return c.month === reqMonth;
+            }
+            return true;
+          });
+          return { ...w, rangeChunks };
+        })
+        .filter(w => w.rangeChunks.length > 0);
+
+      if (workersInRange.length === 0) continue;
 
       const sheetName = `${mrName.substring(0, 25)} ${anio}`;
       let worksheet: ExcelJS.Worksheet | null = null;
@@ -235,198 +243,187 @@ export async function GET(request: Request) {
       }
       const sheetPreview: any = { name: sheetName, rows: [] };
 
+      // Etiqueta del período
+      const labelPeriodo = (mDesde !== null && mHasta !== null)
+        ? (mDesde === mHasta ? MESES[mDesde] : `${MESES[mDesde]} A ${MESES[mHasta]}`)
+        : (reqMonth !== null ? MESES[reqMonth] : 'CONSOLIDADO');
+
+      const titleText = `RELACION DEL PERSONAL LICENCIA POR ENFERMEDAD - ${labelPeriodo} ${anio} - MICRORED ${mrName}`;
+
+      const headers = [
+        'N°', 'APELLIDOS Y NOMBRES', 'CARGO', 'CONDICIÓN LABORAL', 'ESTABLECIMIENTO', 'DNI', 
+        'CITT O CMP', 'FECHA DE INICIO', 'FECHA FIN', 'FIN 20 DÍAS (RED)', 'FECHA SUBSIDIO', '', 
+        'TOTAL DE DIAS', 'DIAS DE SUBSIDIOS'
+      ];
+
+      // Ordenar trabajadores alfabéticamente
+      workersInRange.sort((a, b) => (a.apellidos || '').localeCompare(b.apellidos || ''));
+
       let currentRowIndex = 1;
 
-      // Iterar por meses (0 = Enero, 11 = Diciembre)
-      for (let m = 0; m < 12; m++) {
-        if (mDesde !== null && mHasta !== null) {
-          if (m < mDesde || m > mHasta) continue;
-        } else if (reqMonth !== null && m !== reqMonth) {
-          continue;
-        }
-        const workersInMonth = workersData.filter(w => w.allChunks.some(c => c.month === m));
-        if (workersInMonth.length === 0) continue;
-
-        const titleText = `RELACION DEL PERSONAL LICENCIA POR ENFERMEDAD - ${MESES[m]} ${anio} - MICRORED ${mrName}`;
-        const bgColor = m % 2 === 0 ? 'FF9BC2E6' : 'FFF4B084'; // Alterna entre celeste y naranjita/rosa
-        
+      if (isPreview) {
         sheetPreview.rows.push({
-           type: 'title',
-           value: titleText,
-           bgColor: bgColor === 'FF9BC2E6' ? '#9BC2E6' : '#F4B084'
+          type: 'title',
+          value: titleText,
+          bgColor: '#9BC2E6'
         });
 
-        // Big Header del Mes
-        if (!isPreview) {
-          worksheet!.mergeCells(`A${currentRowIndex}:L${currentRowIndex}`);
-          const titleCell = worksheet!.getCell(`A${currentRowIndex}`);
-          titleCell.value = titleText;
-          titleCell.font = { bold: true, size: 12, color: { argb: 'FF000000' } };
-          titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-          titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } } as ExcelJS.Fill;
-          currentRowIndex++;
-        }
-
-        const headers = [
-          'N°', 'APELLIDOS Y NOMBRES', 'CARGO', 'CONDICIÓN LABORAL', 'ESTABLECIMIENTO', 'DNI', 
-          'CITT O CMP', 'FECHA DE INICIO', 'FECHA FIN', 'FIN 20 DÍAS (RED)', 'FECHA SUBSIDIO', '', 
-          'TOTAL DE DIAS', 'DIAS DE SUBSIDIOS'
-        ];
-        
         sheetPreview.rows.push({ type: 'header', values: headers });
 
-        if (!isPreview) {
-          // Subheaders de la tabla
-          const headerRow = worksheet!.getRow(currentRowIndex);
-          headerRow.height = 30;
-          headers.forEach((h, i) => {
-            const cell = headerRow.getCell(i + 1);
-            cell.value = h;
-            cell.style = colHeaderStyle;
-          });
-          
-          // Merge para "FECHA SUBSIDIO" que ocupa 2 columnas
-          worksheet!.mergeCells(currentRowIndex, 11, currentRowIndex, 12);
-          currentRowIndex++;
-
-          // Configurar anchos de columna (solo la primera vez)
-          if (m === 0 || worksheet!.columns.length === 0) {
-            worksheet!.columns = [
-              { key: 'col1', width: 5 },
-              { key: 'col2', width: 35 },
-              { key: 'col3', width: 25 },
-              { key: 'col4', width: 15 },
-              { key: 'col5', width: 25 },
-              { key: 'col6', width: 12 },
-              { key: 'col7', width: 18 },
-              { key: 'col8', width: 15 },
-              { key: 'col9', width: 15 },
-              { key: 'col10', width: 15 },
-              { key: 'col11', width: 15 },
-              { key: 'col12', width: 15 },
-              { key: 'col13', width: 15 },
-              { key: 'col14', width: 15 }
-            ];
-          }
-        }
-
-        // Llenar datos de los trabajadores para este mes
         let nro = 1;
-        workersInMonth.sort((a, b) => (a.apellidos || '').localeCompare(b.apellidos || ''));
-
-        for (const t of workersInMonth) {
-          // Obtener todos los chunks hasta el mes actual (arrastrar historial del año)
-          const historyChunks = t.allChunks.filter(c => c.month <= m);
-          if (historyChunks.length === 0) continue;
-
-          const startRow = currentRowIndex;
+        for (const t of workersInRange) {
           const apellidosNombres = t.apellidos ? `${t.apellidos} ${t.nombres}` : t.nombres;
-
-          let totalSubsidioMes = 0;
-          // El total de subsidios de la última columna es SOLO para el mes actual
-          for (const chunk of historyChunks) {
-            if (chunk.month === m) {
-              totalSubsidioMes += chunk.subsidioDaysInChunk;
-            }
+          let totalSubsidioPeriodo = 0;
+          for (const chunk of t.rangeChunks) {
+            totalSubsidioPeriodo += chunk.subsidioDaysInChunk;
           }
 
-          let workerChunksForPreview = [];
-
-          for (const chunk of historyChunks) {
-            
+          const workerChunksForPreview = t.rangeChunks.map(chunk => {
             let fin20Dias = '';
             if (chunk.subsidioDaysInChunk > 0) {
-               fin20Dias = t.historicFin20Str;
+              fin20Dias = t.historicFin20Str;
             }
 
-            if (isPreview) {
-               workerChunksForPreview.push({
-                  nro,
-                  apellidosNombres: apellidosNombres.toUpperCase(),
-                  cargo: (t.cargo || '').toUpperCase(),
-                  condicion: (t.condicionLaboral || '').toUpperCase(),
-                  establecimiento: (t.establecimiento.nombre || '').toUpperCase(),
-                  dni: t.dni,
-                  citt: chunk.lic.numeroCertificado,
-                  inicio: chunk.origInicioFormatted,
-                  fin: chunk.origFinFormatted,
-                  fin20Dias,
-                  subsidioStart: chunk.subsidioStartStr,
-                  subsidioEnd: chunk.subsidioEndStr,
-                  totalDias: chunk.days,
-                  isRed: chunk.redDaysInChunk > 0
-               });
-            } else {
-              const row = worksheet!.getRow(currentRowIndex);
-              row.getCell(1).value = nro;
-              row.getCell(2).value = apellidosNombres.toUpperCase();
-              row.getCell(3).value = (t.cargo || '').toUpperCase();
-              row.getCell(4).value = (t.condicionLaboral || '').toUpperCase(); 
-              row.getCell(5).value = (t.establecimiento.nombre || '').toUpperCase();
-              row.getCell(6).value = t.dni;
-              row.getCell(7).value = chunk.lic.numeroCertificado;
-              row.getCell(8).value = chunk.origInicioFormatted;
-              row.getCell(9).value = chunk.origFinFormatted;
-              row.getCell(10).value = fin20Dias; 
-              row.getCell(11).value = chunk.subsidioStartStr;
-              row.getCell(12).value = chunk.subsidioEndStr;
-              
-              const totalDiasCell = row.getCell(13);
-              totalDiasCell.value = chunk.days;
-              
-              if (chunk.redDaysInChunk > 0) {
-                totalDiasCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } } as ExcelJS.Fill; 
-              }
+            return {
+              nro,
+              apellidosNombres: apellidosNombres.toUpperCase(),
+              cargo: (t.cargo || '').toUpperCase(),
+              condicion: (t.condicionLaboral || '').toUpperCase(),
+              establecimiento: (t.establecimiento.nombre || '').toUpperCase(),
+              dni: t.dni,
+              citt: chunk.lic.numeroCertificado,
+              inicio: chunk.origInicioFormatted,
+              fin: chunk.origFinFormatted,
+              fin20Dias,
+              subsidioStart: chunk.subsidioStartStr,
+              subsidioEnd: chunk.subsidioEndStr,
+              totalDias: chunk.days,
+              isRed: chunk.redDaysInChunk > 0
+            };
+          });
 
-              if (currentRowIndex === startRow) {
-                row.getCell(14).value = totalSubsidioMes > 0 ? totalSubsidioMes : '';
-              }
+          sheetPreview.rows.push({
+            type: 'worker',
+            chunks: workerChunksForPreview,
+            totalSubsidioMes: totalSubsidioPeriodo > 0 ? totalSubsidioPeriodo : ''
+          });
 
-              row.eachCell({ includeEmpty: true }, (cell) => {
-                cell.alignment = { vertical: 'middle', horizontal: 'center' };
-                cell.border = {
-                  top: { style: 'thin' as any }, left: { style: 'thin' as any },
-                  bottom: { style: 'thin' as any }, right: { style: 'thin' as any }
-                };
-              });
-              row.getCell(2).alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
-              row.getCell(3).alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
-              row.getCell(4).alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
-              row.getCell(5).alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
-
-              currentRowIndex++;
-            }
-          }
-          
-          if (isPreview) {
-             sheetPreview.rows.push({
-                type: 'worker',
-                chunks: workerChunksForPreview,
-                totalSubsidioMes: totalSubsidioMes > 0 ? totalSubsidioMes : ''
-             });
-          } else {
-            const endRow = currentRowIndex - 1;
-            if (endRow > startRow) {
-              worksheet!.mergeCells(`A${startRow}:A${endRow}`);
-              worksheet!.mergeCells(`B${startRow}:B${endRow}`);
-              worksheet!.mergeCells(`C${startRow}:C${endRow}`);
-              worksheet!.mergeCells(`D${startRow}:D${endRow}`);
-              worksheet!.mergeCells(`E${startRow}:E${endRow}`);
-              worksheet!.mergeCells(`F${startRow}:F${endRow}`);
-              worksheet!.mergeCells(`N${startRow}:N${endRow}`); 
-            }
-          }
-          
           nro++;
         }
-        
-        if (!isPreview) {
-           currentRowIndex += 2;
-        }
-      }
 
-      if (sheetPreview.rows.length > 0) {
-        previewData.sheets.push(sheetPreview);
+        if (sheetPreview.rows.length > 0) {
+          previewData.sheets.push(sheetPreview);
+        }
+      } else {
+        // Generación de Excel Masivo oficial
+        worksheet!.mergeCells(`A${currentRowIndex}:N${currentRowIndex}`);
+        const titleCell = worksheet!.getCell(`A${currentRowIndex}`);
+        titleCell.value = titleText;
+        titleCell.font = { bold: true, size: 12, color: { argb: 'FF000000' } };
+        titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF9BC2E6' } } as ExcelJS.Fill;
+        worksheet!.getRow(currentRowIndex).height = 25;
+        currentRowIndex++;
+
+        // Subheaders de la tabla
+        const headerRow = worksheet!.getRow(currentRowIndex);
+        headerRow.height = 30;
+        headers.forEach((h, i) => {
+          const cell = headerRow.getCell(i + 1);
+          cell.value = h;
+          cell.style = colHeaderStyle;
+        });
+        
+        // Merge para "FECHA SUBSIDIO" que ocupa 2 columnas (11 y 12)
+        worksheet!.mergeCells(currentRowIndex, 11, currentRowIndex, 12);
+        currentRowIndex++;
+
+        // Configurar anchos de columna
+        worksheet!.columns = [
+          { key: 'col1', width: 5 },
+          { key: 'col2', width: 35 },
+          { key: 'col3', width: 25 },
+          { key: 'col4', width: 15 },
+          { key: 'col5', width: 25 },
+          { key: 'col6', width: 12 },
+          { key: 'col7', width: 18 },
+          { key: 'col8', width: 15 },
+          { key: 'col9', width: 15 },
+          { key: 'col10', width: 15 },
+          { key: 'col11', width: 15 },
+          { key: 'col12', width: 15 },
+          { key: 'col13', width: 15 },
+          { key: 'col14', width: 15 }
+        ];
+
+        let nro = 1;
+        for (const t of workersInRange) {
+          const startRow = currentRowIndex;
+          const apellidosNombres = t.apellidos ? `${t.apellidos} ${t.nombres}` : t.nombres;
+          let totalSubsidioPeriodo = 0;
+          for (const chunk of t.rangeChunks) {
+            totalSubsidioPeriodo += chunk.subsidioDaysInChunk;
+          }
+
+          for (const chunk of t.rangeChunks) {
+            let fin20Dias = '';
+            if (chunk.subsidioDaysInChunk > 0) {
+              fin20Dias = t.historicFin20Str;
+            }
+
+            const row = worksheet!.getRow(currentRowIndex);
+            row.getCell(1).value = nro;
+            row.getCell(2).value = apellidosNombres.toUpperCase();
+            row.getCell(3).value = (t.cargo || '').toUpperCase();
+            row.getCell(4).value = (t.condicionLaboral || '').toUpperCase(); 
+            row.getCell(5).value = (t.establecimiento.nombre || '').toUpperCase();
+            row.getCell(6).value = t.dni;
+            row.getCell(7).value = chunk.lic.numeroCertificado;
+            row.getCell(8).value = chunk.origInicioFormatted;
+            row.getCell(9).value = chunk.origFinFormatted;
+            row.getCell(10).value = fin20Dias; 
+            row.getCell(11).value = chunk.subsidioStartStr;
+            row.getCell(12).value = chunk.subsidioEndStr;
+            
+            const totalDiasCell = row.getCell(13);
+            totalDiasCell.value = chunk.days;
+            
+            if (chunk.redDaysInChunk > 0) {
+              totalDiasCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } } as ExcelJS.Fill; 
+            }
+
+            if (currentRowIndex === startRow) {
+              row.getCell(14).value = totalSubsidioPeriodo > 0 ? totalSubsidioPeriodo : '';
+            }
+
+            row.eachCell({ includeEmpty: true }, (cell) => {
+              cell.alignment = { vertical: 'middle', horizontal: 'center' };
+              cell.border = {
+                top: { style: 'thin' as any }, left: { style: 'thin' as any },
+                bottom: { style: 'thin' as any }, right: { style: 'thin' as any }
+              };
+            });
+            row.getCell(2).alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+            row.getCell(3).alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+            row.getCell(4).alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+            row.getCell(5).alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+
+            currentRowIndex++;
+          }
+
+          const endRow = currentRowIndex - 1;
+          if (endRow > startRow) {
+            worksheet!.mergeCells(`A${startRow}:A${endRow}`);
+            worksheet!.mergeCells(`B${startRow}:B${endRow}`);
+            worksheet!.mergeCells(`C${startRow}:C${endRow}`);
+            worksheet!.mergeCells(`D${startRow}:D${endRow}`);
+            worksheet!.mergeCells(`E${startRow}:E${endRow}`);
+            worksheet!.mergeCells(`F${startRow}:F${endRow}`);
+            worksheet!.mergeCells(`N${startRow}:N${endRow}`); 
+          }
+
+          nro++;
+        }
       }
     }
 

@@ -177,7 +177,8 @@ const ReporteMensualTemplate = forwardRef<HTMLDivElement, ReporteMensualTemplate
       {(() => {
         const pages: any[][] = [];
         let currentPage: { items: any[], capacity: number } = { items: [], capacity: 0 };
-        const MAX_CAPACITY = 24;
+        // Capacidad calibrada: Página 0 tiene título anexo (18 filas máx), páginas siguientes tienen 22 filas máx
+        const getMaxCapacity = (pageIdx: number) => (pageIdx === 0 ? 18 : 22);
 
         const pushPage = () => {
           if (currentPage.items.length > 0) {
@@ -186,33 +187,62 @@ const ReporteMensualTemplate = forwardRef<HTMLDivElement, ReporteMensualTemplate
           }
         };
 
-        data?.sheets?.forEach((sheet: any) => {
-          if (!sheet.rows || sheet.rows.length <= 1) return;
-          
-          const headers = sheet.rows.filter((r: any) => r.type === 'header');
-          const workers = sheet.rows.filter((r: any) => r.type === 'worker');
+        const defaultHeaders = [
+          'N°', 'APELLIDOS Y NOMBRES', 'CARGO', 'CONDICIÓN LABORAL', 'ESTABLECIMIENTO', 'DNI', 
+          'CITT O CMP', 'FECHA DE INICIO', 'FECHA FIN', 'FIN 20 DÍAS (RED)', 'FECHA SUBSIDIO', '', 
+          'TOTAL DE DIAS', 'DIAS DE SUBSIDIOS'
+        ];
 
-          if (workers.length === 0) return;
+        data?.sheets?.forEach((sheet: any) => {
+          if (!sheet.rows || sheet.rows.length === 0) return;
+          
+          // Extraer ÚNICA fila de cabecera garantizada (evita duplicados de thead)
+          const headerRow = sheet.rows.find((r: any) => r.type === 'header') || { type: 'header', values: defaultHeaders };
+          const rawWorkers = sheet.rows.filter((r: any) => r.type === 'worker');
+
+          if (rawWorkers.length === 0) return;
+
+          // Si un trabajador tiene demasiados chunks (ej. > 14), dividirlo en bloques manejables para que no desborde la hoja
+          const workers: any[] = [];
+          rawWorkers.forEach((w: any) => {
+            const chunks = w.chunks || [];
+            if (chunks.length <= 14) {
+              workers.push(w);
+            } else {
+              const SLICE_SIZE = 12;
+              for (let i = 0; i < chunks.length; i += SLICE_SIZE) {
+                const slice = chunks.slice(i, i + SLICE_SIZE);
+                const isLast = i + SLICE_SIZE >= chunks.length;
+                workers.push({
+                  ...w,
+                  chunks: slice,
+                  isSplitContinuation: i > 0,
+                  totalSubsidioMes: isLast ? w.totalSubsidioMes : ''
+                });
+              }
+            }
+          });
 
           let isFirstOfSheet = true;
 
           const insertHeaders = (isContinuation: boolean) => {
             currentPage.items.push({ type: 'title', name: sheet.name, isContinuation });
-            currentPage.items.push({ type: 'header', headers });
-            currentPage.capacity += 3;
+            currentPage.items.push({ type: 'header', header: headerRow });
+            currentPage.capacity += 3; // Costo estimado de título + cabecera
           };
 
           workers.forEach((worker: any) => {
             const cost = worker.chunks?.length || 1;
+            const currentMax = getMaxCapacity(pages.length);
             
             if (isFirstOfSheet) {
-              if (currentPage.capacity + 3 + cost > MAX_CAPACITY && currentPage.items.length > 0) {
+              if (currentPage.capacity + 3 + cost > currentMax && currentPage.items.length > 0) {
                 pushPage();
               }
               insertHeaders(false);
               isFirstOfSheet = false;
             } else {
-              if (currentPage.capacity + cost > MAX_CAPACITY) {
+              if (currentPage.capacity + cost > currentMax) {
                 pushPage();
                 insertHeaders(true);
               }
@@ -242,9 +272,9 @@ const ReporteMensualTemplate = forwardRef<HTMLDivElement, ReporteMensualTemplate
                   pageItems.forEach(item => {
                     if (item.type === 'title') {
                       if (currentTable) tables.push(currentTable);
-                      currentTable = { title: item, headers: null, workers: [] };
+                      currentTable = { title: item, header: null, workers: [] };
                     } else if (item.type === 'header') {
-                      currentTable.headers = item.headers;
+                      currentTable.header = item.header;
                     } else if (item.type === 'worker') {
                       currentTable.workers.push(item.data);
                     }
@@ -258,18 +288,16 @@ const ReporteMensualTemplate = forwardRef<HTMLDivElement, ReporteMensualTemplate
                       </div>
                       <table className="w-full border-collapse text-center text-[9px] leading-tight">
                         <thead>
-                          {tbl.headers?.map((hRow: any, hIdx: number) => (
-                            <tr key={`h-${hIdx}`} className="bg-[#D9E1F2] text-black">
-                              {hRow.values.map((v: string, i: number) => {
-                                if (v === '') return null;
-                                return (
-                                  <th key={i} className="border border-slate-400 px-1 py-0.5 font-bold" colSpan={v === 'FECHA SUBSIDIO' ? 2 : 1}>
-                                    {v}
-                                  </th>
-                                );
-                              })}
-                            </tr>
-                          ))}
+                          <tr className="bg-[#D9E1F2] text-black">
+                            {(tbl.header?.values || defaultHeaders).map((v: string, i: number) => {
+                              if (v === '') return null;
+                              return (
+                                <th key={i} className="border border-slate-400 px-1 py-0.5 font-bold" colSpan={v === 'FECHA SUBSIDIO' ? 2 : 1}>
+                                  {v}
+                                </th>
+                              );
+                            })}
+                          </tr>
                         </thead>
                         <tbody>
                           {tbl.workers.map((row: any, rIdx: number) => (
@@ -279,7 +307,9 @@ const ReporteMensualTemplate = forwardRef<HTMLDivElement, ReporteMensualTemplate
                                   {cIdx === 0 && (
                                     <>
                                       <td rowSpan={row.chunks.length} className="border border-slate-300 px-1 py-0.5">{chunk.nro}</td>
-                                      <td rowSpan={row.chunks.length} className="border border-slate-300 px-1 py-0.5 text-left max-w-[140px] break-words">{chunk.apellidosNombres}</td>
+                                      <td rowSpan={row.chunks.length} className="border border-slate-300 px-1 py-0.5 text-left max-w-[140px] break-words">
+                                        {chunk.apellidosNombres} {row.isSplitContinuation && <span className="text-[8px] text-slate-500 font-normal">(CONT.)</span>}
+                                      </td>
                                       <td rowSpan={row.chunks.length} className="border border-slate-300 px-1 py-0.5 text-[8px] max-w-[80px] break-words">{chunk.cargo}</td>
                                       <td rowSpan={row.chunks.length} className="border border-slate-300 px-1 py-0.5 text-[8px]">{chunk.condicion}</td>
                                       <td rowSpan={row.chunks.length} className="border border-slate-300 px-1 py-0.5 text-[8px] max-w-[70px] truncate" title={chunk.establecimiento}>{chunk.establecimiento}</td>
