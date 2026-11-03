@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, Search, CheckCircle2, AlertCircle, Camera, Upload, 
   Loader2, Check, FileText, Scan, RefreshCw, Image as ImageIcon,
-  Sparkles, Stethoscope, UserCheck, ShieldAlert, Lock, AlertTriangle, ShieldCheck
+  Stethoscope, UserCheck, ShieldAlert, Lock, ShieldCheck
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { tienePermiso } from '@/shared/utils/permisos';
@@ -53,11 +53,6 @@ export default function NuevoCittModal({
   const [error, setError] = useState('');
   const [archivoAdjunto, setArchivoAdjunto] = useState<File | null>(null);
   const [archivoRutaServidor, setArchivoRutaServidor] = useState<string | null>(null);
-
-  // Estados para Detección de Anomalías en Vivo
-  const [ignorarSugerenciaMaternidad, setIgnorarSugerenciaMaternidad] = useState(false);
-  const [ignorarSugerenciaSalud, setIgnorarSugerenciaSalud] = useState(false);
-  const [ignorarSugerenciaPaternidad, setIgnorarSugerenciaPaternidad] = useState(false);
 
   // Estados para Escáner y Cámara
   const [fotoCapturadaPreview, setFotoCapturadaPreview] = useState<string | null>(null);
@@ -143,9 +138,6 @@ export default function NuevoCittModal({
       setError('');
       setResumenEscaneo(null);
       setFotoCapturadaPreview(null);
-      setIgnorarSugerenciaMaternidad(false);
-      setIgnorarSugerenciaSalud(false);
-      setIgnorarSugerenciaPaternidad(false);
     } else {
       setFotoCapturadaPreview(null);
       if (previewUrlManual) {
@@ -411,9 +403,6 @@ export default function NuevoCittModal({
       }
 
       setError(''); // Limpiar cualquier error previo
-      setIgnorarSugerenciaMaternidad(false);
-      setIgnorarSugerenciaSalud(false);
-      setIgnorarSugerenciaPaternidad(false);
 
       // Pre-llenar campos
       if (data.datos) {
@@ -533,69 +522,13 @@ export default function NuevoCittModal({
       case 'PATERNIDAD':
         return 'Paternidad';
       case 'LEY_30012':
-        return 'Salud (Ley Nº 30012)';
       case 'ACCIDENTE_COMUN':
-        return 'Salud (Accidente Común)';
       case 'ENFERMEDAD_COMUN':
       default:
-        return 'Salud (Enfermedad Común)';
+        return 'Salud';
     }
   };
 
-  const normalizarTexto = (texto: string) => {
-    return (texto || '')
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
-  };
-
-  const diasNum = parseInt(diasOtorgados || '0', 10);
-  const diagNormalizado = normalizarTexto(diagnostico);
-
-  const palabrasMaternidad = [
-    'maternidad', 'parto', 'cesarea', 'prenatal', 'postnatal', 'pre natal', 'post natal',
-    'puerperio', 'embarazo', 'alumbramiento', 'gestacion', 'gestante', 'nacimiento'
-  ];
-  const cieMaternidadRegex = /\b(o8[0-4]|z3[459])\b/i;
-  const esDiagnosticoMaternidad = palabrasMaternidad.some(p => diagNormalizado.includes(p)) || cieMaternidadRegex.test(diagnostico);
-  const esDiasMaternidad = diasNum >= 90 && diasNum <= 105;
-
-  const palabrasPaternidad = ['paternidad', 'nacimiento de hijo', 'nacimiento del hijo', 'alumbramiento de conyuge'];
-  const esDiagnosticoPaternidad = palabrasPaternidad.some(p => diagNormalizado.includes(p));
-
-  const palabrasEnfermedadComun = [
-    'lumbalgia', 'fractura', 'contusion', 'faringitis', 'infeccion', 'bronquitis',
-    'neumonia', 'gripe', 'cefalea', 'gastritis', 'gastroenteritis', 'covid', 'apendicitis',
-    'dengue', 'esguince', 'hernia', 'luxacion', 'artritis', 'rinofaringitis'
-  ];
-  const esDiagnosticoEnfermedadComun = palabrasEnfermedadComun.some(p => diagNormalizado.includes(p));
-
-  // Anomalía 1: Maternidad detectada en Salud o Paternidad
-  const alertaMaternidadEnSalud = 
-    !editData &&
-    tipoPorDefecto !== 'MATERNIDAD' && 
-    tipoLicencia !== 'MATERNIDAD' && 
-    !ignorarSugerenciaMaternidad && 
-    (esDiasMaternidad || esDiagnosticoMaternidad);
-
-  // Anomalía 2: Enfermedad común detectada en Maternidad
-  const alertaSaludEnMaternidad = 
-    !editData &&
-    tipoPorDefecto === 'MATERNIDAD' && 
-    tipoLicencia === 'MATERNIDAD' && 
-    !ignorarSugerenciaSalud && 
-    ((diasNum > 0 && diasNum <= 30 && esDiagnosticoEnfermedadComun) || (diasNum > 0 && diasNum <= 20 && diagNormalizado.length > 3 && !esDiagnosticoMaternidad));
-
-  // Anomalía 3: Paternidad detectada en Salud o Maternidad
-  const alertaPaternidadEnOtro = 
-    !editData &&
-    tipoPorDefecto !== 'PATERNIDAD' && 
-    tipoLicencia !== 'PATERNIDAD' && 
-    !ignorarSugerenciaPaternidad && 
-    esDiagnosticoPaternidad;
-
-  // Bandera de si el CITT fue reasignado
-  const fueRedirigido = !editData && tipoLicencia !== tipoPorDefecto;
   const tipoFinal = tipoLicencia || tipoPorDefecto;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -726,60 +659,39 @@ export default function NuevoCittModal({
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh] relative">
         
-        {/* Overlay de Carga durante el Guardado de Licencia */}
+        {/* Overlay de Carga durante el Guardado de Licencia (Estilo Apple limpio) */}
         {guardando && (
-          <div className="absolute inset-0 z-40 bg-slate-900/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center select-none animate-in fade-in duration-200">
-            <div className="relative mb-4">
-              <div className="w-16 h-16 rounded-2xl bg-blue-600/20 border-2 border-blue-400/50 flex items-center justify-center shadow-[0_0_30px_rgba(59,130,246,0.5)]">
-                <Loader2 className="w-8 h-8 text-cyan-300 animate-spin" />
-              </div>
-              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-cyan-400 animate-ping" />
+          <div className="absolute inset-0 z-40 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 text-center select-none animate-in fade-in duration-150">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-xl border border-slate-200 dark:border-slate-700 max-w-xs w-full flex flex-col items-center text-center">
+              <Loader2 className="w-7 h-7 text-blue-600 dark:text-blue-400 animate-spin mb-3 stroke-[2.2]" />
+              <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                {editData ? 'Actualizando descanso...' : 'Guardando descanso...'}
+              </h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                {mensajeGuardado}
+              </p>
             </div>
-            
-            <h4 className="text-base font-bold text-white tracking-wide">
-              {editData ? 'Actualizando Descanso Médico' : 'Registrando Descanso Médico'}
-            </h4>
-            
-            <p className="text-xs text-blue-200/90 mt-1.5 max-w-sm leading-relaxed">
-              {mensajeGuardado}
-            </p>
-            
-            {/* Barra de progreso pulsante */}
-            <div className="w-52 h-2 bg-slate-800/80 rounded-full overflow-hidden mt-4 border border-white/10 shadow-inner">
-              <div className="h-full bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400 animate-pulse rounded-full w-full" />
-            </div>
-            
-            <p className="text-[10px] text-slate-400 mt-2">
-              Sincronizando con la Red de Salud Huánuco...
-            </p>
           </div>
         )}
 
         {/* Pantalla de Éxito Flotante */}
         {exito && (
-          <div className="absolute inset-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center select-none animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-3 shadow-lg shadow-emerald-500/10">
-              <CheckCircle2 className="w-10 h-10 animate-bounce" />
+          <div className="absolute inset-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center select-none animate-in fade-in duration-150">
+            <div className="w-14 h-14 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-3 shadow-xs">
+              <CheckCircle2 className="w-8 h-8" />
             </div>
             
-            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
-              {editData ? '¡Descanso Actualizado!' : '¡Descanso Registrado con Éxito!'}
+            <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">
+              {editData ? 'Descanso Actualizado' : 'Descanso Registrado con Éxito'}
             </h2>
             
-            {/* Destino claro del registro */}
-            <div className="mt-3 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-cyan-300 border border-blue-200 dark:border-blue-800 shadow-xs">
-              <Check className="w-3.5 h-3.5 text-blue-600 dark:text-cyan-400" />
-              <span>Archivado en: <strong>Módulo de {getNombreModulo(tipoFinal)}</strong></span>
+            <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+              <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Registrado en: <strong>{getNombreModulo(tipoFinal)}</strong></span>
             </div>
 
-            {fueRedirigido && (
-              <p className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 px-3 py-1 rounded-md border border-amber-200 dark:border-amber-800 mt-2">
-                Redireccionado automáticamente según el tipo de descanso detectado.
-              </p>
-            )}
-
             <p className="text-slate-500 dark:text-slate-400 text-xs mt-2 max-w-xs">
-              {trabajadorSeleccionado?.apellidosNombres || `${trabajadorSeleccionado?.apellidos || ''} ${trabajadorSeleccionado?.nombres || ''}`.trim() || 'Servidor vinculado'} • CITT {numeroCertificado}
+              {trabajadorSeleccionado?.apellidosNombres || `${trabajadorSeleccionado?.apellidos || ''} ${trabajadorSeleccionado?.nombres || ''}`.trim() || 'Servidor'} • CITT {numeroCertificado}
             </p>
           </div>
         )}
@@ -934,58 +846,42 @@ export default function NuevoCittModal({
 
             </div>
 
-            {/* CASO 1: ESTADO DE CARGA SOBREPUESTO DIRECTO EN LA IMAGEN */}
+            {/* CASO 1: ESTADO DE CARGA SOBRIO DURANTE EL ESCANEO */}
             {escaneandoIA && (
-              <div className="relative w-full h-[360px] sm:h-[420px] bg-slate-950 rounded-2xl overflow-hidden border border-slate-700/80 shadow-2xl flex items-center justify-center select-none">
+              <div className="relative w-full h-[340px] sm:h-[400px] bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex items-center justify-center select-none">
                 {/* Foto capturada de fondo */}
                 {fotoCapturadaPreview ? (
                   <img
                     src={fotoCapturadaPreview}
                     alt="CITT Capturado"
-                    className="w-full h-full object-contain filter contrast-105 opacity-40 blur-[1px]"
+                    className="w-full h-full object-contain opacity-35"
                   />
                 ) : (
                   <div className="w-full h-full bg-slate-900" />
                 )}
 
-                {/* Marco y esquinas luminosas */}
-                <div className="absolute inset-4 sm:inset-6 border border-cyan-400/25 rounded-xl pointer-events-none z-10 shadow-[0_0_25px_rgba(34,211,238,0.15)]">
-                  <div className="absolute -top-1 -left-1 w-6 h-6 border-t-2 border-l-2 border-cyan-400 rounded-tl-sm shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
-                  <div className="absolute -top-1 -right-1 w-6 h-6 border-t-2 border-r-2 border-cyan-400 rounded-tr-sm shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
-                  <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-2 border-l-2 border-cyan-400 rounded-bl-sm shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
-                  <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-2 border-r-2 border-cyan-400 rounded-br-sm shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
-                </div>
-
-                {/* Línea láser de barrido vertical animada */}
-                <div className="absolute inset-x-2 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_18px_rgba(34,211,238,0.95)] animate-laser-scan z-10 pointer-events-none" />
-
-                {/* OVERLAY SOBREPUESTO (HUD centrado y limpio sin falsas etapas ni barras engañosas) */}
-                <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] flex flex-col items-center justify-center p-6 text-center z-20">
-                  <div className="w-14 h-14 rounded-2xl bg-blue-500/15 border border-blue-400/30 flex items-center justify-center text-blue-400 mb-3 shadow-lg shadow-blue-500/10">
-                    <Loader2 className="w-7 h-7 animate-spin text-blue-400" />
+                {/* Tarjeta de estado de escaneo sobria y limpia */}
+                <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center z-20">
+                  <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-xl border border-slate-200 dark:border-slate-700 max-w-xs w-full flex flex-col items-center text-center">
+                    <Loader2 className="w-7 h-7 text-blue-600 dark:text-blue-400 animate-spin mb-3 stroke-[2.2]" />
+                    <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                      Escaneando certificado...
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                      Reconociendo DNI, fechas y datos del descanso médico.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (abortScanRef.current) abortScanRef.current.abort();
+                        setEscaneandoIA(false);
+                        setFotoCapturadaPreview(null);
+                      }}
+                      className="mt-4 px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60 border border-slate-200 dark:border-slate-600 transition-colors cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
                   </div>
-
-                  <h4 className="text-base font-bold text-white mb-1.5 flex items-center justify-center gap-2">
-                    <Scan className="w-4 h-4 text-cyan-400" />
-                    <span>Analizando Certificado CITT...</span>
-                  </h4>
-
-                  <p className="text-xs text-slate-300 max-w-sm leading-relaxed mb-4">
-                    Extrayendo DNI, fechas de descanso, diagnóstico y médico tratante. Por favor, espera un momento...
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (abortScanRef.current) abortScanRef.current.abort();
-                      setEscaneandoIA(false);
-                      setFotoCapturadaPreview(null);
-                    }}
-                    className="px-4 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-slate-200 border border-white/20 transition-all cursor-pointer active:scale-95 flex items-center gap-1.5 shadow-sm"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                    <span>Cancelar</span>
-                  </button>
                 </div>
               </div>
             )}
@@ -1003,7 +899,7 @@ export default function NuevoCittModal({
                     Escanear Certificado CITT
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Toma una fotografía clara del documento CITT. Luego, la aplicación escaneará la fotografía en pantalla mediante láser visual y extraerá automáticamente el código, DNI, fechas y servidor.
+                    Tome una fotografía nítida o suba el archivo del certificado CITT para extraer automáticamente el número, DNI, fechas de descanso y médico.
                   </p>
                 </div>
 
@@ -1126,24 +1022,21 @@ export default function NuevoCittModal({
                     </div>
 
                     <div>
-                      <span className="text-slate-400 block text-[11px] mb-0.5 font-medium">Tipo y Destino</span>
+                      <span className="text-slate-400 block text-[11px] mb-0.5 font-medium">Tipo de Certificado</span>
                       <div className="flex flex-wrap gap-1.5 items-center">
                         {resumenEscaneo.tipoLicencia === 'LEY_30012' ? (
-                          <span className="inline-flex items-center px-2 py-0.5 bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 font-bold rounded text-xs border border-purple-200 dark:border-purple-800">
+                          <span className="inline-flex items-center px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold rounded text-xs border border-slate-200 dark:border-slate-700">
                             MINSA - Ley Nº 30012
                           </span>
                         ) : resumenEscaneo.origen === 'ESSALUD_CITT' ? (
-                          <span className="inline-flex items-center px-2 py-0.5 bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 font-semibold text-xs rounded">
+                          <span className="inline-flex items-center px-2 py-0.5 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold text-xs rounded border border-blue-200 dark:border-blue-800">
                             EsSalud CITT
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-semibold text-xs rounded">
-                            Particular / MINSA
+                          <span className="inline-flex items-center px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded border border-slate-200 dark:border-slate-700">
+                            Particular (CMP)
                           </span>
                         )}
-                        <span className="inline-flex items-center px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded text-xs border border-slate-200 dark:border-slate-700">
-                          ➜ {getNombreModulo(tipoFinal)}
-                        </span>
                       </div>
                     </div>
 
@@ -1191,32 +1084,13 @@ export default function NuevoCittModal({
                     )}
 
                     {resumenEscaneo.tipoLicencia === 'LEY_30012' && resumenEscaneo.familiarPaciente && (
-                      <div className="sm:col-span-2 p-2.5 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-lg">
-                        <span className="text-purple-600 dark:text-purple-400 block text-[11px] mb-0.5 font-bold uppercase tracking-wider">
+                      <div className="sm:col-span-2 p-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg">
+                        <span className="text-slate-500 dark:text-slate-400 block text-[11px] mb-0.5 font-semibold">
                           Familiar / Paciente Atendido (Ley Nº 30012)
                         </span>
-                        <p className="font-bold text-xs text-purple-900 dark:text-purple-100">
+                        <p className="font-semibold text-xs text-slate-800 dark:text-slate-100">
                           {resumenEscaneo.familiarPaciente}
                         </p>
-                      </div>
-                    )}
-
-                    {/* Alerta inteligente en el escáner si detectó una categoría diferente */}
-                    {resumenEscaneo.tipoLicencia && resumenEscaneo.tipoLicencia !== tipoPorDefecto && (
-                      <div className="sm:col-span-2 p-2.5 bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-300 dark:border-cyan-800 rounded-xl flex items-center justify-between text-xs animate-in fade-in duration-150">
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
-                          <span className="text-cyan-950 dark:text-cyan-100">
-                            Alerta: El escáner identificó este descanso como <strong>{getNombreModulo(resumenEscaneo.tipoLicencia)}</strong>. Se guardará directamente en ese módulo.
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setTipoLicencia(tipoPorDefecto)}
-                          className="text-[11px] font-bold text-cyan-800 dark:text-cyan-300 hover:underline cursor-pointer shrink-0 ml-2"
-                        >
-                          Mantener en {getNombreModulo(tipoPorDefecto)}
-                        </button>
                       </div>
                     )}
                   </div>
@@ -1334,10 +1208,10 @@ export default function NuevoCittModal({
                 <div className="sm:col-span-2">
                   <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">Origen / Tipo de Certificado</label>
                   <div className={`grid grid-cols-1 ${permitirLey30012 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-2.5`}>
-                    <label className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                    <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-all ${
                       origen === 'ESSALUD_CITT' && tipoLicencia !== 'LEY_30012'
-                        ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 shadow-xs' 
-                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900'
+                        ? 'border-blue-600 bg-blue-50/40 dark:bg-blue-950/30 text-slate-900 dark:text-slate-100 ring-1 ring-blue-500/20' 
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900/60'
                     }`}>
                       <input 
                         type="radio" 
@@ -1350,18 +1224,18 @@ export default function NuevoCittModal({
                             setTipoLicencia(tipoPorDefecto === 'LEY_30012' ? 'ENFERMEDAD_COMUN' : (tipoPorDefecto || 'ENFERMEDAD_COMUN'));
                           }
                         }} 
-                        className="w-4 h-4 text-blue-600 mt-0.5" 
+                        className="w-4 h-4 text-blue-600 mt-0.5 accent-blue-600" 
                       />
                       <div className="text-xs">
-                        <span className="font-bold block text-slate-800 dark:text-slate-100">CITT EsSalud</span>
+                        <span className="font-semibold block text-slate-800 dark:text-slate-100">CITT EsSalud</span>
                         <span className="text-[11px] text-slate-500 dark:text-slate-400">Descanso médico institucional</span>
                       </div>
                     </label>
 
-                    <label className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                    <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-all ${
                       origen === 'PARTICULAR' && tipoLicencia !== 'LEY_30012'
-                        ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 shadow-xs' 
-                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900'
+                        ? 'border-blue-600 bg-blue-50/40 dark:bg-blue-950/30 text-slate-900 dark:text-slate-100 ring-1 ring-blue-500/20' 
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900/60'
                     }`}>
                       <input 
                         type="radio" 
@@ -1374,19 +1248,19 @@ export default function NuevoCittModal({
                             setTipoLicencia(tipoPorDefecto === 'LEY_30012' ? 'ENFERMEDAD_COMUN' : (tipoPorDefecto || 'ENFERMEDAD_COMUN'));
                           }
                         }} 
-                        className="w-4 h-4 text-emerald-600 mt-0.5" 
+                        className="w-4 h-4 text-blue-600 mt-0.5 accent-blue-600" 
                       />
                       <div className="text-xs">
-                        <span className="font-bold block text-slate-800 dark:text-slate-100">Particular (CMP)</span>
+                        <span className="font-semibold block text-slate-800 dark:text-slate-100">Particular (CMP)</span>
                         <span className="text-[11px] text-slate-500 dark:text-slate-400">Especie valorada o clínica</span>
                       </div>
                     </label>
 
                     {permitirLey30012 && (
-                      <label className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                      <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-all ${
                         tipoLicencia === 'LEY_30012'
-                          ? 'border-purple-500 bg-purple-50/70 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200 shadow-xs' 
-                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900'
+                          ? 'border-blue-600 bg-blue-50/40 dark:bg-blue-950/30 text-slate-900 dark:text-slate-100 ring-1 ring-blue-500/20' 
+                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900/60'
                       }`}>
                         <input 
                           type="radio" 
@@ -1397,10 +1271,10 @@ export default function NuevoCittModal({
                             setOrigen('PARTICULAR');
                             setTipoLicencia('LEY_30012');
                           }} 
-                          className="w-4 h-4 text-purple-600 mt-0.5" 
+                          className="w-4 h-4 text-blue-600 mt-0.5 accent-blue-600" 
                         />
                         <div className="text-xs">
-                          <span className="font-bold block text-purple-800 dark:text-purple-300">MINSA (Ley Nº 30012)</span>
+                          <span className="font-semibold block text-slate-800 dark:text-slate-100">MINSA (Ley Nº 30012)</span>
                           <span className="text-[11px] text-slate-500 dark:text-slate-400">Familiar grave o terminal</span>
                         </div>
                       </label>
@@ -1480,11 +1354,11 @@ export default function NuevoCittModal({
                               : 'Fecha inválida (fin anterior a inicio)') 
                           : (fechaInicio ? 'Seleccione fecha final' : 'Esperando fechas...')
                       }
-                      className={`w-full px-3 py-2 border rounded-md text-sm font-semibold select-none cursor-default transition-colors ${
+                      className={`w-full px-3 py-2 border rounded-md text-sm select-none cursor-default transition-colors ${
                         fechaInicio && fechaFin && calcularDiasEntreFechas(fechaInicio, fechaFin) > 0
-                          ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                          ? 'bg-slate-50 dark:bg-slate-800/60 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-semibold'
                           : fechaInicio && fechaFin && calcularDiasEntreFechas(fechaInicio, fechaFin) <= 0
-                            ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300'
+                            ? 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 font-medium'
                             : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500'
                       }`}
                     />
@@ -1508,164 +1382,21 @@ export default function NuevoCittModal({
 
                 {/* Campo Específico Ley Nº 30012: Familiar / Paciente Atendido */}
                 {tipoLicencia === 'LEY_30012' && (
-                  <div className="sm:col-span-2 p-3.5 bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-xl space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 bg-purple-100 dark:bg-purple-900/60 rounded-lg text-purple-700 dark:text-purple-300 shrink-0">
-                        <UserCheck className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-purple-900 dark:text-purple-200">
-                          Nombre del Familiar Directo / Paciente Atendido (Ley Nº 30012)
-                        </label>
-                        <p className="text-[11px] text-purple-700 dark:text-purple-300">
-                          Especifique el nombre completo del familiar en atención médica y su parentesco (padre, madre, hijo/a o cónyuge).
-                        </p>
-                      </div>
-                    </div>
+                  <div className="sm:col-span-2 p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl space-y-1.5 animate-in fade-in duration-150">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
+                      Nombre del Familiar Directo / Paciente Atendido (Ley Nº 30012) <span className="text-rose-500">*</span>
+                    </label>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Ingrese el nombre completo del familiar en atención médica y su parentesco (padre, madre, hijo/a, cónyuge).
+                    </p>
                     <input 
                       type="text" 
                       required
                       value={familiarPaciente}
                       onChange={(e) => setFamiliarPaciente(e.target.value)}
-                      placeholder="Ej. Justina Morduee Pérez (Madre) / Manuel Rojas (Hijo)"
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-700 rounded-md text-sm text-slate-800 dark:text-slate-100 focus:outline-purple-500 font-medium"
+                      placeholder="Ej. Justina Morduee Pérez (Madre)"
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-sm text-slate-800 dark:text-slate-100 focus:outline-blue-500 font-normal"
                     />
-                  </div>
-                )}
-
-                {/* --- DETECCIÓN DE ANOMALÍAS EN VIVO (Sin selectores ruidosos) --- */}
-
-                {/* Caso A: Maternidad detectada en Salud */}
-                {alertaMaternidadEnSalud && (
-                  <div className="sm:col-span-2 p-3 bg-rose-50/90 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                    <div className="flex items-start gap-2.5">
-                      <div className="p-1.5 bg-rose-100 dark:bg-rose-900/60 rounded-lg text-rose-600 dark:text-rose-300 shrink-0 mt-0.5">
-                        <AlertTriangle className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-rose-900 dark:text-rose-100">
-                          ¿Este descanso corresponde a Maternidad?
-                        </p>
-                        <p className="text-[11px] text-rose-700 dark:text-rose-300 mt-0.5">
-                          {esDiasMaternidad ? `${diasNum} días coinciden con el periodo legal de descanso por maternidad (98 días).` : 'El diagnóstico ingresado indica descanso pre o post natal.'}
-                          {` Actualmente estás en el módulo de ${getNombreModulo(tipoPorDefecto)}.`}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setIgnorarSugerenciaMaternidad(true)}
-                        className="px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800 rounded-md transition-colors cursor-pointer"
-                      >
-                        Mantener en Salud
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTipoLicencia('MATERNIDAD');
-                          setIgnorarSugerenciaMaternidad(false);
-                        }}
-                        className="px-3 py-1.5 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
-                      >
-                        <span>Mover a Maternidad</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Caso B: Enfermedad Común detectada en Maternidad */}
-                {alertaSaludEnMaternidad && (
-                  <div className="sm:col-span-2 p-3 bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                    <div className="flex items-start gap-2.5">
-                      <div className="p-1.5 bg-amber-100 dark:bg-amber-900/60 rounded-lg text-amber-600 dark:text-amber-300 shrink-0 mt-0.5">
-                        <AlertTriangle className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-amber-900 dark:text-amber-100">
-                          ¿Este descanso es por Enfermedad Común?
-                        </p>
-                        <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">
-                          El periodo es de {diasNum} día(s) y el diagnóstico no coincide con maternidad (98 días). Estás en el módulo de Maternidad.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setIgnorarSugerenciaSalud(true)}
-                        className="px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800 rounded-md transition-colors cursor-pointer"
-                      >
-                        Mantener en Maternidad
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTipoLicencia('ENFERMEDAD_COMUN');
-                          setIgnorarSugerenciaSalud(false);
-                        }}
-                        className="px-3 py-1.5 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
-                      >
-                        <span>Mover a Salud</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Caso C: Paternidad detectada */}
-                {alertaPaternidadEnOtro && (
-                  <div className="sm:col-span-2 p-3 bg-blue-50/90 dark:bg-blue-950/40 border border-blue-300 dark:border-blue-800 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                    <div className="flex items-start gap-2.5">
-                      <div className="p-1.5 bg-blue-100 dark:bg-blue-900/60 rounded-lg text-blue-600 dark:text-blue-300 shrink-0 mt-0.5">
-                        <AlertTriangle className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-blue-900 dark:text-blue-100">
-                          ¿Este descanso corresponde a Paternidad?
-                        </p>
-                        <p className="text-[11px] text-blue-700 dark:text-blue-300 mt-0.5">
-                          El diagnóstico indica descanso por paternidad o alumbramiento del cónyuge.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setIgnorarSugerenciaPaternidad(true)}
-                        className="px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800 rounded-md transition-colors cursor-pointer"
-                      >
-                        Mantener
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTipoLicencia('PATERNIDAD');
-                          setIgnorarSugerenciaPaternidad(false);
-                        }}
-                        className="px-3 py-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
-                      >
-                        <span>Mover a Paternidad</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Badge confirmando redirección activa si el usuario aceptó moverlo */}
-                {fueRedirigido && !alertaMaternidadEnSalud && !alertaSaludEnMaternidad && !alertaPaternidadEnOtro && (
-                  <div className="sm:col-span-2 p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-xl flex items-center justify-between text-xs animate-in fade-in duration-150">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                      <span className="text-emerald-900 dark:text-emerald-100 font-medium">
-                        Destino reasignado: Se archivará en el <strong>Módulo de {getNombreModulo(tipoLicencia)}</strong> (en lugar de {getNombreModulo(tipoPorDefecto)}).
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setTipoLicencia(tipoPorDefecto)}
-                      className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 hover:underline cursor-pointer ml-2 shrink-0"
-                    >
-                      Revertir a {getNombreModulo(tipoPorDefecto)}
-                    </button>
                   </div>
                 )}
 
