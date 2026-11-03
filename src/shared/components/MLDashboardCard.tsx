@@ -608,9 +608,7 @@ export default function MLDashboardCard() {
 
           {/* Cuerpo de Contenido */}
           <div className="p-5 sm:p-6 bg-white">
-            {/* ========================================================================= */}
             {/* TAB 1: PRONÓSTICO PRESUPUESTAL Y DÍAS */}
-            {/* ========================================================================= */}
             {activeTab === 'forecasting' && (
               <div className="space-y-6">
                 {/* Banner de información de validación estadística */}
@@ -827,9 +825,7 @@ export default function MLDashboardCard() {
               </div>
             )}
 
-            {/* ========================================================================= */}
             {/* TAB 2: DETECCIÓN DE ANOMALÍAS (AUDITORÍA) */}
-            {/* ========================================================================= */}
             {activeTab === 'anomalias' && (
               <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
@@ -1023,9 +1019,7 @@ export default function MLDashboardCard() {
               </div>
             )}
 
-            {/* ========================================================================= */}
             {/* TAB 3: RIESGO DE CADUCIDAD CITT */}
-            {/* ========================================================================= */}
             {activeTab === 'citt' && (
               <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
@@ -1207,9 +1201,7 @@ export default function MLDashboardCard() {
               </div>
             )}
 
-            {/* ========================================================================= */}
             {/* TAB 4: VULNERABILIDAD TERRITORIAL (CLUSTERING) */}
-            {/* ========================================================================= */}
             {activeTab === 'clustering' && (
               <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
@@ -1411,9 +1403,7 @@ export default function MLDashboardCard() {
               </div>
             )}
 
-            {/* ========================================================================= */}
             {/* TAB 5: PROCEDENCIA DE CANJES (ESSALUD CITT VS PARTICULAR) */}
-            {/* ========================================================================= */}
             {activeTab === 'origen' && data.modelo5_origen_canjes && (
               <div className="space-y-6">
                 {/* Banner de Información y Métricas Globales */}
@@ -1513,7 +1503,6 @@ export default function MLDashboardCard() {
                     })}
                   </div>
                 </div>
-
                 {/* 2. Ranking y Filtro por Establecimiento */}
                 <div className="bg-slate-50/60 p-5 rounded-xl border border-slate-200 space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
