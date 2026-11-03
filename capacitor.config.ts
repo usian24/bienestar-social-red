@@ -5,13 +5,13 @@ const config: CapacitorConfig = {
   appName: 'Red de Salud Huánuco',
   webDir: 'public',
   server: {
-    // Conectado por Wi-Fi a la IP activa de la laptop para que el celular funcione al 100%
-    url: 'http://192.168.137.233:3000',
-    cleartext: true
+    // En desarrollo local por USB usa localhost:3000. En producción usará el dominio oficial configurado
+    url: process.env.CAPACITOR_SERVER_URL || 'http://localhost:3000',
+    cleartext: !(process.env.CAPACITOR_SERVER_URL?.startsWith('https://'))
   },
   android: {
     allowMixedContent: true,
-    webContentsDebuggingEnabled: true
+    webContentsDebuggingEnabled: process.env.NODE_ENV !== 'production'
   }
 };
 

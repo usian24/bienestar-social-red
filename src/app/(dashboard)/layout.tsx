@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Menu, Heart, Search, Home, Moon, Sun, Shield, Settings, Users, LogOut, ChevronLeft, Bell, Activity, FileText, FolderOpen, Terminal, X, Brain } from 'lucide-react';
+import { Menu, Heart, Search, Home, Moon, Sun, Shield, Settings, Users, LogOut, ChevronLeft, Bell, Activity, FileText, FolderOpen, Terminal, X, Brain, BookOpen } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -300,7 +300,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </>
         )}
 
-        <div className={`mt-auto mb-2 ${isSidebarOpen ? 'p-4' : 'p-2'}`}>
+        {/* Enlace directo al Manual de Usuario según el Rol */}
+        {rol !== 'TRABAJADOR' && (
+          <div className={`mt-auto ${isSidebarOpen ? 'px-3 mb-1' : 'px-2 mb-1'}`}>
+            <a 
+              href={isSuperAdmin ? '/manuales/Manual_Usuario_Super_Admin_RedSaludHco.pdf' : '/manuales/Manual_Usuario_Admin_Microred_RedSaludHco.pdf'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex items-center rounded-lg text-slate-700 dark:text-slate-300 hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-900/30 dark:hover:text-blue-400 font-medium transition-colors ${isSidebarOpen ? 'gap-3 w-full px-3 py-2 text-xs' : 'justify-center w-full p-2.5'}`}
+              title={isSuperAdmin ? 'Manual Oficial Super Admin (PDF)' : 'Manual Oficial Microred (PDF)'}
+            >
+              <BookOpen className="w-4 h-4 shrink-0 text-blue-600 dark:text-blue-400" />
+              {isSidebarOpen && <span className="truncate">{isSuperAdmin ? 'Manual Super Admin' : 'Manual Microred'}</span>}
+            </a>
+          </div>
+        )}
+
+        <div className={`mb-2 ${isSidebarOpen ? 'p-4 pt-1' : 'p-2 pt-1'}`}>
           <button 
             onClick={handleCerrarSesion}
             className={`flex items-center rounded-lg text-slate-600 dark:text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 font-medium transition-colors ${isSidebarOpen ? 'gap-3 w-full px-3 py-2.5' : 'justify-center w-full p-3'}`}
@@ -501,6 +517,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           )}
         </div>
+
+        {/* Enlace al Manual de Usuario en Móvil */}
+        {rol !== 'TRABAJADOR' && (
+          <div className="px-4 py-2 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800">
+            <a 
+              href={isSuperAdmin ? '/manuales/Manual_Usuario_Super_Admin_RedSaludHco.pdf' : '/manuales/Manual_Usuario_Admin_Microred_RedSaludHco.pdf'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300 text-xs font-semibold transition-colors"
+            >
+              <BookOpen className="w-3.5 h-3.5" /> {isSuperAdmin ? 'Manual Super Admin (PDF)' : 'Manual Microred (PDF)'}
+            </a>
+          </div>
+        )}
 
         {/* Footer del Drawer */}
         <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800">

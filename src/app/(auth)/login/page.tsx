@@ -31,6 +31,7 @@ export default function LoginPage() {
         dni,
         password,
         redirect: false,
+        callbackUrl: "/inicio",
       });
 
       if (result?.error) {

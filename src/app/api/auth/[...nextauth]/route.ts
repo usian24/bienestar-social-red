@@ -4,6 +4,8 @@ import prisma from "@/core/db/prisma";
 import bcrypt from "bcryptjs";
 import { logger } from "@/core/logging/systemLogger";
 
+const isHttps = process.env.NEXTAUTH_URL?.startsWith('https://') ?? false;
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -97,16 +99,34 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
     async redirect({ url, baseUrl }) {
-      if (url.startsWith("/")) return url;
+      // 1. Si la URL es relativa, construir una URL absoluta válida con baseUrl
+      if (url.startsWith("/")) {
+        return `${baseUrl}${url}`;
+      }
       try {
         const parsedUrl = new URL(url);
-        if (parsedUrl.origin === baseUrl || parsedUrl.hostname === 'localhost' || parsedUrl.hostname === '127.0.0.1') {
+        // 2. Permitir el mismo origen, localhost o cualquier IP de red local (LAN / Wi-Fi / USB)
+        if (
+          parsedUrl.origin === baseUrl ||
+          parsedUrl.hostname === 'localhost' ||
+          parsedUrl.hostname === '127.0.0.1' ||
+          parsedUrl.hostname.startsWith('192.168.') ||
+          parsedUrl.hostname.startsWith('172.') ||
+          parsedUrl.hostname.startsWith('10.') ||
+          parsedUrl.hostname.endsWith('.pe') ||
+          parsedUrl.hostname.endsWith('.gob.pe')
+        ) {
+          // Si intentaba redirigir a /login o a la raíz, redirigir a /inicio en ese mismo origen
+          if (parsedUrl.pathname === '/login' || parsedUrl.pathname === '/') {
+            return `${parsedUrl.origin}/inicio`;
+          }
           return url;
         }
       } catch {
         // Ignorar error de parsing
       }
-      return '/login';
+      // 3. Fallback siempre con URL absoluta para evitar que new URL() falle en el navegador
+      return `${baseUrl}/inicio`;
     }
   },
   pages: {
@@ -114,32 +134,32 @@ export const authOptions: NextAuthOptions = {
   },
   session: { strategy: 'jwt' },
   secret: process.env.NEXTAUTH_SECRET,
-  useSecureCookies: false,
+  useSecureCookies: isHttps,
   cookies: {
     sessionToken: {
-      name: `next-auth.session-token`,
+      name: isHttps ? `__Secure-next-auth.session-token` : `next-auth.session-token`,
       options: {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: false,
+        secure: isHttps,
       },
     },
     callbackUrl: {
-      name: `next-auth.callback-url`,
+      name: isHttps ? `__Secure-next-auth.callback-url` : `next-auth.callback-url`,
       options: {
         sameSite: 'lax',
         path: '/',
-        secure: false,
+        secure: isHttps,
       },
     },
     csrfToken: {
-      name: `next-auth.csrf-token`,
+      name: isHttps ? `__Host-next-auth.csrf-token` : `next-auth.csrf-token`,
       options: {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: false,
+        secure: isHttps,
       },
     },
   },

@@ -52,3 +52,23 @@ try {
 } catch(Exception e) {
     logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
 }
+
+// Configuración automática de USB para Android Studio:
+// Ejecuta automáticamente "adb reverse tcp:3000 tcp:3000" para que cualquier
+// celular conectado por cable USB funcione de inmediato con localhost:3000
+task adbReverse(type: Exec) {
+    def adbCmd = "adb"
+    try {
+        if (project.android.hasProperty("adbExecutable")) {
+            adbCmd = project.android.adbExecutable.toString()
+        }
+    } catch (Exception ignored) {}
+    commandLine adbCmd, 'reverse', 'tcp:3000', 'tcp:3000'
+    ignoreExitValue true
+}
+
+afterEvaluate {
+    tasks.matching { it.name.startsWith("installDebug") || it.name.startsWith("assembleDebug") }.configureEach {
+        it.finalizedBy adbReverse
+    }
+}

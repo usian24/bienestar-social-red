@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { Play, Video, BookOpen, ExternalLink, Maximize2, X, Sparkles, CheckCircle2, Clock } from 'lucide-react';
 
 interface VideoGuiaCardProps {
@@ -16,6 +17,18 @@ export default function VideoGuiaCard({
   videoSrc = "/videos/tutorial-bienestar-social.mp4",
   posterSrc = "/images/logo-red-huanuco.png"
 }: VideoGuiaCardProps) {
+  const { data: session } = useSession();
+  const rol = (session?.user as any)?.rol;
+  const isSuperAdmin = rol === 'SUPER_ADMIN';
+
+  const rutaManual = isSuperAdmin
+    ? '/manuales/Manual_Usuario_Super_Admin_RedSaludHco.pdf'
+    : '/manuales/Manual_Usuario_Admin_Microred_RedSaludHco.pdf';
+
+  const textoManual = isSuperAdmin
+    ? 'Descargar Manual Super Admin (PDF)'
+    : 'Descargar Manual Microred (PDF)';
+
   const [modalAbierto, setModalAbierto] = useState(false);
   const [reproduciendo, setReproduciendo] = useState(false);
   const [videoUrl, setVideoUrl] = useState(videoSrc);
@@ -137,14 +150,16 @@ export default function VideoGuiaCard({
             </div>
           </div>
 
-          {/* Acciones al pie: Manual PDF + Opción de cambiar video */}
+          {/* Acciones al pie: Manual PDF según el Rol + Opción de cambiar video */}
           <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between gap-2">
             <a
-              href="/manual_de_uso.pdf"
+              href={rutaManual}
               target="_blank"
+              rel="noopener noreferrer"
               className="text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center gap-1.5 transition-colors"
+              title={textoManual}
             >
-              <BookOpen className="w-3.5 h-3.5" /> Descargar Manual en PDF <ExternalLink className="w-3 h-3" />
+              <BookOpen className="w-3.5 h-3.5" /> {textoManual} <ExternalLink className="w-3 h-3" />
             </a>
 
             <button
