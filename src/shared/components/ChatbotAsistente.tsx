@@ -413,10 +413,8 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
 
   return (
     <>
-      {/* =========================================================================
-          1. VISTA EN CELULAR / PANTALLAS PEQUEÑAS (md:hidden)
-          Muestra el personaje animado interactivo. Al tocarlo abre el chat completo.
-         ========================================================================= */}
+      {/* 1. VISTA EN CELULAR / PANTALLAS PEQUEÑAS (md:hidden)
+          Muestra el personaje animado interactivo. Al tocarlo abre el chat completo. */}
       <div className="block md:hidden w-full">
         <div 
           onClick={() => setModalMovilAbierto(true)}
@@ -493,9 +491,7 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
         )}
       </div>
 
-      {/* =========================================================================
-          2. MODAL A PANTALLA COMPLETA EN CELULAR (Cuando el usuario toca el personaje)
-         ========================================================================= */}
+      {/*  2. MODAL A PANTALLA COMPLETA EN CELULAR (Cuando el usuario toca el personaje) */}
       {modalMovilAbierto && (
         <div className="fixed inset-0 z-50 md:hidden bg-slate-900/60 backdrop-blur-xs flex flex-col justify-end sm:justify-center p-0 sm:p-4">
           <div className="w-full h-full sm:h-[88vh] sm:max-w-lg bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-6 duration-200">
@@ -554,10 +550,7 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
         </div>
       )}
 
-      {/* =========================================================================
-          3. VISTA EN ESCRITORIO / TABLETS (hidden md:flex)
-          Se integra con estilo institucional pulcro en la columna derecha.
-         ========================================================================= */}
+      {/* 3. VISTA EN ESCRITORIO / TABLETS (hidden md:flex) Se integra con estilo institucional pulcro en la columna derecha. */}
       <div className={`hidden md:flex bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-md flex-col overflow-hidden transition-all duration-300 ${modo === 'flotante' ? 'w-[380px] h-[520px] fixed bottom-5 right-5 z-50 shadow-2xl' : 'w-full h-[520px]'}`}>
         
         {/* Cabecera Institucional en Escritorio */}

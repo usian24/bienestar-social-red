@@ -95,6 +95,18 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).id = token.sub;
       }
       return session;
+    },
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith("/")) return url;
+      try {
+        const parsedUrl = new URL(url);
+        if (parsedUrl.origin === baseUrl || parsedUrl.hostname === 'localhost' || parsedUrl.hostname === '127.0.0.1') {
+          return url;
+        }
+      } catch {
+        // Ignorar error de parsing
+      }
+      return '/login';
     }
   },
   pages: {
