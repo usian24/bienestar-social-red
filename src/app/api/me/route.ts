@@ -12,16 +12,26 @@ export async function GET(request: Request) {
 
     const userId = (session.user as any).id;
 
-    // Obtener los datos completos del usuario logueado
+    // Obtener los datos completos del usuario logueado sin exponer passwordHash
     const usuario = await prisma.usuario.findUnique({
       where: { id: userId },
-      include: {
-        microred: true
+      select: {
+        id: true,
+        dni: true,
+        nombres: true,
+        apellidos: true,
+        rolId: true,
+        microredId: true,
+        permisosExtra: true,
+        activo: true,
+        creadoEn: true,
+        microred: true,
+        rol: { select: { id: true, nombre: true } }
       }
     });
 
-    if (!usuario) {
-      return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
+    if (!usuario || !usuario.activo) {
+      return NextResponse.json({ error: 'Usuario no encontrado o inactivo' }, { status: usuario ? 403 : 404 });
     }
 
     // Buscamos si existe un Trabajador con el mismo DNI para traer sus licencias personales

@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/route';
 import { logger } from '@/core/logging/systemLogger';
+import { requireStaffAccess } from '@/core/auth/rbac';
 
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || (session.user as any)?.rol !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
-    }
+    const auth = await requireStaffAccess({
+      permisos: ['VER_AUDITORIA'],
+      allowMissingMicrored: true,
+    });
+    if (auth.errorResponse) return auth.errorResponse;
 
     const { searchParams } = new URL(request.url);
     const limite = Math.min(300, Math.max(10, Number(searchParams.get('limite')) || 100));
@@ -76,10 +76,9 @@ export async function GET(request: Request) {
  */
 export async function DELETE(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || (session.user as any)?.rol !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
-    }
+    const auth = await requireStaffAccess({ requireSuperAdmin: true });
+    if (auth.errorResponse) return auth.errorResponse;
+    const { ctx } = auth;
 
     const { searchParams } = new URL(request.url);
     const soloErrores = searchParams.get('soloErrores') === 'true';
@@ -108,7 +107,7 @@ export async function DELETE(request: Request) {
     }
 
     await logger.info('SISTEMA', 'DEPURACION_LOGS', `Se han purgado ${deletedCount} registros antiguos de la bitácora`, {
-      usuarioId: (session.user as any)?.id
+      usuarioId: ctx.userId
     });
 
     return NextResponse.json({ ok: true, eliminados: deletedCount });

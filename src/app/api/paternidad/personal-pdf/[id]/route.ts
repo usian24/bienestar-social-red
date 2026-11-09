@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
+import { canAccessWorkerMicrored, requireStaffAccess } from '@/core/auth/rbac';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireStaffAccess({
+      permisos: ['VER_LICENCIAS', 'GESTIONAR_LICENCIAS', 'VER_REPORTES', 'EXPORTAR_PDF_TRAMITE'],
+    });
+    if (auth.errorResponse) return auth.errorResponse;
+    const { ctx } = auth;
+
     const resolvedParams = await params;
     const { id } = resolvedParams;
 
@@ -21,6 +28,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     if (!trabajador) {
       return NextResponse.json({ error: 'Trabajador no encontrado' }, { status: 404 });
+    }
+
+    if (!canAccessWorkerMicrored(ctx, trabajador.establecimiento?.microredId)) {
+      return NextResponse.json({ error: 'No tiene permisos para acceder a trabajadores de otra microred' }, { status: 403 });
     }
 
     let totalDiasGlobal = 0;

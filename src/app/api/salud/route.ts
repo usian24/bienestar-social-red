@@ -1,17 +1,14 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/route';
+import { requireStaffAccess } from '@/core/auth/rbac';
 
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
-
-    const isSuperAdmin = (session.user as any)?.rol === 'SUPER_ADMIN';
-    const userMicroredId = (session.user as any)?.microredId;
+    const auth = await requireStaffAccess({
+      permisos: ['VER_LICENCIAS', 'GESTIONAR_LICENCIAS'],
+    });
+    if (auth.errorResponse) return auth.errorResponse;
+    const { ctx } = auth;
 
     // Filtro base: Trabajadores con licencias de SALUD (Enfermedad o Accidente) o LEY_30012
     const whereClause: any = {
@@ -23,9 +20,9 @@ export async function GET(request: Request) {
     };
 
     // Si NO es SUPER_ADMIN, restringir obligatoriamente a su Microred asignada
-    if (!isSuperAdmin && userMicroredId) {
+    if (!ctx.isSuperAdmin && ctx.microredId) {
       whereClause.establecimiento = {
-        microredId: Number(userMicroredId)
+        microredId: ctx.microredId
       };
     }
 

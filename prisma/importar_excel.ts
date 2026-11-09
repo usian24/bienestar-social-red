@@ -4,6 +4,11 @@ import * as xlsx from 'xlsx';
 const prisma = new PrismaClient();
 
 async function main() {
+  if (!process.argv.includes('--confirm-wipe')) {
+    console.error('ABORTADO: Este script borra TODA la base de datos operativa antes de importar.');
+    console.error('Ejecuta explícitamente con: npx tsx prisma/importar_excel.ts --confirm-wipe');
+    process.exit(1);
+  }
   console.log('Iniciando importación masiva...');
 
   // 1. Limpiar base de datos (excepto Usuarios)

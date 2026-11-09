@@ -1,39 +1,22 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/route';
+import { requireStaffAccess } from '@/core/auth/rbac';
 
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !(session.user as any)?.id) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
+    const auth = await requireStaffAccess();
+    if (auth.errorResponse) return auth.errorResponse;
+    const { ctx } = auth;
 
     const { searchParams } = new URL(request.url);
     const microredId = searchParams.get('microredId');
-
-    const user = session.user as any;
-    const isSuperAdmin = user.rol === 'SUPER_ADMIN';
-    let userMicroredId = user.microredId;
-
-    // Si por algún motivo no vino en session pero existe en DB, resolverlo mediante su DNI
-    if (!userMicroredId && !isSuperAdmin && user.email) {
-      const dbUser = await prisma.usuario.findUnique({
-        where: { dni: user.email },
-        select: { microredId: true }
-      });
-      if (dbUser?.microredId) {
-        userMicroredId = dbUser.microredId;
-      }
-    }
 
     // Construir where clause
     const whereClause: any = {
       origen: 'PARTICULAR'
     };
 
-    if (isSuperAdmin) {
+    if (ctx.isSuperAdmin) {
       if (microredId && microredId !== 'TODAS') {
         whereClause.trabajador = {
           establecimiento: {
@@ -41,11 +24,11 @@ export async function GET(request: Request) {
           }
         };
       }
-    } else if (userMicroredId) {
+    } else if (ctx.microredId) {
       // SEDE_ADMIN o cualquier rol no-superadmin: Restringir obligatoriamente a su microred asignada
       whereClause.trabajador = {
         establecimiento: {
-          microredId: Number(userMicroredId)
+          microredId: ctx.microredId
         }
       };
     }

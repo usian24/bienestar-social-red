@@ -1,17 +1,15 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/route';
 import bcrypt from 'bcryptjs';
+import { requireStaffAccess } from '@/core/auth/rbac';
 
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    const isAdmin = (session?.user as any)?.rol === 'SUPER_ADMIN';
-    const canManage = (session?.user as any)?.permisos?.includes('ADMINISTRAR_USUARIOS');
-    if (!session || (!isAdmin && !canManage)) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
-    }
+    const auth = await requireStaffAccess({
+      permisos: ['ADMINISTRAR_USUARIOS'],
+      allowMissingMicrored: true,
+    });
+    if (auth.errorResponse) return auth.errorResponse;
 
     const usuarios = await prisma.usuario.findMany({
       select: {
@@ -39,18 +37,41 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    const isAdmin = (session?.user as any)?.rol === 'SUPER_ADMIN';
-    const canManage = (session?.user as any)?.permisos?.includes('ADMINISTRAR_USUARIOS');
-    if (!session || (!isAdmin && !canManage)) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
-    }
+    const auth = await requireStaffAccess({
+      permisos: ['ADMINISTRAR_USUARIOS'],
+      allowMissingMicrored: true,
+    });
+    if (auth.errorResponse) return auth.errorResponse;
+    const { ctx } = auth;
 
     const body = await request.json();
     const { dni, nombres, apellidos, password, rolId, microredId, permisosExtra } = body;
 
     if (!dni || !nombres || !apellidos || !password || !rolId) {
       return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
+    }
+
+    const rolDestino = await prisma.rol.findUnique({ where: { id: rolId } });
+    if (!rolDestino) {
+      return NextResponse.json({ error: 'El rol especificado no existe' }, { status: 400 });
+    }
+
+    if (!ctx.isSuperAdmin && rolDestino.nombre === 'SUPER_ADMIN') {
+      return NextResponse.json(
+        { error: 'Solo un SUPER_ADMIN puede crear usuarios con rol SUPER_ADMIN.' },
+        { status: 403 }
+      );
+    }
+
+    const extraSanitized: string[] = Array.isArray(permisosExtra)
+      ? permisosExtra.filter((p): p is string => typeof p === 'string')
+      : [];
+
+    if (!ctx.isSuperAdmin && extraSanitized.some((p) => !ctx.permisos.includes(p))) {
+      return NextResponse.json(
+        { error: 'No puede asignar permisos extra que usted no posee.' },
+        { status: 403 }
+      );
     }
 
     // Verificar si el DNI ya existe
@@ -68,7 +89,7 @@ export async function POST(request: Request) {
         apellidos,
         passwordHash,
         rolId: rolId,
-        permisosExtra: permisosExtra || [],
+        permisosExtra: extraSanitized,
         microredId: microredId ? Number(microredId) : null
       },
       select: {
@@ -84,7 +105,7 @@ export async function POST(request: Request) {
 
     await prisma.auditoria.create({
       data: {
-        usuarioId: (session.user as any).id,
+        usuarioId: ctx.userId,
         accion: 'CREAR',
         modulo: 'USUARIO',
         entidadId: nuevoUsuario.id,

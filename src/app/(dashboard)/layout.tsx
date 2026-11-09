@@ -20,8 +20,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [logoError, setLogoError] = useState(false);
   const [alertCount, setAlertCount] = useState(0);
   
-  const { data: session } = useSession();
-  const rol = (session?.user as any)?.rol || 'CONSULTA';
+  const { data: session, status } = useSession();
+  const sessionRol = (session?.user as any)?.rol as string | undefined;
+  const rol = sessionRol || 'CONSULTA';
   const permisos = (session?.user as any)?.permisos || [];
   const isSuperAdmin = rol === 'SUPER_ADMIN';
   const pathname = usePathname();
@@ -35,12 +36,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // Al cargar la app, comprobar si ya está en dark mode
     const isDark = document.documentElement.classList.contains('dark');
     setDarkMode(isDark);
-    
-    // Fetch alertas
-    fetch('/api/alertas').then(res => res.json()).then(data => {
-      if(Array.isArray(data)) setAlertCount(data.length);
-    }).catch(e => console.error(e));
   }, []);
+
+  useEffect(() => {
+    if (status === 'authenticated' && sessionRol && sessionRol !== 'TRABAJADOR') {
+      fetch('/api/alertas')
+        .then(res => (res.ok ? res.json() : []))
+        .then(data => {
+          if (Array.isArray(data)) setAlertCount(data.length);
+        })
+        .catch(e => console.error(e));
+    }
+  }, [status, sessionRol]);
 
   // En móvil cerrar el sidebar al navegar entre páginas
   useEffect(() => {
@@ -582,12 +589,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block"></div>
             
             {/* Campana de Alertas */}
-            <Link href="/inicio" className="relative p-1.5 sm:p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
-              <Bell className="w-5 h-5" />
-              {alertCount > 0 && (
-                <span className="absolute top-1 right-1.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white dark:border-slate-900"></span>
-              )}
-            </Link>
+            {rol !== 'TRABAJADOR' && (
+              <Link href="/inicio" className="relative p-1.5 sm:p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                <Bell className="w-5 h-5" />
+                {alertCount > 0 && (
+                  <span className="absolute top-1 right-1.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+                )}
+              </Link>
+            )}
             
             {/* Toggle Tema Claro/Oscuro */}
             <button 

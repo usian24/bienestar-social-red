@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/route';
 import fs from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
 import util from 'util';
+import { requireStaffAccess } from '@/core/auth/rbac';
 
 const execPromise = util.promisify(exec);
 
@@ -13,14 +12,11 @@ const PYTHON_PATH = path.join(process.cwd(), '.venv', 'Scripts', 'python.exe');
 const TRAIN_SCRIPT = path.join(process.cwd(), 'ml_engine', 'train_all_models.py');
 const EXTRACT_SCRIPT = path.join(process.cwd(), 'ml_engine', 'extract_from_db.js');
 
-import prisma from '@/core/db/prisma';
-
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
+    const auth = await requireStaffAccess();
+    if (auth.errorResponse) return auth.errorResponse;
+    const { ctx } = auth;
 
     if (!fs.existsSync(INSIGHTS_PATH)) {
       return NextResponse.json({
@@ -32,31 +28,21 @@ export async function GET(request: Request) {
     const fileContent = fs.readFileSync(INSIGHTS_PATH, 'utf-8');
     const data = JSON.parse(fileContent);
 
-    const user = session.user as any;
-    const rol = user?.rol;
-    const esSuperAdmin = rol === 'SUPER_ADMIN' || rol === 'ADMIN';
+    const esSuperAdmin = ctx.isSuperAdmin;
     const { searchParams } = new URL(request.url);
     const requestedMicrored = searchParams.get('microred');
 
     // Resolver microred oficial del usuario si no es SuperAdmin
-    let userMicroredNombre = user?.microredNombre;
-    if (!esSuperAdmin) {
-      if (!userMicroredNombre && user?.id) {
-        const dbUser = await prisma.usuario.findFirst({
-          where: { OR: [{ id: user.id }, { dni: user.email }] },
-          include: { microred: true }
-        });
-        if (dbUser?.microred?.nombre) {
-          userMicroredNombre = dbUser.microred.nombre;
-        }
-      }
-    }
+    const userMicroredNombre = ctx.microredNombre;
 
     // Determinamos la microred objetivo:
-    // Si no es SuperAdmin, forzamos obligatoriamente su microred asignada.
-    // Si es SuperAdmin, permitimos filtrar por query param si se solicita.
-    const microredFiltro = (!esSuperAdmin && userMicroredNombre) 
-      ? userMicroredNombre 
+    // Si no es SuperAdmin, forzamos obligatoriamente su microred asignada (fail-closed si faltara).
+    if (!esSuperAdmin && !userMicroredNombre) {
+      return NextResponse.json({ error: 'Su cuenta no tiene una microred asignada.' }, { status: 403 });
+    }
+
+    const microredFiltro = !esSuperAdmin
+      ? userMicroredNombre
       : (requestedMicrored && requestedMicrored !== 'TODAS' ? requestedMicrored : null);
 
     data.esSuperAdmin = esSuperAdmin;
@@ -129,15 +115,8 @@ export async function GET(request: Request) {
 
 export async function POST() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
-
-    const rol = (session.user as any)?.rol;
-    if (rol !== 'SUPER_ADMIN' && rol !== 'ADMIN') {
-      return NextResponse.json({ error: 'Permisos insuficientes para re-entrenar modelos' }, { status: 403 });
-    }
+    const auth = await requireStaffAccess({ requireSuperAdmin: true });
+    if (auth.errorResponse) return auth.errorResponse;
 
     console.log('[ML API] Extrayendo datos frescos de PostgreSQL...');
     await execPromise(`node "${EXTRACT_SCRIPT}"`);

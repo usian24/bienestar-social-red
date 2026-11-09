@@ -13,7 +13,7 @@ import MLMiniCard from '@/shared/components/MLMiniCard';
 import DetallesTrabajadorModal from '@/shared/components/DetallesTrabajadorModal';
 
 export default function InicioPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const rol = (session?.user as any)?.rol;
   const isSuperAdmin = rol === 'SUPER_ADMIN';
   const userMicroredNombre = (session?.user as any)?.microredNombre;
@@ -65,8 +65,18 @@ export default function InicioPage() {
       }
     }
     loadChangelog();
-    loadData();
   }, []);
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      if (rol && rol !== 'TRABAJADOR') {
+        loadData();
+      } else {
+        setLoadingKpis(false);
+        setLoadingAlertas(false);
+      }
+    }
+  }, [status, rol]);
 
   const handleVerExpediente = (alerta: any) => {
     const trabajador = alerta.trabajador || {};

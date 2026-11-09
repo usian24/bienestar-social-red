@@ -1,18 +1,15 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/route';
+import { requireStaffAccess } from '@/core/auth/rbac';
 
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    const isAdmin = (session?.user as any)?.rol === 'SUPER_ADMIN';
-    const canManage = (session?.user as any)?.permisos?.includes('VER_LOGS');
-    
-    if (!session || (!isAdmin && !canManage)) {
-      return NextResponse.json({ error: 'Acceso Denegado: Se requieren permisos de desarrollador.' }, { status: 403 });
-    }
+    const auth = await requireStaffAccess({
+      permisos: ['VER_LOGS'],
+      allowMissingMicrored: true,
+    });
+    if (auth.errorResponse) return auth.errorResponse;
 
     const logFile = path.join(process.cwd(), 'storage_vol', 'logs', 'system.log');
     

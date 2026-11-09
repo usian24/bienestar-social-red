@@ -1,17 +1,15 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../auth/[...nextauth]/route';
+import { canAccessWorkerMicrored, requireStaffAccess } from '@/core/auth/rbac';
 
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !(session.user as any)?.id) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
+    const auth = await requireStaffAccess({ requireSuperAdmin: true });
+    if (auth.errorResponse) return auth.errorResponse;
+    const { ctx } = auth;
 
     const resolvedParams = await params;
     const { id } = resolvedParams;
@@ -21,22 +19,23 @@ export async function DELETE(
     }
 
     const licencia = await prisma.licencia.findUnique({ where: { id } });
+    if (!licencia) {
+      return NextResponse.json({ error: 'Licencia no encontrada' }, { status: 404 });
+    }
 
     await prisma.licencia.delete({
       where: { id }
     });
 
-    if (licencia) {
-      await prisma.auditoria.create({
-        data: {
-          usuarioId: (session.user as any).id,
-          accion: 'ELIMINAR',
-          modulo: 'LICENCIA',
-          entidadId: id,
-          detalles: `Eliminó el certificado ${licencia.numeroCertificado} (${licencia.diasOtorgados} días)`
-        }
-      });
-    }
+    await prisma.auditoria.create({
+      data: {
+        usuarioId: ctx.userId,
+        accion: 'ELIMINAR',
+        modulo: 'LICENCIA',
+        entidadId: id,
+        detalles: `Eliminó el certificado ${licencia.numeroCertificado} (${licencia.diasOtorgados} días)`
+      }
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -50,14 +49,36 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !(session.user as any)?.id) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
+    const auth = await requireStaffAccess({
+      permisos: ['GESTIONAR_LICENCIAS', 'SUBIR_CITT'],
+    });
+    if (auth.errorResponse) return auth.errorResponse;
+    const { ctx } = auth;
 
     const resolvedParams = await params;
     const { id } = resolvedParams;
     
+    if (!id) {
+      return NextResponse.json({ error: 'Falta el ID de la licencia' }, { status: 400 });
+    }
+
+    const licenciaExistente = await prisma.licencia.findUnique({
+      where: { id },
+      include: {
+        trabajador: {
+          include: { establecimiento: true }
+        }
+      }
+    });
+
+    if (!licenciaExistente) {
+      return NextResponse.json({ error: 'Licencia no encontrada' }, { status: 404 });
+    }
+
+    if (!canAccessWorkerMicrored(ctx, licenciaExistente.trabajador?.establecimiento?.microredId)) {
+      return NextResponse.json({ error: 'Acceso denegado fuera de su microred asignada.' }, { status: 403 });
+    }
+
     const body = await request.json();
     const {
       tipoLicencia,
@@ -75,10 +96,6 @@ export async function PUT(
       familiarPaciente
     } = body;
 
-    if (!id) {
-      return NextResponse.json({ error: 'Falta el ID de la licencia' }, { status: 400 });
-    }
-
     const licenciaActualizada = await prisma.licencia.update({
       where: { id },
       data: {
@@ -93,25 +110,14 @@ export async function PUT(
         ...(archivoRuta !== undefined && { archivoRuta }),
         ...(medico !== undefined && { medico: medico ? String(medico).trim() : null }),
         ...(colegiatura !== undefined && { colegiatura: colegiatura ? String(colegiatura).trim() : null }),
-        ...(diagnostico !== undefined && { diagnostico: diagnostico ? String(diagnostico).trim() : null })
-      } as any
-    });
-
-    if (familiarPaciente !== undefined) {
-      try {
-        await prisma.$executeRawUnsafe(
-          `UPDATE "Licencia" SET "familiarPaciente" = $1 WHERE "id" = $2`,
-          familiarPaciente ? String(familiarPaciente).trim() : null,
-          id
-        );
-      } catch (errFam) {
-        console.warn('Aviso actualizando familiarPaciente:', errFam);
+        ...(diagnostico !== undefined && { diagnostico: diagnostico ? String(diagnostico).trim() : null }),
+        ...(familiarPaciente !== undefined && { familiarPaciente: familiarPaciente ? String(familiarPaciente).trim() : null })
       }
-    }
+    });
 
     await prisma.auditoria.create({
       data: {
-        usuarioId: (session.user as any).id,
+        usuarioId: ctx.userId,
         accion: 'EDITAR',
         modulo: 'LICENCIA',
         entidadId: id,

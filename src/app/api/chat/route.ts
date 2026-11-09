@@ -1,16 +1,17 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/route';
 import prisma from '@/core/db/prisma';
 import { puedeUsarChatbot } from '@/shared/utils/permisos';
 import { logger } from '@/core/logging/systemLogger';
+import { getAuthContext } from '@/core/auth/rbac';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../auth/[...nextauth]/route';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    const [ctx, session] = await Promise.all([getAuthContext(), getServerSession(authOptions)]);
+    if (!ctx) {
       return NextResponse.json({ error: 'No autorizado. Inicie sesión.' }, { status: 401 });
     }
 
@@ -21,23 +22,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Mensaje inválido' }, { status: 400 });
     }
 
-    const user = session.user as any;
-    const rol = user.rol || 'CONSULTA';
-    const permisos = user.permisos || [];
-    const dni = user.email || '';
-    const nombre = user.name || 'Servidor';
-    const userMicroredId = user.microredId;
-    const esSuperAdmin = rol === 'SUPER_ADMIN';
-    const esTrabajador = rol === 'TRABAJADOR';
+    const rol = ctx.rol || 'CONSULTA';
+    const permisos = ctx.permisos || [];
+    const dni = ctx.dni || '';
+    const nombre = (session?.user as any)?.name || 'Servidor';
+    const userMicroredId = ctx.microredId;
+    const esSuperAdmin = ctx.isSuperAdmin;
+    const esTrabajador = ctx.isTrabajador;
+    const userId = ctx.userId;
 
     // Resolver nombre oficial de la microred asignada para el contexto y las respuestas
-    let userMicroredNombre = user.microredNombre;
-    if (!userMicroredNombre && userMicroredId) {
-      const mr = await prisma.microred.findUnique({
-        where: { id: Number(userMicroredId) }
-      });
-      if (mr) userMicroredNombre = mr.nombre;
-    }
+    let userMicroredNombre = ctx.microredNombre;
     if (!userMicroredNombre) {
       userMicroredNombre = esSuperAdmin 
         ? 'Toda la Red de Salud Huánuco (Sede Central y 13 Microredes)' 
@@ -48,6 +43,12 @@ export async function POST(request: Request) {
     if (!puedeUsarChatbot(rol, permisos)) {
       return NextResponse.json({
         error: 'Acceso restringido. No tienes permisos asignados por el Administrador para utilizar el Asistente Virtual.'
+      }, { status: 403 });
+    }
+
+    if (!esSuperAdmin && !esTrabajador && !userMicroredId) {
+      return NextResponse.json({
+        error: 'Tu cuenta administrativa no tiene una microred asignada. Contacta al Súper Administrador.'
       }, { status: 403 });
     }
 
@@ -450,7 +451,7 @@ Instrucciones de Respuesta:
 
       if (!respuestaTexto) {
         await logger.advertencia('CHATBOT', 'FALLBACK_ACTIVADO', 'Ningún modelo de Gemini respondió a tiempo. Se activó el motor de contingencia institucional.', {
-          usuarioId: user.id,
+          usuarioId: userId,
           ruta: '/api/chat',
           metadata: { longitudMensaje: mensaje.length }
         });
@@ -481,7 +482,7 @@ Instrucciones de Respuesta:
       console.error('Error de conexión con Gemini:', apiError);
       await logger.error('CHATBOT', 'GEMINI_CONEXION_ERROR', 'Fallo de conexión o respuesta inválida con API de Gemini', {
         error: apiError,
-        usuarioId: user.id,
+        usuarioId: userId,
         ruta: '/api/chat'
       });
       return NextResponse.json({

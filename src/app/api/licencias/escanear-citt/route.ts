@@ -1,28 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../auth/[...nextauth]/route';
 import prisma from '@/core/db/prisma';
 import sharp from 'sharp';
+import { canAccessWorkerMicrored, requireStaffAccess } from '@/core/auth/rbac';
 
 export const dynamic = 'force-dynamic';
+
+const MAX_SCAN_BYTES = 15 * 1024 * 1024; // 15 MB
 
 export async function POST(req: NextRequest) {
   const inicioT = Date.now();
   console.log(`[OCR CITT] Petición POST recibida en el servidor. Verificando sesión...`);
   try {
-    // Protección contra bloqueos de NextAuth si la IP de red cambia
-    const sessionPromise = getServerSession(authOptions);
-    const timeoutPromise = new Promise<null>((_, reject) => 
-      setTimeout(() => reject(new Error('Auth timeout')), 4000)
-    );
-    const session = await Promise.race([sessionPromise, timeoutPromise]).catch((e) => {
-      console.warn('[OCR CITT] Aviso en getServerSession (timeout o error):', e.message);
-      return null;
+    const auth = await requireStaffAccess({
+      permisos: ['GESTIONAR_LICENCIAS', 'SUBIR_CITT', 'SUBIR_ARCHIVOS'],
     });
-
-    if (!session || !session.user) {
-      return NextResponse.json({ success: false, error: 'No autorizado. Inicie sesión.' }, { status: 401 });
-    }
+    if (auth.errorResponse) return auth.errorResponse;
+    const { ctx } = auth;
 
     let buffer: Buffer;
     let fileName = 'citt-scan.jpg';
@@ -57,6 +50,10 @@ export async function POST(req: NextRequest) {
 
       const bytes = await file.arrayBuffer();
       buffer = Buffer.from(bytes);
+    }
+
+    if (buffer.length <= 0 || buffer.length > MAX_SCAN_BYTES) {
+      return NextResponse.json({ success: false, error: 'El archivo excede el tamaño máximo permitido (15 MB) o está vacío.' }, { status: 400 });
     }
 
     // 1. Optimizar imagen en memoria con sharp (Redimensionamiento inteligente + realce de trazos para OCR)
@@ -456,16 +453,13 @@ Responde ÚNICAMENTE un objeto JSON válido con estas claves exactas.`;
     }
 
     // 5. Verificación de Seguridad y RBAC por Microred
-    const userRol = (session.user as any)?.rol;
-    const userMicroredId = (session.user as any)?.microredId ? Number((session.user as any).microredId) : null;
-    const userMicroredNombre = (session.user as any)?.microredNombre || 'Sede Local';
-    const isSuperAdmin = userRol === 'SUPER_ADMIN';
+    const userMicroredNombre = ctx.microredNombre || 'Sede Local';
 
     let bloqueadoPorMicrored = false;
     let mensajeMicrored = '';
 
-    if (trabajadorEncontrado && !isSuperAdmin && userMicroredId) {
-      if (trabajadorEncontrado.microredId && trabajadorEncontrado.microredId !== userMicroredId) {
+    if (trabajadorEncontrado && !ctx.isSuperAdmin) {
+      if (!canAccessWorkerMicrored(ctx, trabajadorEncontrado.microredId)) {
         bloqueadoPorMicrored = true;
         mensajeMicrored = `Este servidor pertenece a la microred "${trabajadorEncontrado.microred}". Tu cuenta sólo tiene permisos para gestionar personal de la microred "${userMicroredNombre}". Solo el Super Admin puede registrar descansos médicos de otras sedes.`;
       }
@@ -483,8 +477,8 @@ Responde ÚNICAMENTE un objeto JSON válido con estas claves exactas.`;
 
     return NextResponse.json({
       success: true,
-      datos: datosExtraidos,
-      trabajador: trabajadorEncontrado,
+      datos: bloqueadoPorMicrored ? null : datosExtraidos,
+      trabajador: bloqueadoPorMicrored ? null : trabajadorEncontrado,
       bloqueadoPorMicrored,
       mensajeMicrored,
       microredTrabajador: trabajadorEncontrado?.microred || null,

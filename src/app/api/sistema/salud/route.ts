@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../auth/[...nextauth]/route';
 import { logger } from '@/core/logging/systemLogger';
+import { requireStaffAccess } from '@/core/auth/rbac';
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || (session.user as any)?.rol !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
-    }
+    const auth = await requireStaffAccess({
+      permisos: ['VER_AUDITORIA'],
+      allowMissingMicrored: true,
+    });
+    if (auth.errorResponse) return auth.errorResponse;
 
     // 1. Diagnóstico de Base de Datos PostgreSQL
     let dbStatus: 'ONLINE' | 'LENTO' | 'OFFLINE' = 'ONLINE';
@@ -121,17 +121,16 @@ export async function GET() {
  */
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || (session.user as any)?.rol !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
-    }
+    const auth = await requireStaffAccess({ requireSuperAdmin: true });
+    if (auth.errorResponse) return auth.errorResponse;
+    const { ctx } = auth;
 
     const body = await request.json().catch(() => ({}));
     const tipo = body.tipo || 'PRUEBA';
 
     if (tipo === 'ERROR_TEST') {
       await logger.error('SISTEMA', 'SIMULACION_ERROR', 'Simulación de prueba generada por el Administrador para verificar observabilidad', {
-        usuarioId: (session.user as any)?.id,
+        usuarioId: ctx.userId,
         ruta: '/api/sistema/salud',
         metadata: {
           nota: 'Este es un error simulado para validar que la bitácora de fallas está capturando eventos en tiempo real.',
@@ -142,7 +141,7 @@ export async function POST(request: Request) {
     }
 
     await logger.info('SISTEMA', 'PING_DIAGNOSTICO', 'Prueba de pulso y diagnóstico completada exitosamente.', {
-      usuarioId: (session.user as any)?.id,
+      usuarioId: ctx.userId,
       ruta: '/api/sistema/salud'
     });
 

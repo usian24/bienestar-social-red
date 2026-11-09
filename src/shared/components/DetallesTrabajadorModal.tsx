@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Pencil, Trash2, Calendar, FileText, User, Clock, Loader2 } from 'lucide-react';
 import NuevoCittModal from './NuevoCittModal';
 import { useSession } from 'next-auth/react';
+import { tienePermiso } from '@/shared/utils/permisos';
 
 interface DetallesTrabajadorModalProps {
   isOpen: boolean;
@@ -186,12 +187,14 @@ export default function DetallesTrabajadorModal({ isOpen, onClose, trabajadorInf
                             
                             {/* Acciones integradas en el mini documento */}
                             <div className="flex gap-2">
-                              <button 
-                                onClick={() => setLicenciaEditando(lic)}
-                                className="px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-blue-100 hover:text-blue-700 rounded-md transition-colors flex items-center gap-1.5 border border-slate-200"
-                              >
-                                <Pencil className="w-3.5 h-3.5" /> Editar
-                              </button>
+                              {tienePermiso((session?.user as any)?.permisos || [], (session?.user as any)?.rol || '', 'GESTIONAR_LICENCIAS') && (
+                                <button 
+                                  onClick={() => setLicenciaEditando(lic)}
+                                  className="px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-blue-100 hover:text-blue-700 rounded-md transition-colors flex items-center gap-1.5 border border-slate-200"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" /> Editar
+                                </button>
+                              )}
                               {(session?.user as any)?.rol === 'SUPER_ADMIN' && (
                                 <button 
                                   onClick={() => handleDelete(lic.id)}
@@ -245,7 +248,7 @@ export default function DetallesTrabajadorModal({ isOpen, onClose, trabajadorInf
                                   <User className="w-3.5 h-3.5" />
                                   <span>
                                     Subido por: <strong className="text-slate-700 dark:text-slate-300 uppercase">{lic.registradoPor?.nombres || 'Administrador'} {lic.registradoPor?.apellidos || ''}</strong> 
-                                    {lic.registradoPor?.microred?.nombre ? ` (${lic.registradoPor.microred.nombre})` : (lic.registradoPor?.rol ? ` (${lic.registradoPor.rol})` : '')}
+                                    {lic.registradoPor?.microred?.nombre ? ` (${lic.registradoPor.microred.nombre})` : (lic.registradoPor?.rol?.nombre || lic.registradoPor?.rol ? ` (${typeof lic.registradoPor.rol === 'string' ? lic.registradoPor.rol : lic.registradoPor.rol.nombre})` : '')}
                                   </span>
                                 </div>
                                 {lic.creadoEn && (

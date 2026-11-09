@@ -1,26 +1,21 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/route';
+import { requireStaffAccess } from '@/core/auth/rbac';
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
+    const auth = await requireStaffAccess();
+    if (auth.errorResponse) return auth.errorResponse;
+    const { ctx } = auth;
 
-    const isSuperAdmin = (session.user as any)?.rol === 'SUPER_ADMIN';
-    const userMicroredId = (session.user as any)?.microredId;
-
-    // Filtros bases vacíos = todos
+    // Filtros bases vacíos = todos (solo para SUPER_ADMIN)
     const trabajadorWhere: any = {};
     const licenciaWhere: any = {};
 
-    // Si no es superadmin, restringir a su microred
-    if (!isSuperAdmin && userMicroredId) {
-      trabajadorWhere.establecimiento = { microredId: Number(userMicroredId) };
-      licenciaWhere.trabajador = { establecimiento: { microredId: Number(userMicroredId) } };
+    // Si no es superadmin, restringir obligatoriamente a su microred
+    if (!ctx.isSuperAdmin && ctx.microredId) {
+      trabajadorWhere.establecimiento = { microredId: ctx.microredId };
+      licenciaWhere.trabajador = { establecimiento: { microredId: ctx.microredId } };
     }
 
     // 1. Total de Trabajadores en su jurisdicción

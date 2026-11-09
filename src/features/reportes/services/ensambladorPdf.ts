@@ -25,12 +25,18 @@ export async function ensamblarExpedienteSubsidio(
   paginaPrincipal.drawText(`DÍAS ASUMIDOS POR LA RED (1-20): ${datosTrabajador.diasEmpleador}`, { x: 50, y: 600, size: 10 });
   paginaPrincipal.drawText(`DÍAS A RECUPERAR ANTE ESSALUD: ${datosTrabajador.diasSubsidiados}`, { x: 50, y: 580, size: 10 });
 
-  // 2. Fusionar Anexos (CITTs físicos guardados en el volumen)
-  const uploadsDir = path.join(process.cwd(), 'storage_vol');
+  // 2. Fusionar Anexos (CITTs físicos guardados en el volumen, con protección anti path-traversal)
+  const uploadsDir = path.resolve(process.cwd(), 'storage_vol');
 
   for (const rutaRelativa of rutasArchivosLocales) {
     try {
-      const rutaAbsoluta = path.join(uploadsDir, rutaRelativa);
+      const limpia = String(rutaRelativa || '').replace(/^\/+/, '');
+      if (!limpia || limpia.includes('\0')) continue;
+      const rutaAbsoluta = path.resolve(uploadsDir, limpia);
+      if (!rutaAbsoluta.startsWith(uploadsDir + path.sep)) {
+        console.warn(`Ruta fuera de storage_vol rechazada: ${rutaRelativa}`);
+        continue;
+      }
       const archivoBuffer = await fs.readFile(rutaAbsoluta);
       
       const pdfAnexo = await PDFDocument.load(archivoBuffer);

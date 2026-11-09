@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
 import ExcelJS from 'exceljs';
 import { logger } from '@/core/logging/systemLogger';
+import { requireStaffAccess } from '@/core/auth/rbac';
 
 function splitIntoMonths(inicioStr: string, finStr: string) {
   const chunks = [];
@@ -44,6 +45,12 @@ function getPeruDateString(dbDate: Date) {
 }
 
 export async function GET(request: Request) {
+  const auth = await requireStaffAccess({
+    permisos: ['VER_REPORTES', 'EXPORTAR_EXCEL_MASIVO', 'EXPORTAR_EXCEL_PERSONAL'],
+  });
+  if (auth.errorResponse) return auth.errorResponse;
+  const { ctx } = auth;
+
   const { searchParams } = new URL(request.url);
   const microredNombre = searchParams.get('microred');
   const establecimientoNombre = searchParams.get('establecimiento');
@@ -81,7 +88,9 @@ export async function GET(request: Request) {
 
   try {
     const whereClause: any = {};
-    if (microredNombre && microredNombre !== 'Todas') {
+    if (!ctx.isSuperAdmin) {
+      whereClause.establecimiento = { microredId: ctx.microredId! };
+    } else if (microredNombre && microredNombre !== 'Todas') {
       whereClause.establecimiento = { microred: { nombre: microredNombre } };
     }
     if (establecimientoNombre && establecimientoNombre !== '--Todos--') {
@@ -454,6 +463,7 @@ export async function GET(request: Request) {
     console.error('Error generando Excel Masivo:', error);
     await logger.error('EXCEL_IMPORT', 'GENERAR_EXCEL_MASIVO_ERROR', 'Fallo al procesar o exportar Excel Masivo de Salud', {
       error,
+      usuarioId: ctx.userId,
       ruta: '/api/salud/excel-masivo'
     });
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });

@@ -1,23 +1,30 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../auth/[...nextauth]/route';
+import { hasAnyPermission, requireStaffAccess } from '@/core/auth/rbac';
 
 export async function GET(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    const auth = await requireStaffAccess({
+      permisos: ['VER_TRABAJADORES', 'EDITAR_TRABAJADORES', 'GESTIONAR_LICENCIAS', 'SUBIR_CITT', 'ADMINISTRAR_USUARIOS'],
+      allowMissingMicrored: true,
+    });
+    if (auth.errorResponse) return auth.errorResponse;
+    const { ctx } = auth;
+
+    if (!ctx.isSuperAdmin && !ctx.microredId && !hasAnyPermission(ctx, ['ADMINISTRAR_USUARIOS'])) {
+      return NextResponse.json(
+        { error: 'Su cuenta no tiene una microred asignada. Contacte al Súper Administrador.' },
+        { status: 403 }
+      );
     }
 
     const { searchParams } = new URL(request.url);
     const q = searchParams.get('q') || '';
     const condicion = searchParams.get('condicion') || '';
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const limit = parseInt(searchParams.get('limit') || '10', 10);
-
-    const isSuperAdmin = (session.user as any)?.rol === 'SUPER_ADMIN';
-    const userMicroredId = (session.user as any)?.microredId;
+    const pageRaw = parseInt(searchParams.get('page') || '1', 10);
+    const limitRaw = parseInt(searchParams.get('limit') || '10', 10);
+    const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? pageRaw : 1;
+    const limit = Number.isFinite(limitRaw) ? Math.min(100, Math.max(1, limitRaw)) : 10;
 
     const whereClause: any = {};
 
@@ -33,16 +40,16 @@ export async function GET(request: Request) {
       whereClause.condicionLaboral = condicion;
     }
 
-    if (!isSuperAdmin && userMicroredId) {
+    if (!ctx.isSuperAdmin && ctx.microredId) {
       whereClause.establecimiento = {
-        microredId: Number(userMicroredId)
+        microredId: ctx.microredId
       };
     }
 
     const whereJurisdiccion: any = {};
-    if (!isSuperAdmin && userMicroredId) {
+    if (!ctx.isSuperAdmin && ctx.microredId) {
       whereJurisdiccion.establecimiento = {
-        microredId: Number(userMicroredId)
+        microredId: ctx.microredId
       };
     }
 

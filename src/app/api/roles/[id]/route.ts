@@ -1,17 +1,11 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../auth/[...nextauth]/route';
+import { requireStaffAccess } from '@/core/auth/rbac';
 
 export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const session = await getServerSession(authOptions);
-    const isAdmin = (session?.user as any)?.rol === 'SUPER_ADMIN';
-    const canManage = (session?.user as any)?.permisos?.includes('ADMINISTRAR_USUARIOS');
-    
-    if (!session || (!isAdmin && !canManage)) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
-    }
+    const auth = await requireStaffAccess({ requireSuperAdmin: true });
+    if (auth.errorResponse) return auth.errorResponse;
 
     const body = await request.json();
     const { nombre, descripcion, permisos } = body;
@@ -24,13 +18,16 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     // Se permite al Super Admin modificar sus poderes asignados (permisos) y descripción,
     // pero se resguarda su nombre clave interno para no romper la arquitectura del sistema.
     const nuevoNombre = rol.esFijo ? rol.nombre : (nombre ? nombre.toUpperCase().trim() : undefined);
+    if (!rol.esFijo && nuevoNombre === 'SUPER_ADMIN') {
+      return NextResponse.json({ error: 'No se puede renombrar un rol a SUPER_ADMIN' }, { status: 400 });
+    }
 
     const updated = await prisma.rol.update({
       where: { id },
       data: {
         nombre: nuevoNombre,
         descripcion,
-        permisos: Array.isArray(permisos) ? permisos : []
+        permisos: Array.isArray(permisos) ? permisos.filter((p): p is string => typeof p === 'string') : []
       }
     });
 
@@ -43,13 +40,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
 
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const session = await getServerSession(authOptions);
-    const isAdmin = (session?.user as any)?.rol === 'SUPER_ADMIN';
-    const canManage = (session?.user as any)?.permisos?.includes('ADMINISTRAR_USUARIOS');
-    
-    if (!session || (!isAdmin && !canManage)) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
-    }
+    const auth = await requireStaffAccess({ requireSuperAdmin: true });
+    if (auth.errorResponse) return auth.errorResponse;
 
     const { id } = await context.params;
     const rol = await prisma.rol.findUnique({ where: { id }, include: { _count: { select: { usuarios: true } } } });

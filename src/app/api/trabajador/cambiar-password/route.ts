@@ -45,20 +45,19 @@ export async function POST(request: Request) {
     // Buscar al usuario en la base de datos
     const user = await prisma.usuario.findUnique({
       where: { id: userId },
-      select: { id: true, dni: true, nombres: true, apellidos: true, passwordHash: true, rol: { select: { nombre: true } } }
+      select: { id: true, dni: true, nombres: true, apellidos: true, passwordHash: true, activo: true, rol: { select: { nombre: true } } }
     });
 
-    if (!user) {
-      return NextResponse.json({ error: 'Usuario no encontrado en el sistema.' }, { status: 404 });
+    if (!user || !user.activo) {
+      return NextResponse.json({ error: 'Usuario no encontrado o inactivo en el sistema.' }, { status: user ? 403 : 404 });
     }
 
-    // Validar contraseña actual con bcrypt (o fallback si fue legado)
-    let isActualValid = false;
-    if (user.passwordHash.startsWith('$2a$') || user.passwordHash.startsWith('$2b$')) {
-      isActualValid = await bcrypt.compare(passwordActual, user.passwordHash);
-    } else {
-      isActualValid = (passwordActual === user.passwordHash);
-    }
+    // Validar contraseña actual estrictamente con bcrypt
+    const isActualValid = Boolean(
+      user.passwordHash &&
+      (user.passwordHash.startsWith('$2a$') || user.passwordHash.startsWith('$2b$')) &&
+      (await bcrypt.compare(passwordActual, user.passwordHash))
+    );
 
     if (!isActualValid) {
       // Registrar intento fallido en los logs de seguridad del sistema (sin registrar la contraseña)

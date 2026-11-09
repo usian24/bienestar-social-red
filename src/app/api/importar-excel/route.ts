@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
 import { parsearMatrizAsistencias } from '@/features/licencias/services/lectorExcel';
-import prisma from '@/core/db/prisma';
+import { requireStaffAccess } from '@/core/auth/rbac';
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireStaffAccess({
+      permisos: ['GESTIONAR_LICENCIAS'],
+      requireSuperAdmin: true,
+    });
+    if (auth.errorResponse) return auth.errorResponse;
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
     

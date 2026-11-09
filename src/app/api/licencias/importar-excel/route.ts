@@ -1,18 +1,15 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../auth/[...nextauth]/route';
 import * as XLSX from 'xlsx';
+import { canAccessWorkerMicrored, requireStaffAccess } from '@/core/auth/rbac';
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    const isAdmin = (session?.user as any)?.rol === 'SUPER_ADMIN' || (session?.user as any)?.rol === 'SEDE_ADMIN';
-    const canManage = (session?.user as any)?.permisos?.includes('GESTIONAR_LICENCIAS');
-    
-    if (!session || (!isAdmin && !canManage)) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
-    }
+    const auth = await requireStaffAccess({
+      permisos: ['GESTIONAR_LICENCIAS', 'SUBIR_CITT'],
+    });
+    if (auth.errorResponse) return auth.errorResponse;
+    const { ctx } = auth;
 
     const formData = await request.formData();
     const files = formData.getAll('files') as File[];
@@ -47,11 +44,20 @@ export async function POST(request: Request) {
           if (!/^\d{8}$/.test(dniStr)) continue;
           
           const dni = dniStr;
-          // Buscar trabajador
-          const trabajador = await prisma.trabajador.findUnique({ where: { dni } });
+          // Buscar trabajador e incluir establecimiento para validar microred
+          const trabajador = await prisma.trabajador.findUnique({
+            where: { dni },
+            include: { establecimiento: true },
+          });
           if (!trabajador) {
             omitidosCount++;
             resultados.push({ file: file.name, dni, status: 'error', message: 'Trabajador no encontrado en BD' });
+            continue;
+          }
+
+          if (!canAccessWorkerMicrored(ctx, trabajador.establecimiento?.microredId)) {
+            omitidosCount++;
+            resultados.push({ file: file.name, dni, status: 'error', message: 'Trabajador pertenece a otra microred (acceso restringido)' });
             continue;
           }
 
@@ -129,7 +135,7 @@ export async function POST(request: Request) {
               diasOtorgados: dias,
               anioEjercicio: fechaInicio.getFullYear(),
               mesEjercicio: fechaInicio.getMonth() + 1,
-              registradoPorId: (session.user as any).id
+              registradoPorId: ctx.userId
             }
           });
 
