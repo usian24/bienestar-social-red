@@ -25,11 +25,23 @@ import {
 
 interface ProyeccionMes {
   mes: string;
+  mesAbrev?: string;
+  mesNum?: number;
   anio: number;
   diasSubsidioEstimados: number;
   rangoMin: number;
   rangoMax: number;
   montoEstimadoRecupero: number;
+}
+
+interface HistorialMes {
+  anio: number;
+  mesNum?: number;
+  mes: string;
+  mesAbrev?: string;
+  mesNombre?: string;
+  diasSubsidio: number;
+  totalDiasSalud?: number;
 }
 
 interface CasoAtipico {
@@ -43,8 +55,20 @@ interface CasoAtipico {
   motivoAlerta: string;
 }
 
+interface DistribucionRiesgoItem {
+  rango: string;
+  total: number;
+  pct: number;
+  nivel?: string;
+}
+
+interface FactorDecisionItem {
+  variable: string;
+  peso: number;
+}
+
 interface CertificadoRiesgo {
-  licenciaId: number;
+  licenciaId: string | number;
   dni: string;
   servidor: string;
   numeroCertificado: string;
@@ -61,6 +85,7 @@ interface MicroredDetalle {
   microred: string;
   totalPersonal: number;
   diasSaludTotales: number;
+  diasSubsidioReales?: number;
   tasaAusentismo: number;
   subsidioPorTrabajador: number;
   cluster: number;
@@ -109,17 +134,28 @@ interface ProyeccionMesOrigen {
 
 interface MLInsightsData {
   fechaEntrenamiento: string;
+  totalEstablecimientos?: number;
+  esSuperAdmin?: boolean;
+  usuarioMicrored?: string | null;
+  microredFiltroAplicado?: string | null;
+  cuotaMicroredAplicada?: number;
+  yaSegmentadoPorServidor?: boolean;
   modelo1_forecasting: {
+    algoritmoGanador?: string;
     metricas: { mae_dias: number; rmse_dias: number };
+    historialMensual?: HistorialMes[];
+    historialPorMicrored?: Record<string, HistorialMes[]>;
     proyeccionesProximosMeses: ProyeccionMes[];
   };
   modelo2_anomalias: {
     totalAnalizados: number;
     totalAtipicos: number;
+    distribucionRiesgo?: DistribucionRiesgoItem[];
     topCasosAtipicos: CasoAtipico[];
   };
   modelo3_riesgo_citt: {
     metricas: { recall: number; f1_score: number; roc_auc: number };
+    factoresDecision?: FactorDecisionItem[];
     recomendacion: string;
     topCertificadosRiesgo?: CertificadoRiesgo[];
   };
@@ -146,7 +182,7 @@ export default function MLDashboardCard() {
   const { data: session } = useSession();
   const user = session?.user as any;
   const rol = user?.rol;
-  const esSuperAdmin = rol === 'SUPER_ADMIN' || rol === 'ADMIN';
+  const esSuperAdmin = rol === 'SUPER_ADMIN';
   const userMicroredNombre = user?.microredNombre;
 
   const [data, setData] = useState<MLInsightsData | null>(null);
@@ -210,21 +246,64 @@ export default function MLDashboardCard() {
     return Array.from(set).sort();
   }, [data]);
 
-  // Microred seleccionada en clustering
-  const microredItemClustering = useMemo(() => {
-    if (filtroMicrored === 'TODAS' || !data?.modelo4_clustering?.microredesDetalle) return null;
-    return data.modelo4_clustering.microredesDetalle.find(m => matchMr(m.microred, filtroMicrored)) || null;
+  // Microred(s) seleccionada(s) en clustering (con suma sobre coincidencias exactas o normalizadas)
+  const microredItemsClustering = useMemo(() => {
+    if (filtroMicrored === 'TODAS' || !data?.modelo4_clustering?.microredesDetalle) return [];
+    return data.modelo4_clustering.microredesDetalle.filter((m) => matchMr(m.microred, filtroMicrored));
   }, [data, filtroMicrored]);
 
-  // Proporción de días para estimaciones de la microred
-  const totalDiasProvinciales = useMemo(() => {
-    if (!data?.modelo4_clustering?.microredesDetalle) return 1;
-    return data.modelo4_clustering.microredesDetalle.reduce((sum, m) => sum + (m.diasSaludTotales || 0), 0) || 1;
-  }, [data]);
+  // Proporción de días para estimaciones de microred cuando Súper Admin filtra en el cliente
+  // (Si el backend ya segmentó la respuesta para SEDE_ADMIN, NO volver a multiplicar para evitar doble escala)
+  const cuotaMicroredReal = useMemo(() => {
+    if (!data?.modelo4_clustering?.microredesDetalle || filtroMicrored === 'TODAS') return 1;
+    if (data.yaSegmentadoPorServidor) {
+      return typeof data.cuotaMicroredAplicada === 'number' ? data.cuotaMicroredAplicada : 1;
+    }
+    const detalles = data.modelo4_clustering.microredesDetalle;
+    const totalSubProv = detalles.reduce((s, m) => s + (m.diasSubsidioReales || 0), 0);
+    if (totalSubProv > 0) {
+      const mrSub = microredItemsClustering.reduce((s, m) => s + (m.diasSubsidioReales || 0), 0);
+      return mrSub / totalSubProv;
+    }
+    const totalSaludProv = detalles.reduce((s, m) => s + (m.diasSaludTotales || 0), 0);
+    if (totalSaludProv > 0) {
+      const mrSalud = microredItemsClustering.reduce((s, m) => s + (m.diasSaludTotales || 0), 0);
+      return mrSalud / totalSaludProv;
+    }
+    return 0;
+  }, [data, filtroMicrored, microredItemsClustering]);
 
-  const cuotaMicrored = microredItemClustering 
-    ? (microredItemClustering.diasSaludTotales / totalDiasProvinciales) 
-    : 1;
+  const cuotaCliente = data?.yaSegmentadoPorServidor || filtroMicrored === 'TODAS' ? 1 : cuotaMicroredReal;
+
+  const historialMensualFiltrado = useMemo(() => {
+    const base = data?.modelo1_forecasting?.historialMensual || [];
+    if (!data || data.yaSegmentadoPorServidor || filtroMicrored === 'TODAS') {
+      return base;
+    }
+    const porMr = data.modelo1_forecasting?.historialPorMicrored;
+    if (porMr) {
+      const matchingKeys = Object.keys(porMr).filter((k) => matchMr(k, filtroMicrored));
+      if (matchingKeys.length > 0 && base.length > 0) {
+        return base.map((bm, idx) => {
+          let sub = 0;
+          let salud = 0;
+          for (const k of matchingKeys) {
+            const entry = porMr[k]?.[idx];
+            if (entry) {
+              sub += entry.diasSubsidio || 0;
+              salud += entry.totalDiasSalud || 0;
+            }
+          }
+          return { ...bm, diasSubsidio: sub, totalDiasSalud: salud };
+        });
+      }
+    }
+    return base.map((bm) => ({
+      ...bm,
+      diasSubsidio: Math.round((bm.diasSubsidio || 0) * cuotaCliente),
+      totalDiasSalud: Math.round((bm.totalDiasSalud || 0) * cuotaCliente),
+    }));
+  }, [data, filtroMicrored, cuotaCliente]);
 
   // Casos atípicos filtrados (Modelo 2) - Estrictamente aislados a la microred para no-superadmin
   const casosAtipicosFiltrados = useMemo(() => {
@@ -235,6 +314,37 @@ export default function MLDashboardCard() {
     return data.modelo2_anomalias.topCasosAtipicos.filter(c => matchMr(c.microred, targetMr));
   }, [data, filtroMicrored, esSuperAdmin, userMicroredNombre]);
 
+  const totalAnalizadosVista = useMemo(() => {
+    if (!data?.modelo2_anomalias) return 0;
+    if (data.yaSegmentadoPorServidor || filtroMicrored === 'TODAS') {
+      return data.modelo2_anomalias.totalAnalizados || 0;
+    }
+    const pers = microredItemsClustering.reduce((s, m) => s + (m.totalPersonal || 0), 0);
+    return pers > 0 ? pers : (data.modelo2_anomalias.totalAnalizados || 0);
+  }, [data, filtroMicrored, microredItemsClustering]);
+
+  const distribucionRiesgoVista = useMemo<DistribucionRiesgoItem[]>(() => {
+    if (!data?.modelo2_anomalias) return [];
+    if (
+      (data.yaSegmentadoPorServidor || filtroMicrored === 'TODAS') &&
+      Array.isArray(data.modelo2_anomalias.distribucionRiesgo) &&
+      data.modelo2_anomalias.distribucionRiesgo.length > 0
+    ) {
+      return data.modelo2_anomalias.distribucionRiesgo;
+    }
+    const total = Math.max(1, totalAnalizadosVista);
+    const cntCrit = casosAtipicosFiltrados.filter((c) => c.scoreRiesgo >= 95).length;
+    const cntMod = casosAtipicosFiltrados.filter((c) => c.scoreRiesgo >= 80 && c.scoreRiesgo < 95).length;
+    const cntMon = casosAtipicosFiltrados.filter((c) => c.scoreRiesgo >= 60 && c.scoreRiesgo < 80).length;
+    const cntNorm = Math.max(0, total - cntCrit - cntMod - cntMon);
+    return [
+      { rango: 'Riesgo Normal (0% - 60%)', total: cntNorm, pct: Number(((cntNorm / total) * 100).toFixed(1)), nivel: 'normal' },
+      { rango: 'Bajo Monitoreo (60% - 80%)', total: cntMon, pct: Number(((cntMon / total) * 100).toFixed(1)), nivel: 'monitoreo' },
+      { rango: 'Alerta Moderada (80% - 94%)', total: cntMod, pct: Number(((cntMod / total) * 100).toFixed(1)), nivel: 'moderada' },
+      { rango: 'Alerta Crítica (95% - 100%)', total: cntCrit, pct: Number(((cntCrit / total) * 100).toFixed(1)), nivel: 'critica' },
+    ];
+  }, [data, filtroMicrored, totalAnalizadosVista, casosAtipicosFiltrados]);
+
   // Certificados en riesgo filtrados (Modelo 3) - Estrictamente aislados a la microred para no-superadmin
   const certificadosRiesgoFiltrados = useMemo(() => {
     if (!data?.modelo3_riesgo_citt?.topCertificadosRiesgo) return [];
@@ -244,22 +354,25 @@ export default function MLDashboardCard() {
     return data.modelo3_riesgo_citt.topCertificadosRiesgo.filter(c => matchMr(c.microred, targetMr));
   }, [data, filtroMicrored, esSuperAdmin, userMicroredNombre]);
 
-  // Establecimientos filtrados (Modelo 5)
-  const establecimientosFiltrados = useMemo(() => {
+  // Establecimientos base filtrados por microred y búsqueda (antes del filtro por alerta para badge "Todos")
+  const establecimientosBaseTab5 = useMemo(() => {
     if (!data?.modelo5_origen_canjes?.establecimientos) return [];
     let lista = data.modelo5_origen_canjes.establecimientos;
     if (filtroMicrored !== 'TODAS') {
       lista = lista.filter(e => matchMr(e.microred, filtroMicrored));
-    }
-    if (filtroAlertaEst !== 'TODOS') {
-      lista = lista.filter(e => e.alerta === filtroAlertaEst);
     }
     if (busquedaEst.trim()) {
       const q = busquedaEst.toLowerCase();
       lista = lista.filter(e => e.establecimiento.toLowerCase().includes(q) || e.microred.toLowerCase().includes(q));
     }
     return lista;
-  }, [data, filtroMicrored, filtroAlertaEst, busquedaEst]);
+  }, [data, filtroMicrored, busquedaEst]);
+
+  // Establecimientos filtrados (Modelo 5)
+  const establecimientosFiltrados = useMemo(() => {
+    if (filtroAlertaEst === 'TODOS') return establecimientosBaseTab5;
+    return establecimientosBaseTab5.filter(e => e.alerta === filtroAlertaEst);
+  }, [establecimientosBaseTab5, filtroAlertaEst]);
 
   const fetchInsights = async () => {
     setLoading(true);
@@ -351,7 +464,7 @@ export default function MLDashboardCard() {
             Centro de Inteligencia Analítica y Predictiva
           </h2>
           <p className="text-slate-500 text-xs mt-0.5">
-            Red de Salud Huánuco · 1,620 servidores · Actualizado: {data.fechaEntrenamiento}
+            Red de Salud Huánuco · {totalAnalizadosVista.toLocaleString()} servidores · Actualizado: {data.fechaEntrenamiento}
           </p>
         </div>
 
@@ -414,11 +527,21 @@ export default function MLDashboardCard() {
       {colapsado ? (
         <div className="px-5 py-3 sm:px-6 bg-slate-50/40 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
-            <span>Pronóstico: <strong className="text-slate-800">~107 días/mes</strong></span>
-            <span>Auditoría: <strong className="text-slate-800">{data.modelo2_anomalias.totalAtipicos} casos atípicos</strong></span>
-            <span>CITT: <strong className="text-slate-800">100% de captura</strong></span>
-            <span>Microredes: <strong className="text-slate-800">3 zonas</strong></span>
-            <span>Procedencia: <strong className="text-slate-800">63% EsSalud / 37% Part.</strong></span>
+            <span>
+              Pronóstico:{' '}
+              <strong className="text-slate-800">
+                ~{Math.round((data.modelo1_forecasting.proyeccionesProximosMeses?.[0]?.diasSubsidioEstimados ?? 0) * cuotaCliente)} días/mes
+              </strong>
+            </span>
+            <span>Auditoría: <strong className="text-slate-800">{casosAtipicosFiltrados.length} casos atípicos</strong></span>
+            <span>CITT: <strong className="text-slate-800">{data.modelo3_riesgo_citt.metricas.recall}% de captura</strong></span>
+            <span>Microredes: <strong className="text-slate-800">{data.modelo4_clustering.resumenClusters?.length || 3} zonas</strong></span>
+            <span>
+              Procedencia:{' '}
+              <strong className="text-slate-800">
+                {data.modelo5_origen_canjes?.metricas.pctGlobalEsSalud ?? 0}% EsSalud / {data.modelo5_origen_canjes?.metricas.pctGlobalParticular ?? 0}% Part.
+              </strong>
+            </span>
           </div>
           <button
             onClick={() => setColapsado(false)}
@@ -466,7 +589,7 @@ export default function MLDashboardCard() {
                   }}
                   className="bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-xs focus:ring-2 focus:ring-slate-400 focus:outline-none cursor-pointer"
                 >
-                  <option value="TODAS">Consolidado Provincial (Todas las 13 Microredes)</option>
+                  <option value="TODAS">Consolidado Provincial ({listaMicroredes.length} Microredes)</option>
                   {listaMicroredes.map((mr) => (
                     <option key={mr} value={mr}>
                       Microred: {mr}
@@ -619,7 +742,7 @@ export default function MLDashboardCard() {
                     </div>
                     <div>
                       <h4 className="font-semibold text-slate-900 text-sm flex flex-wrap items-center gap-2">
-                        <span>Modelo Predictivo de Series Temporales (Gradient Boosting)</span>
+                        <span>Modelo Predictivo de Series Temporales ({data.modelo1_forecasting.algoritmoGanador || 'Ridge / Gradient Boosting'})</span>
                         {filtroMicrored !== 'TODAS' && (
                           <span className="text-[11px] font-medium text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
                             Microred: {filtroMicrored}
@@ -628,7 +751,7 @@ export default function MLDashboardCard() {
                       </h4>
                       <p className="text-slate-500 text-xs">
                         {filtroMicrored !== 'TODAS'
-                          ? `Estimación focalizada de descansos y presupuesto para la ${filtroMicrored} basada en su cuota de ausentismo (${(cuotaMicrored * 100).toFixed(1)}% provincial).`
+                          ? `Estimación focalizada de descansos y presupuesto para ${filtroMicrored} basada en su cuota real de subsidios (${(cuotaMicroredReal * 100).toFixed(1)}% provincial).`
                           : 'Estima la demanda de licencias médicas subsidiadas (>20 días acumulados) y el presupuesto de recupero ante EsSalud en toda la Red.'}
                       </p>
                     </div>
@@ -643,18 +766,10 @@ export default function MLDashboardCard() {
                 {/* Tarjetas KPI de los Próximos Meses */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                   {data.modelo1_forecasting.proyeccionesProximosMeses.map((p, idx) => {
-                    const diasEstimados = filtroMicrored !== 'TODAS'
-                      ? Math.max(1, Math.round(p.diasSubsidioEstimados * cuotaMicrored))
-                      : p.diasSubsidioEstimados;
-                    const rangoMin = filtroMicrored !== 'TODAS'
-                      ? Math.max(1, Math.round(p.rangoMin * cuotaMicrored))
-                      : p.rangoMin;
-                    const rangoMax = filtroMicrored !== 'TODAS'
-                      ? Math.max(1, Math.round(p.rangoMax * cuotaMicrored))
-                      : p.rangoMax;
-                    const montoEstimado = filtroMicrored !== 'TODAS'
-                      ? Math.round(p.montoEstimadoRecupero * cuotaMicrored * 100) / 100
-                      : p.montoEstimadoRecupero;
+                    const diasEstimados = Math.round(p.diasSubsidioEstimados * cuotaCliente);
+                    const rangoMin = Math.round(p.rangoMin * cuotaCliente);
+                    const rangoMax = Math.round(p.rangoMax * cuotaCliente);
+                    const montoEstimado = Math.round(p.montoEstimadoRecupero * cuotaCliente * 100) / 100;
 
                     return (
                       <div
@@ -710,7 +825,7 @@ export default function MLDashboardCard() {
 
                 {/* GRÁFICOS REPRESENTATIVOS DEL MODELO 1 */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Gráfico 1: Demanda Histórica vs Proyecciones */}
+                  {/* Gráfico 1: Demanda Histórica Real vs Proyecciones */}
                   <div className="bg-slate-50/60 p-5 rounded-xl border border-slate-200">
                     <div className="flex items-center justify-between mb-4">
                       <div>
@@ -718,7 +833,7 @@ export default function MLDashboardCard() {
                           Demanda Mensual: Histórico vs Proyección
                         </h5>
                         <p className="text-[11px] text-slate-500">
-                          Días de licencias médicas subsidiadas por mes
+                          Días de subsidio EsSalud (&gt;20 días calendario) registrados y proyectados
                         </p>
                       </div>
                       <div className="flex items-center gap-3 text-[10px] text-slate-500">
@@ -727,49 +842,52 @@ export default function MLDashboardCard() {
                       </div>
                     </div>
 
-                    <div className="h-44 w-full flex items-end justify-between gap-1.5 sm:gap-2.5 px-1 border-b border-slate-200 pb-2">
-                      {[
-                        { mes: 'Ene', dias: 88, tipo: 'hist' },
-                        { mes: 'Feb', dias: 92, tipo: 'hist' },
-                        { mes: 'Mar', dias: 104, tipo: 'hist' },
-                        { mes: 'Abr', dias: 96, tipo: 'hist' },
-                        { mes: 'May', dias: 112, tipo: 'hist' },
-                        { mes: 'Jun', dias: 98, tipo: 'hist' },
-                        { mes: 'Jul', dias: 106, tipo: 'hist' },
-                        { mes: 'Ago', dias: 115, tipo: 'hist' },
-                        { mes: 'Set', dias: 102, tipo: 'hist' },
-                        { mes: 'Oct', dias: 105, tipo: 'hist' },
-                        { mes: 'Nov*', dias: data.modelo1_forecasting.proyeccionesProximosMeses[0]?.diasSubsidioEstimados || 107, tipo: 'pred' },
-                        { mes: 'Dic*', dias: data.modelo1_forecasting.proyeccionesProximosMeses[1]?.diasSubsidioEstimados || 107, tipo: 'pred' },
-                        { mes: 'Ene*', dias: data.modelo1_forecasting.proyeccionesProximosMeses[2]?.diasSubsidioEstimados || 108, tipo: 'pred' }
-                      ].map((item, idx) => {
-                        const maxHeight = 130;
-                        const heightPct = Math.round((item.dias / maxHeight) * 100);
-                        const isPred = item.tipo === 'pred';
+                    {(() => {
+                      const itemsGrafico = [
+                        ...historialMensualFiltrado.map((h) => ({
+                          mes: h.mesAbrev || h.mes.split(' ')[0],
+                          dias: h.diasSubsidio ?? 0,
+                          tipo: 'hist' as const,
+                        })),
+                        ...data.modelo1_forecasting.proyeccionesProximosMeses.map((p) => ({
+                          mes: `${p.mesAbrev || p.mes.slice(0, 3)}*`,
+                          dias: Math.round((p.diasSubsidioEstimados ?? 0) * cuotaCliente),
+                          tipo: 'pred' as const,
+                        })),
+                      ];
+                      const maxHeight = Math.max(10, ...itemsGrafico.map((x) => x.dias));
 
-                        return (
-                          <div key={idx} className="flex-1 flex flex-col items-center group relative h-full justify-end cursor-pointer">
-                            <div
-                              style={{ height: `${heightPct}%` }}
-                              className={`w-full rounded-t transition-all ${
-                                isPred ? 'bg-slate-900 hover:bg-slate-800' : 'bg-slate-300 hover:bg-slate-400'
-                              }`}
-                            />
-                            <span className={`text-[10px] mt-1.5 font-medium ${isPred ? 'text-slate-900 font-bold' : 'text-slate-500'}`}>
-                              {item.mes}
-                            </span>
-                            <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center z-50">
-                              <div className="bg-slate-900 text-white text-[10px] font-mono py-0.5 px-2 rounded shadow-md whitespace-nowrap">
-                                {item.mes}: {item.dias} días
+                      return (
+                        <div className="h-44 w-full flex items-end justify-between gap-1.5 sm:gap-2 px-1 border-b border-slate-200 pb-2">
+                          {itemsGrafico.map((item, idx) => {
+                            const heightPct = item.dias > 0 ? Math.max(5, Math.round((item.dias / maxHeight) * 100)) : 2;
+                            const isPred = item.tipo === 'pred';
+
+                            return (
+                              <div key={idx} className="flex-1 flex flex-col items-center group relative h-full justify-end cursor-pointer">
+                                <div
+                                  style={{ height: `${heightPct}%` }}
+                                  className={`w-full rounded-t transition-all ${
+                                    isPred ? 'bg-slate-900 hover:bg-slate-800' : 'bg-slate-300 hover:bg-slate-400'
+                                  }`}
+                                />
+                                <span className={`text-[10px] mt-1.5 font-medium ${isPred ? 'text-slate-900 font-bold' : 'text-slate-500'}`}>
+                                  {item.mes}
+                                </span>
+                                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center z-50">
+                                  <div className="bg-slate-900 text-white text-[10px] font-mono py-0.5 px-2 rounded shadow-md whitespace-nowrap">
+                                    {item.mes}: {item.dias} días
+                                  </div>
+                                  <div className="w-1 h-1 bg-slate-900 rotate-45 -mt-0.5" />
+                                </div>
                               </div>
-                              <div className="w-1 h-1 bg-slate-900 rotate-45 -mt-0.5" />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                     <div className="text-[10px] text-slate-400 text-center mt-2">
-                      * Proyección calculada con intervalo de confianza de 95%.
+                      * Proyección calculada sobre serie histórica real en PostgreSQL.
                     </div>
                   </div>
 
@@ -783,37 +901,55 @@ export default function MLDashboardCard() {
                         Reembolso esperado ante EsSalud por mes según costo diario promedio (S/ 78.50)
                       </p>
 
-                      <div className="space-y-3.5">
-                        {data.modelo1_forecasting.proyeccionesProximosMeses.map((p, idx) => {
-                          const maxBudget = 10000;
-                          const pct = Math.min(100, (p.montoEstimadoRecupero / maxBudget) * 100);
-                          return (
-                            <div key={idx} className="group relative cursor-pointer">
-                              <div className="flex items-center justify-between text-xs font-semibold mb-1">
-                                <span className="text-slate-700">{p.mes} {p.anio}</span>
-                                <span className="text-slate-900 font-mono font-bold">
-                                  S/ {p.montoEstimadoRecupero.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
-                                </span>
-                              </div>
-                              <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
-                                <div style={{ width: `${pct}%` }} className="h-full bg-slate-800 rounded-full transition-all" />
-                              </div>
-                              <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center z-50">
-                                <div className="bg-slate-900 text-white text-[10px] font-mono py-0.5 px-2 rounded shadow-md whitespace-nowrap">
-                                  S/ {p.montoEstimadoRecupero.toLocaleString('es-PE')} a recuperar
+                      {(() => {
+                        const proysMontos = data.modelo1_forecasting.proyeccionesProximosMeses.map((p) => ({
+                          mes: p.mes,
+                          anio: p.anio,
+                          monto: Math.round(p.montoEstimadoRecupero * cuotaCliente * 100) / 100,
+                        }));
+                        const maxBudget = Math.max(500, ...proysMontos.map((m) => m.monto * 1.15));
+
+                        return (
+                          <div className="space-y-3.5">
+                            {proysMontos.map((item, idx) => {
+                              const pct = Math.min(100, (item.monto / maxBudget) * 100);
+                              return (
+                                <div key={idx} className="group relative cursor-pointer">
+                                  <div className="flex items-center justify-between text-xs font-semibold mb-1">
+                                    <span className="text-slate-700">{item.mes} {item.anio}</span>
+                                    <span className="text-slate-900 font-mono font-bold">
+                                      S/ {item.monto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                                    </span>
+                                  </div>
+                                  <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
+                                    <div style={{ width: `${pct}%` }} className="h-full bg-slate-800 rounded-full transition-all" />
+                                  </div>
+                                  <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center z-50">
+                                    <div className="bg-slate-900 text-white text-[10px] font-mono py-0.5 px-2 rounded shadow-md whitespace-nowrap">
+                                      S/ {item.monto.toLocaleString('es-PE')} a recuperar
+                                    </div>
+                                    <div className="w-1 h-1 bg-slate-900 rotate-45 -mt-0.5" />
+                                  </div>
                                 </div>
-                                <div className="w-1 h-1 bg-slate-900 rotate-45 -mt-0.5" />
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     <div className="mt-4 p-3 bg-white rounded-lg border border-slate-200 flex items-center justify-between text-xs shadow-xs">
                       <span className="text-slate-600 font-medium">Total Proyectado Trimestre:</span>
                       <strong className="text-slate-900 font-bold font-mono">
-                        S/ {data.modelo1_forecasting.proyeccionesProximosMeses.reduce((acc, curr) => acc + curr.montoEstimadoRecupero, 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                        S/{' '}
+                        {(
+                          Math.round(
+                            data.modelo1_forecasting.proyeccionesProximosMeses.reduce(
+                              (acc, curr) => acc + curr.montoEstimadoRecupero * cuotaCliente,
+                              0
+                            ) * 100
+                          ) / 100
+                        ).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
                       </strong>
                     </div>
                   </div>
@@ -850,7 +986,7 @@ export default function MLDashboardCard() {
                     </div>
                   </div>
                   <div className="bg-white px-3 py-1.5 rounded-lg border border-slate-200 text-xs shadow-xs self-start sm:self-auto font-medium">
-                    {casosAtipicosFiltrados.length} observaciones {filtroMicrored !== 'TODAS' ? `en ${filtroMicrored}` : `de ${data.modelo2_anomalias.totalAnalizados} evaluados`}
+                    {casosAtipicosFiltrados.length} observaciones {filtroMicrored !== 'TODAS' ? `en ${filtroMicrored}` : `de ${totalAnalizadosVista.toLocaleString()} evaluados`}
                   </div>
                 </div>
 
@@ -862,34 +998,33 @@ export default function MLDashboardCard() {
                       Distribución de Riesgo en la Población Evaluada
                     </h5>
                     <p className="text-[11px] text-slate-500 mb-4">
-                      Segmentación de los 1,620 servidores evaluados según anomalía estadística
+                      Segmentación de los {totalAnalizadosVista.toLocaleString()} servidores evaluados según anomalía estadística
                     </p>
 
                     <div className="space-y-3">
-                      {[
-                        { rango: 'Riesgo Normal (0% - 60%)', total: 1510, pct: 93.2, color: 'bg-slate-400' },
-                        { rango: 'Bajo Monitoreo (60% - 80%)', total: 61, pct: 3.8, color: 'bg-slate-600' },
-                        { rango: 'Alerta Moderada (80% - 94%)', total: 35, pct: 2.2, color: 'bg-slate-700' },
-                        { rango: 'Alerta Crítica (95% - 100%)', total: 14, pct: 0.8, color: 'bg-slate-900' }
-                      ].map((item, i) => (
-                        <div key={i} className="group relative cursor-pointer">
-                          <div className="flex items-center justify-between text-xs font-medium mb-1">
-                            <span className="text-slate-700">{item.rango}</span>
-                            <span className="font-mono text-slate-600">
-                              <strong className="text-slate-900">{item.total}</strong> ({item.pct}%)
-                            </span>
-                          </div>
-                          <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
-                            <div style={{ width: `${item.pct}%` }} className={`h-full ${item.color} rounded-full`} />
-                          </div>
-                          <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center z-50">
-                            <div className="bg-slate-900 text-white text-[10px] font-mono py-0.5 px-2 rounded shadow-md whitespace-nowrap">
-                              {item.total} servidores ({item.pct}%)
+                      {distribucionRiesgoVista.map((item, i) => {
+                        const colors = ['bg-slate-400', 'bg-slate-600', 'bg-slate-700', 'bg-slate-900'];
+                        const color = colors[Math.min(i, colors.length - 1)];
+                        return (
+                          <div key={i} className="group relative cursor-pointer">
+                            <div className="flex items-center justify-between text-xs font-medium mb-1">
+                              <span className="text-slate-700">{item.rango}</span>
+                              <span className="font-mono text-slate-600">
+                                <strong className="text-slate-900">{item.total}</strong> ({item.pct}%)
+                              </span>
                             </div>
-                            <div className="w-1 h-1 bg-slate-900 rotate-45 -mt-0.5" />
+                            <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
+                              <div style={{ width: `${item.pct}%` }} className={`h-full ${color} rounded-full`} />
+                            </div>
+                            <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center z-50">
+                              <div className="bg-slate-900 text-white text-[10px] font-mono py-0.5 px-2 rounded shadow-md whitespace-nowrap">
+                                {item.total} servidores ({item.pct}%)
+                              </div>
+                              <div className="w-1 h-1 bg-slate-900 rotate-45 -mt-0.5" />
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -917,32 +1052,36 @@ export default function MLDashboardCard() {
                             <span className="text-[10px] text-slate-400">Las solicitudes registradas operan dentro de los umbrales regulares</span>
                           </div>
                         ) : (
-                          casosAtipicosFiltrados.map((caso, idx) => {
-                            const posX = Math.min(90, Math.max(10, (caso.numLicencias / 15) * 100));
-                            const posY = Math.min(85, Math.max(15, 100 - (caso.diasTotales / 230) * 100));
-                            const isSel = selectedCaso?.dni === caso.dni;
+                          (() => {
+                            const maxLics = Math.max(8, ...casosAtipicosFiltrados.map((c) => c.numLicencias));
+                            const maxDias = Math.max(30, ...casosAtipicosFiltrados.map((c) => c.diasTotales));
+                            return casosAtipicosFiltrados.map((caso, idx) => {
+                              const posX = Math.min(90, Math.max(10, (caso.numLicencias / maxLics) * 90 + 5));
+                              const posY = Math.min(85, Math.max(15, 92 - (caso.diasTotales / maxDias) * 75));
+                              const isSel = selectedCaso?.dni === caso.dni;
 
-                            return (
-                              <div
-                                key={idx}
-                                style={{ left: `${posX}%`, top: `${posY}%` }}
-                                className="absolute -translate-x-1/2 -translate-y-1/2 group cursor-pointer"
-                              >
-                                <button
-                                  onClick={() => setSelectedCaso(caso)}
-                                  className={`block w-3 h-3 rounded-full transition-transform ${
-                                    isSel ? 'bg-slate-900 ring-2 ring-slate-400 scale-125' : 'bg-slate-700 hover:scale-125'
-                                  }`}
-                                />
-                                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center z-50">
-                                  <div className="bg-slate-900 text-white text-[10px] font-mono py-0.5 px-2 rounded shadow-md whitespace-nowrap">
-                                    {caso.servidor}: {caso.diasTotales}d ({caso.scoreRiesgo}%)
+                              return (
+                                <div
+                                  key={idx}
+                                  style={{ left: `${posX}%`, top: `${posY}%` }}
+                                  className="absolute -translate-x-1/2 -translate-y-1/2 group cursor-pointer"
+                                >
+                                  <button
+                                    onClick={() => setSelectedCaso(caso)}
+                                    className={`block w-3 h-3 rounded-full transition-transform ${
+                                      isSel ? 'bg-slate-900 ring-2 ring-slate-400 scale-125' : 'bg-slate-700 hover:scale-125'
+                                    }`}
+                                  />
+                                  <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center z-50">
+                                    <div className="bg-slate-900 text-white text-[10px] font-mono py-0.5 px-2 rounded shadow-md whitespace-nowrap">
+                                      {caso.servidor}: {caso.diasTotales}d ({caso.scoreRiesgo}%)
+                                    </div>
+                                    <div className="w-1 h-1 bg-slate-900 rotate-45 -mt-0.5" />
                                   </div>
-                                  <div className="w-1 h-1 bg-slate-900 rotate-45 -mt-0.5" />
                                 </div>
-                              </div>
-                            );
-                          })
+                              );
+                            });
+                          })()
                         )}
                       </div>
                     </div>
@@ -1035,11 +1174,11 @@ export default function MLDashboardCard() {
                     </div>
                   </div>
                   <div className="bg-white px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-mono shadow-xs self-start sm:self-auto">
-                    <span className="text-slate-700 font-bold">Recall: 100.0%</span>
+                    <span className="text-slate-700 font-bold">Recall: {data.modelo3_riesgo_citt.metricas.recall}%</span>
                     <span className="text-slate-300 mx-1.5">|</span>
-                    <span className="text-slate-600">F1: 98.9%</span>
+                    <span className="text-slate-600">F1: {data.modelo3_riesgo_citt.metricas.f1_score}%</span>
                     <span className="text-slate-300 mx-1.5">|</span>
-                    <span className="text-slate-600">AUC: 99.8%</span>
+                    <span className="text-slate-600">AUC: {data.modelo3_riesgo_citt.metricas.roc_auc}%</span>
                   </div>
                 </div>
 
@@ -1110,12 +1249,12 @@ export default function MLDashboardCard() {
                       </p>
 
                       <div className="space-y-3">
-                        {[
-                          { variable: 'Días Transcurridos desde Emisión', peso: 48 },
+                        {(data.modelo3_riesgo_citt.factoresDecision || [
+                          { variable: 'Días Transcurridos desde Registro/Emisión', peso: 48 },
                           { variable: 'Distancia Geográfica a la Sede (Horas viaje)', peso: 32 },
                           { variable: 'Días Otorgados en el Certificado', peso: 14 },
                           { variable: 'Régimen Contractual del Servidor', peso: 6 }
-                        ].map((v, i) => (
+                        ]).map((v, i) => (
                           <div key={i} className="group relative cursor-pointer">
                             <div className="flex items-center justify-between text-xs font-medium mb-1">
                               <span className="text-slate-700">{v.variable}</span>
@@ -1212,7 +1351,7 @@ export default function MLDashboardCard() {
                     <div>
                       <h4 className="font-semibold text-slate-900 text-sm">Segmentación de Microredes (K-Means k=3 & Reducción PCA)</h4>
                       <p className="text-slate-500 text-xs">
-                        Clasifica los 85 establecimientos en 3 niveles de criticidad operativa para planificar personal de reemplazo.
+                        Clasifica los {data.totalEstablecimientos ?? data.modelo5_origen_canjes?.establecimientos?.length ?? 85} establecimientos en 3 niveles de criticidad operativa para planificar personal de reemplazo.
                       </p>
                     </div>
                   </div>
@@ -1270,48 +1409,52 @@ export default function MLDashboardCard() {
                     </p>
 
                     <div className="space-y-3">
-                      {data.modelo4_clustering.microredesDetalle.slice(0, 6).map((m, idx) => {
-                        const maxTasa = 2.5;
-                        const pctTasa = Math.min(100, (m.tasaAusentismo / maxTasa) * 100);
-                        const isCurrentMr = filtroMicrored !== 'TODAS' && matchMr(m.microred, filtroMicrored);
+                      {(() => {
+                        const topMicroredes = data.modelo4_clustering.microredesDetalle.slice(0, 6);
+                        const maxTasa = Math.max(1, ...topMicroredes.map((item) => item.tasaAusentismo || 0)) * 1.1;
 
-                        return (
-                          <div
-                            key={idx}
-                            className={`group relative cursor-pointer p-1.5 rounded-lg transition-colors ${
-                              isCurrentMr ? 'bg-slate-100/90 ring-1 ring-slate-300' : ''
-                            }`}
-                          >
-                            <div className="flex items-center justify-between text-xs font-medium mb-1">
-                              <span className={`truncate max-w-[200px] ${isCurrentMr ? 'text-slate-900 font-bold flex items-center gap-1.5' : 'text-slate-800 font-semibold'}`}>
-                                {m.microred}
-                                {isCurrentMr && (
-                                  <span className="text-[9px] bg-slate-900 text-white px-1.5 py-0.2 rounded">
-                                    Filtro Activo
-                                  </span>
-                                )}
-                              </span>
-                              <span className="font-mono text-slate-700 text-[11px]">
-                                {m.tasaAusentismo} d/servidor ({m.totalPersonal} pers.)
-                              </span>
-                            </div>
-                            <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
-                              <div
-                                style={{ width: `${pctTasa}%` }}
-                                className={`h-full rounded-full transition-all ${
-                                  isCurrentMr ? 'bg-slate-900' : 'bg-slate-800'
-                                }`}
-                              />
-                            </div>
-                            <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center z-50">
-                              <div className="bg-slate-900 text-white text-[10px] font-mono py-0.5 px-2 rounded shadow-md whitespace-nowrap">
-                                {m.microred}: {m.tasaAusentismo} d/t
+                        return topMicroredes.map((m, idx) => {
+                          const pctTasa = Math.min(100, (m.tasaAusentismo / maxTasa) * 100);
+                          const isCurrentMr = filtroMicrored !== 'TODAS' && matchMr(m.microred, filtroMicrored);
+
+                          return (
+                            <div
+                              key={idx}
+                              className={`group relative cursor-pointer p-1.5 rounded-lg transition-colors ${
+                                isCurrentMr ? 'bg-slate-100/90 ring-1 ring-slate-300' : ''
+                              }`}
+                            >
+                              <div className="flex items-center justify-between text-xs font-medium mb-1">
+                                <span className={`truncate max-w-[200px] ${isCurrentMr ? 'text-slate-900 font-bold flex items-center gap-1.5' : 'text-slate-800 font-semibold'}`}>
+                                  {m.microred}
+                                  {isCurrentMr && (
+                                    <span className="text-[9px] bg-slate-900 text-white px-1.5 py-0.2 rounded">
+                                      Filtro Activo
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="font-mono text-slate-700 text-[11px]">
+                                  {m.tasaAusentismo} d/servidor ({m.totalPersonal} pers.)
+                                </span>
                               </div>
-                              <div className="w-1 h-1 bg-slate-900 rotate-45 -mt-0.5" />
+                              <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
+                                <div
+                                  style={{ width: `${pctTasa}%` }}
+                                  className={`h-full rounded-full transition-all ${
+                                    isCurrentMr ? 'bg-slate-900' : 'bg-slate-800'
+                                  }`}
+                                />
+                              </div>
+                              <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center z-50">
+                                <div className="bg-slate-900 text-white text-[10px] font-mono py-0.5 px-2 rounded shadow-md whitespace-nowrap">
+                                  {m.microred}: {m.tasaAusentismo} d/t
+                                </div>
+                                <div className="w-1 h-1 bg-slate-900 rotate-45 -mt-0.5" />
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        });
+                      })()}
                     </div>
                   </div>
 
@@ -1338,39 +1481,52 @@ export default function MLDashboardCard() {
                         <div className="absolute inset-x-0 top-1/2 h-px bg-slate-200" />
                         <div className="absolute inset-y-0 left-1/2 w-px bg-slate-200" />
 
-                        {data.modelo4_clustering.microredesDetalle.map((m, idx) => {
-                          const posX = Math.max(5, Math.min(95, ((m.pca_x + 2.5) / 7.0) * 100));
-                          const posY = Math.max(5, Math.min(95, 100 - ((m.pca_y + 3.0) / 5.5) * 100));
-                          const isMatchFiltro = filtroMicrored !== 'TODAS' && matchMr(m.microred, filtroMicrored);
-                          const isSelected = selectedMicrored?.microred === m.microred;
+                        {(() => {
+                          const mrList = data.modelo4_clustering.microredesDetalle;
+                          if (mrList.length === 0) return null;
+                          const xs = mrList.map((item) => item.pca_x);
+                          const ys = mrList.map((item) => item.pca_y);
+                          const minX = Math.min(...xs);
+                          const maxX = Math.max(...xs);
+                          const minY = Math.min(...ys);
+                          const maxY = Math.max(...ys);
+                          const spanX = maxX - minX || 1;
+                          const spanY = maxY - minY || 1;
 
-                          return (
-                            <div
-                              key={idx}
-                              style={{ left: `${posX}%`, top: `${posY}%` }}
-                              className={`absolute -translate-x-1/2 -translate-y-1/2 group cursor-pointer ${
-                                isMatchFiltro ? 'z-30' : isSelected ? 'z-20' : 'z-10'
-                              }`}
-                            >
-                              <button
-                                onClick={() => setSelectedMicrored(m)}
-                                className={`block transition-all border border-white ${
-                                  isMatchFiltro
-                                    ? 'w-4 h-4 rounded-full bg-emerald-600 ring-4 ring-emerald-300 scale-125 shadow-md'
-                                    : isSelected
-                                    ? 'w-3.5 h-3.5 rounded-full bg-slate-900 ring-2 ring-slate-400 scale-125'
-                                    : 'w-3.5 h-3.5 rounded-full bg-slate-700 hover:scale-125'
+                          return mrList.map((m, idx) => {
+                            const posX = maxX === minX ? 50 : Math.max(8, Math.min(92, ((m.pca_x - minX) / spanX) * 84 + 8));
+                            const posY = maxY === minY ? 50 : Math.max(8, Math.min(92, 92 - ((m.pca_y - minY) / spanY) * 84));
+                            const isMatchFiltro = filtroMicrored !== 'TODAS' && matchMr(m.microred, filtroMicrored);
+                            const isSelected = selectedMicrored?.microred === m.microred;
+
+                            return (
+                              <div
+                                key={idx}
+                                style={{ left: `${posX}%`, top: `${posY}%` }}
+                                className={`absolute -translate-x-1/2 -translate-y-1/2 group cursor-pointer ${
+                                  isMatchFiltro ? 'z-30' : isSelected ? 'z-20' : 'z-10'
                                 }`}
-                              />
-                              <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center z-50">
-                                <div className="bg-slate-900 text-white text-[10px] font-mono py-0.5 px-2 rounded shadow-md whitespace-nowrap">
-                                  {m.microred}: {m.tasaAusentismo} d/t {isMatchFiltro ? '(Filtro Activo)' : ''}
+                              >
+                                <button
+                                  onClick={() => setSelectedMicrored(m)}
+                                  className={`block transition-all border border-white ${
+                                    isMatchFiltro
+                                      ? 'w-4 h-4 rounded-full bg-emerald-600 ring-4 ring-emerald-300 scale-125 shadow-md'
+                                      : isSelected
+                                      ? 'w-3.5 h-3.5 rounded-full bg-slate-900 ring-2 ring-slate-400 scale-125'
+                                      : 'w-3.5 h-3.5 rounded-full bg-slate-700 hover:scale-125'
+                                  }`}
+                                />
+                                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center z-50">
+                                  <div className="bg-slate-900 text-white text-[10px] font-mono py-0.5 px-2 rounded shadow-md whitespace-nowrap">
+                                    {m.microred}: {m.tasaAusentismo} d/t {isMatchFiltro ? '(Filtro Activo)' : ''}
+                                  </div>
+                                  <div className="w-1 h-1 bg-slate-900 rotate-45 -mt-0.5" />
                                 </div>
-                                <div className="w-1 h-1 bg-slate-900 rotate-45 -mt-0.5" />
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          });
+                        })()}
                       </div>
                     </div>
 
@@ -1443,17 +1599,18 @@ export default function MLDashboardCard() {
                   </h5>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                     {data.modelo5_origen_canjes.proyeccionesMensuales.map((p, idx) => {
-                      const licEsSalud = filtroMicrored !== 'TODAS'
-                        ? Math.max(1, Math.round(p.licenciasEsSaludEstimadas * cuotaMicrored))
+                      const debeEscalarCliente = filtroMicrored !== 'TODAS' && !data.yaSegmentadoPorServidor;
+                      const licEsSalud = debeEscalarCliente
+                        ? Math.round(p.licenciasEsSaludEstimadas * cuotaCliente)
                         : p.licenciasEsSaludEstimadas;
-                      const licPart = filtroMicrored !== 'TODAS'
-                        ? Math.max(1, Math.round(p.licenciasParticularEstimadas * cuotaMicrored))
+                      const licPart = debeEscalarCliente
+                        ? Math.round(p.licenciasParticularEstimadas * cuotaCliente)
                         : p.licenciasParticularEstimadas;
-                      const totalLic = filtroMicrored !== 'TODAS'
+                      const totalLic = debeEscalarCliente
                         ? (licEsSalud + licPart)
                         : p.totalLicenciasEstimadas;
-                      const montoCanje = filtroMicrored !== 'TODAS'
-                        ? Math.round(p.montoCanjeEnJuego * cuotaMicrored * 100) / 100
+                      const montoCanje = debeEscalarCliente
+                        ? Math.round(p.montoCanjeEnJuego * cuotaCliente * 100) / 100
                         : p.montoCanjeEnJuego;
 
                       return (
@@ -1527,7 +1684,7 @@ export default function MLDashboardCard() {
                             : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
                         }`}
                       >
-                        Todos ({establecimientosFiltrados.length})
+                        Todos ({establecimientosBaseTab5.length})
                       </button>
                       <button
                         onClick={() => setFiltroAlertaEst('ALTA_CARGA')}
@@ -1575,31 +1732,18 @@ export default function MLDashboardCard() {
 
                   {/* Lista de Establecimientos */}
                   <div className="space-y-2.5 max-h-[460px] overflow-y-auto pr-1">
-                    {(() => {
-                      const list = establecimientosFiltrados.filter((e) => {
-                        const matchText =
-                          e.establecimiento.toLowerCase().includes(busquedaEst.toLowerCase()) ||
-                          e.microred.toLowerCase().includes(busquedaEst.toLowerCase());
-                        const matchFiltro =
-                          filtroAlertaEst === 'TODOS' || e.alerta === filtroAlertaEst;
-                        return matchText && matchFiltro;
-                      });
-
-                      if (list.length === 0) {
-                        return (
-                          <div className="py-8 text-center text-slate-500 bg-white rounded-lg border border-slate-200">
-                            <CheckCircle2 className="w-5 h-5 text-slate-400 mx-auto mb-1.5" />
-                            <p className="font-semibold text-slate-800 text-xs">No se encontraron establecimientos</p>
-                            <p className="text-[10px] text-slate-400 mt-0.5">
-                              {busquedaEst
-                                ? 'Prueba con otro término de búsqueda o cambia la alerta seleccionada.'
-                                : `No hay establecimientos asignados para el filtro actual.`}
-                            </p>
-                          </div>
-                        );
-                      }
-
-                      return list.map((est, idx) => (
+                    {establecimientosFiltrados.length === 0 ? (
+                      <div className="py-8 text-center text-slate-500 bg-white rounded-lg border border-slate-200">
+                        <CheckCircle2 className="w-5 h-5 text-slate-400 mx-auto mb-1.5" />
+                        <p className="font-semibold text-slate-800 text-xs">No se encontraron establecimientos</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          {busquedaEst
+                            ? 'Prueba con otro término de búsqueda o cambia la alerta seleccionada.'
+                            : `No hay establecimientos asignados para el filtro actual.`}
+                        </p>
+                      </div>
+                    ) : (
+                      establecimientosFiltrados.map((est, idx) => (
                         <div
                           key={idx}
                           className="p-3.5 bg-white rounded-lg border border-slate-200 hover:border-slate-300 transition shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
@@ -1661,8 +1805,8 @@ export default function MLDashboardCard() {
                             </div>
                           </div>
                         </div>
-                      ));
-                    })()}
+                      ))
+                    )}
                   </div>
                 </div>
               </div>

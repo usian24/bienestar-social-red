@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
 import sharp from 'sharp';
 import { canAccessWorkerMicrored, requireStaffAccess } from '@/core/auth/rbac';
+import {
+  callGeminiGenerateContent,
+  GEMINI_ACTIVE_OCR_MODELS,
+  getConfiguredGeminiKeys,
+} from '@/core/ai/gemini';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,9 +38,9 @@ export async function POST(req: NextRequest) {
 
       fileName = nombreArchivo || 'citt-scan.jpg';
       mimeType = tipoMime || 'image/jpeg';
-      const base64Data = String(imagenBase64).replace(/^data:image\/\w+;base64,/, '');
+      const base64Data = String(imagenBase64).replace(/^data:[^;]+;base64,/i, '');
       buffer = Buffer.from(base64Data, 'base64');
-      console.log(`[OCR CITT] Imagen recibida vía JSON ultrarrápido: "${fileName}" (${Math.round(buffer.length / 1024)} KB) en ${Date.now() - inicioT}ms`);
+      console.log(`[OCR CITT] Archivo recibido vía JSON: "${fileName}" (${Math.round(buffer.length / 1024)} KB) en ${Date.now() - inicioT}ms`);
     } else {
       const data = await req.formData();
       const file: File | null = data.get('file') as unknown as File;
@@ -56,30 +61,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'El archivo excede el tamaño máximo permitido (15 MB) o está vacío.' }, { status: 400 });
     }
 
-    // 1. Optimizar imagen en memoria con sharp (Redimensionamiento inteligente + realce de trazos para OCR)
-    const webpBuffer = await sharp(buffer)
-      .rotate() // Respeta orientación EXIF de la cámara del móvil
-      .resize({
-        width: 1600,
-        height: 1600,
-        fit: 'inside',
-        withoutEnlargement: true
-      })
-      .sharpen({ sigma: 1.2, m1: 1.5, m2: 0.7 }) // Realce de contraste para letra manuscrita a lapicero
-      .webp({ quality: 85 })
-      .toBuffer();
+    const esPdf =
+      mimeType === 'application/pdf' ||
+      fileName.toLowerCase().endsWith('.pdf') ||
+      buffer.subarray(0, 4).toString('ascii') === '%PDF';
 
-    console.log(`[OCR CITT] Imagen lista para IA: ${Math.round(webpBuffer.length / 1024)} KB en ${Date.now() - inicioT}ms`);
+    let inlineMimeType = 'image/webp';
+    let base64Documento = '';
 
-    // 2. Preparar imagen en base64 para Gemini Vision
-    const base64Image = webpBuffer.toString('base64');
-    
+    if (esPdf) {
+      inlineMimeType = 'application/pdf';
+      base64Documento = buffer.toString('base64');
+      console.log(`[OCR CITT] Documento PDF listo para IA: ${Math.round(buffer.length / 1024)} KB en ${Date.now() - inicioT}ms`);
+    } else {
+      // 1. Optimizar imagen en memoria con sharp (Redimensionamiento inteligente + realce de trazos para OCR)
+      try {
+        const webpBuffer = await sharp(buffer)
+          .rotate() // Respeta orientación EXIF de la cámara del móvil
+          .resize({
+            width: 1600,
+            height: 1600,
+            fit: 'inside',
+            withoutEnlargement: true
+          })
+          .sharpen({ sigma: 1.2, m1: 1.5, m2: 0.7 }) // Realce de contraste para letra manuscrita a lapicero
+          .webp({ quality: 85 })
+          .toBuffer();
+
+        console.log(`[OCR CITT] Imagen lista para IA: ${Math.round(webpBuffer.length / 1024)} KB en ${Date.now() - inicioT}ms`);
+        inlineMimeType = 'image/webp';
+        base64Documento = webpBuffer.toString('base64');
+      } catch {
+        return NextResponse.json({
+          success: false,
+          error: 'Formato de archivo no válido. Suba una imagen (JPG, PNG, WEBP) o un documento PDF legible.'
+        }, { status: 400 });
+      }
+    }
+
     // Conjunto de API keys disponibles para rotación resiliente (Scanner, Chat, Respaldo)
-    const apiKeys = [
-      process.env.GEMINI_API_KEY_SCANNER,
-      process.env.GEMINI_API_KEY_CHAT,
-      process.env.GEMINI_API_KEY
-    ].filter(Boolean) as string[];
+    const apiKeys = getConfiguredGeminiKeys('scanner');
 
     if (apiKeys.length === 0) {
       return NextResponse.json({
@@ -150,8 +171,8 @@ Responde ÚNICAMENTE un objeto JSON válido con estas claves exactas.`;
           parts: [
             {
               inline_data: {
-                mime_type: 'image/webp',
-                data: base64Image
+                mime_type: inlineMimeType,
+                data: base64Documento
               }
             },
             {
@@ -164,59 +185,22 @@ Responde ÚNICAMENTE un objeto JSON válido con estas claves exactas.`;
         response_mime_type: 'application/json',
         response_schema: schemaCitt,
         temperature: 0.1,
-        maxOutputTokens: 2000
+        maxOutputTokens: 2500
       }
     };
 
-    // 4. Cadena activa de modelos Gemini: gemini-3.5-flash-lite prioritario con rotación de claves
-    // Probado en vivo: gemini-3.5-flash-lite responde en 3.6s - 5.4s con 100% éxito en las 3 llaves
-    const modelosDisponibles = [
-      'gemini-3.5-flash-lite',
-      'gemini-3.5-flash'
-    ];
+    // 4. Cadena activa de modelos Gemini verificados con rotación de claves
+    const geminiResult = await callGeminiGenerateContent({
+      payload: payloadGemini,
+      models: GEMINI_ACTIVE_OCR_MODELS,
+      apiKeys,
+      logTag: '[OCR CITT]',
+      liteTimeoutMs: 18000,
+      flashTimeoutMs: 25000,
+    });
 
-    let rawText: string | null = null;
-    const timeoutMs = 25000; // 25 segundos para asegurar respuesta completa en documentos complejos o manuscritos
-
-    for (const modelo of modelosDisponibles) {
-      if (rawText) break;
-      for (let i = 0; i < apiKeys.length; i++) {
-        const apiKey = apiKeys[i];
-        try {
-          console.log(`[OCR CITT] Probando ${modelo} con clave ${i + 1}/${apiKeys.length} (límite: ${timeoutMs / 1000}s)...`);
-          const geminiRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payloadGemini),
-              signal: AbortSignal.timeout(timeoutMs)
-            }
-          );
-
-          if (geminiRes.ok) {
-            const geminiData = await geminiRes.json();
-            rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || null;
-            if (rawText) {
-              console.log(`[OCR CITT] Reconocimiento exitoso con ${modelo} (clave ${i + 1}) en ${Date.now() - inicioT}ms`);
-              break;
-            }
-          } else if (geminiRes.status === 429) {
-            console.warn(`[OCR CITT] Cuota ocupada en clave ${i + 1} para ${modelo} (429), rotando de inmediato a la siguiente clave...`);
-            continue;
-          } else if (geminiRes.status === 503) {
-            console.warn(`[OCR CITT] Modelo ${modelo} con alta demanda temporal (503), rotando clave...`);
-            continue;
-          } else {
-            console.warn(`[OCR CITT] Modelo ${modelo} respondió HTTP ${geminiRes.status}`);
-            continue;
-          }
-        } catch (err: any) {
-          console.warn(`[OCR CITT] Error o timeout en ${modelo} con clave ${i + 1}:`, err.message);
-          continue;
-        }
-      }
-    }
+    const rawText = geminiResult.text;
+    const modeloUsado = geminiResult.model;
 
     let datosExtraidos: any = null;
     if (rawText) {
@@ -359,18 +343,22 @@ Responde ÚNICAMENTE un objeto JSON válido con estas claves exactas.`;
       if (datosExtraidos.fechaInicio) datosExtraidos.fechaInicio = parseFecha(datosExtraidos.fechaInicio);
       if (datosExtraidos.fechaFin) datosExtraidos.fechaFin = parseFecha(datosExtraidos.fechaFin);
 
-      // Si no vino diasOtorgados o es 0, calcular automáticamente a partir de fechaInicio y fechaFin
+      // Si no vino diasOtorgados o es 0, calcular automáticamente en UTC sin desplazamiento horario
       if (datosExtraidos.fechaInicio && datosExtraidos.fechaFin) {
         try {
-          const dIni = new Date(datosExtraidos.fechaInicio + 'T00:00:00');
-          const dFin = new Date(datosExtraidos.fechaFin + 'T00:00:00');
-          if (!isNaN(dIni.getTime()) && !isNaN(dFin.getTime()) && dFin >= dIni) {
-            const diffDias = Math.round((dFin.getTime() - dIni.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-            if (!datosExtraidos.diasOtorgados || datosExtraidos.diasOtorgados <= 0) {
-              datosExtraidos.diasOtorgados = diffDias;
+          const [y1, m1, d1] = String(datosExtraidos.fechaInicio).split('-').map(Number);
+          const [y2, m2, d2] = String(datosExtraidos.fechaFin).split('-').map(Number);
+          if (y1 && m1 && d1 && y2 && m2 && d2) {
+            const utcIni = Date.UTC(y1, m1 - 1, d1);
+            const utcFin = Date.UTC(y2, m2 - 1, d2);
+            if (utcFin >= utcIni) {
+              const diffDias = Math.round((utcFin - utcIni) / (1000 * 60 * 60 * 24)) + 1;
+              if (!datosExtraidos.diasOtorgados || datosExtraidos.diasOtorgados <= 0) {
+                datosExtraidos.diasOtorgados = diffDias;
+              }
             }
           }
-        } catch (e) {}
+        } catch {}
       }
 
       if (datosExtraidos.diasOtorgados) {
@@ -477,6 +465,7 @@ Responde ÚNICAMENTE un objeto JSON válido con estas claves exactas.`;
 
     return NextResponse.json({
       success: true,
+      modeloUsado,
       datos: bloqueadoPorMicrored ? null : datosExtraidos,
       trabajador: bloqueadoPorMicrored ? null : trabajadorEncontrado,
       bloqueadoPorMicrored,

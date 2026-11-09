@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
 import { logger } from '@/core/logging/systemLogger';
 import { requireStaffAccess } from '@/core/auth/rbac';
+import { GEMINI_ACTIVE_CHAT_MODELS, GEMINI_RECOMMENDED_MODEL, getConfiguredGeminiKeys } from '@/core/ai/gemini';
 
 export async function GET() {
   try {
@@ -27,8 +28,8 @@ export async function GET() {
     }
 
     // 2. Diagnóstico de IA Gemini
-    const apiKey = process.env.GEMINI_API_KEY_SCANNER || process.env.GEMINI_API_KEY_CHAT || process.env.GEMINI_API_KEY;
-    const aiConfigurada = Boolean(apiKey && apiKey.length > 10);
+    const apiKeys = getConfiguredGeminiKeys('chat');
+    const aiConfigurada = apiKeys.length > 0;
     const aiStatus = aiConfigurada ? 'OPERATIVO' : 'MODO_CONTINGENCIA';
 
     // 3. Telemetría de Memoria y Proceso Node.js
@@ -84,7 +85,9 @@ export async function GET() {
         servicio: 'Google Gemini',
         estado: aiStatus,
         apiKeyPresente: aiConfigurada,
-        modeloRecomendado: 'gemini-2.0-flash'
+        clavesConfiguradas: apiKeys.length,
+        modeloRecomendado: GEMINI_RECOMMENDED_MODEL,
+        modelosRespaldo: GEMINI_ACTIVE_CHAT_MODELS.slice(1)
       },
       servidor: {
         entorno: process.env.NODE_ENV || 'development',

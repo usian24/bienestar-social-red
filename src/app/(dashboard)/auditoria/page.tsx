@@ -662,8 +662,8 @@ export default function AuditoriaPage() {
 
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   {saludData.inteligenciaArtificial.apiKeyPresente 
-                    ? 'La clave GEMINI_API_KEY se encuentra configurada en el servidor y el asistente institucional responde en tiempo real con respaldo local.'
-                    : 'No se detectó GEMINI_API_KEY. El asistente funciona en modo de contingencia con respuestas institucionales directas.'}
+                    ? `Las credenciales de Google Gemini (${saludData.inteligenciaArtificial.clavesConfiguradas ?? 1} clave(s) activa(s)) se encuentran configuradas y el asistente responde en tiempo real con respaldo local.`
+                    : 'No se detectaron credenciales activas de Gemini. El asistente funciona en modo de contingencia con respuestas institucionales directas.'}
                 </p>
               </div>
 

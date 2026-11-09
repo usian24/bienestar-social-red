@@ -6,6 +6,11 @@ import { getAuthContext } from '@/core/auth/rbac';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
 import { calcularResumenSaludTrabajador, formatCalendarDateDMY } from '@/core/licencias/calculoSubsidios';
+import {
+  callGeminiGenerateContent,
+  GEMINI_ACTIVE_CHAT_MODELS,
+  getConfiguredGeminiKeys,
+} from '@/core/ai/gemini';
 
 export const dynamic = 'force-dynamic';
 
@@ -314,11 +319,16 @@ export async function POST(request: Request) {
       };
     }
 
-    // 5. VENTANA DESLIZANTE DE HISTORIAL (Últimos 4 mensajes)
-    const ultimosMensajes = (Array.isArray(historial) ? historial : []).slice(-4).map((m: any) => ({
-      role: m.remitente === 'asistente' ? 'model' : 'user',
-      parts: [{ text: String(m.texto || '').slice(0, 500) }]
-    }));
+    // 5. VENTANA DESLIZANTE DE HISTORIAL (Últimos 4 mensajes, iniciando desde primer turno 'user' para compatibilidad estricta Gemini)
+    const mensajesMapeados = (Array.isArray(historial) ? historial : [])
+      .slice(-6)
+      .filter((m: any) => String(m?.texto || '').trim().length > 0)
+      .map((m: any) => ({
+        role: m.remitente === 'asistente' ? 'model' : 'user',
+        parts: [{ text: String(m.texto || '').slice(0, 500) }]
+      }));
+    const firstUserIdx = mensajesMapeados.findIndex((m) => m.role === 'user');
+    const ultimosMensajes = (firstUserIdx >= 0 ? mensajesMapeados.slice(firstUserIdx) : []).slice(-4);
 
     // 6. SYSTEM PROMPT CON DIRECTIVAS DE CIBERSEGURIDAD ESTRICTA
     const systemInstruction = `Eres "BienestarBot", el Asistente Institucional de Bienestar Social de la Red de Salud Huánuco (DIRESA Huánuco - GOREHCO).
@@ -371,12 +381,13 @@ Instrucciones de Respuesta:
 - Estructura las respuestas con negritas y viñetas para facilitar la lectura.
 - No uses tecnicismos informáticos ni menciones nombres de bases de datos o campos de programación.`;
 
-    // 7. LLAMADA A GEMINI FLASH LITE CON TIMEOUT DINÁMICO DE 9S Y FALLBACK RESILIENTE
-    const apiKey = process.env.GEMINI_API_KEY_CHAT || process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+    // 7. LLAMADA A GEMINI FLASH LITE CON ROTACIÓN DE CLAVES, MODELOS VERIFICADOS Y FALLBACK RESILIENTE
+    const apiKeys = getConfiguredGeminiKeys('chat');
+    if (apiKeys.length === 0) {
       return NextResponse.json({
         respuesta: generarRespuestaDirecta(contextoCompacto, mensaje),
-        origen: 'fallback_sin_api_key'
+        origen: 'fallback_sin_api_key',
+        modeloUsado: null
       });
     }
 
@@ -394,71 +405,33 @@ Instrucciones de Respuesta:
         ],
         generationConfig: {
           temperature: 0.15,
-          maxOutputTokens: 750,
+          maxOutputTokens: 1200,
           topP: 0.8
         }
       };
 
-      // Modelos priorizados para Chat: gemini-3.5-flash-lite es el modelo recomendado y verificado
-      const modelosChat = [
-        'gemini-3.5-flash-lite',
-        'gemini-3.6-flash',
-        'gemini-3.5-flash',
-        'gemini-3.1-flash-lite',
-        'gemini-flash-lite-latest',
-        'gemini-flash-latest'
-      ];
+      const geminiResult = await callGeminiGenerateContent({
+        payload: payloadGemini,
+        models: GEMINI_ACTIVE_CHAT_MODELS,
+        apiKeys,
+        logTag: '[CHATBOT]',
+        liteTimeoutMs: 14000,
+        flashTimeoutMs: 22000,
+      });
 
-      let respuestaTexto: string | null = null;
-      let modeloExitoso = 'fallback_seguro';
-
-      for (const mod of modelosChat) {
-        const timeoutMs = mod === 'gemini-3.5-flash-lite' ? 35000 : 18000;
-        const inicioLlamada = Date.now();
-        try {
-          console.log(`[CHATBOT] Consultando modelo ${mod} (tiempo límite: ${timeoutMs / 1000}s)...`);
-          const resGemini = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${mod}:generateContent?key=${apiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payloadGemini),
-              signal: AbortSignal.timeout(timeoutMs)
-            }
-          );
-
-          const duracionMs = Date.now() - inicioLlamada;
-
-          if (resGemini.ok) {
-            const dataGemini = await resGemini.json();
-            const text = dataGemini?.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (text) {
-              respuestaTexto = text;
-              modeloExitoso = mod;
-              console.log(`[CHATBOT] Respuesta generada con éxito por ${mod} en ${duracionMs}ms`);
-              break;
-            }
-          } else if (resGemini.status === 503 || resGemini.status === 429) {
-            console.warn(`[CHATBOT] Modelo ${mod} saturado temporalmente (${resGemini.status}) tras ${duracionMs}ms, esperando 600ms antes del siguiente modelo...`);
-            await new Promise(r => setTimeout(r, 600));
-          } else {
-            console.warn(`[CHATBOT] Modelo ${mod} respondió status ${resGemini.status} tras ${duracionMs}ms`);
-          }
-        } catch (err: any) {
-          const duracionMs = Date.now() - inicioLlamada;
-          console.warn(`[CHATBOT] Error llamando a modelo chat ${mod} tras ${duracionMs}ms:`, err.message);
-        }
-      }
+      let respuestaTexto = geminiResult.text;
+      const modeloExitoso = geminiResult.model || 'fallback_seguro';
 
       if (!respuestaTexto) {
         await logger.advertencia('CHATBOT', 'FALLBACK_ACTIVADO', 'Ningún modelo de Gemini respondió a tiempo. Se activó el motor de contingencia institucional.', {
           usuarioId: userId,
           ruta: '/api/chat',
-          metadata: { longitudMensaje: mensaje.length }
+          metadata: { longitudMensaje: mensaje.length, intentos: geminiResult.attempts, ultimoHttp: geminiResult.lastStatus }
         });
         return NextResponse.json({
           respuesta: generarRespuestaDirecta(contextoCompacto, mensaje),
-          origen: 'fallback_seguro'
+          origen: 'fallback_seguro',
+          modeloUsado: null
         });
       }
 
@@ -476,7 +449,8 @@ Instrucciones de Respuesta:
 
       return NextResponse.json({
         respuesta: respuestaTexto,
-        origen: 'gemini_flash_lite'
+        origen: 'gemini_flash_lite',
+        modeloUsado: modeloExitoso
       });
 
     } catch (apiError) {

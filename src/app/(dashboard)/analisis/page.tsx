@@ -9,7 +9,7 @@ export default function AnalisisPage() {
   const { data: session } = useSession();
   const user = session?.user as any;
   const rol = user?.rol;
-  const esSuperAdmin = rol === 'SUPER_ADMIN' || rol === 'ADMIN';
+  const esSuperAdmin = rol === 'SUPER_ADMIN';
   const microredNombre = user?.microredNombre;
 
   return (
@@ -24,7 +24,7 @@ export default function AnalisisPage() {
             </h1>
             {esSuperAdmin ? (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 shadow-xs">
-                <Shield className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" /> Consolidado Provincial (13 Microredes)
+                <Shield className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" /> Consolidado Provincial (Red Huánuco)
               </span>
             ) : microredNombre ? (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 shadow-xs">

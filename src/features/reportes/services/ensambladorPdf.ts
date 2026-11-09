@@ -1,6 +1,7 @@
 import { PDFDocument } from 'pdf-lib';
 import fs from 'fs/promises';
 import path from 'path';
+import sharp from 'sharp';
 
 export async function ensamblarExpedienteSubsidio(
   datosTrabajador: any, 
@@ -25,24 +26,60 @@ export async function ensamblarExpedienteSubsidio(
   paginaPrincipal.drawText(`DÍAS ASUMIDOS POR LA RED (1-20): ${datosTrabajador.diasEmpleador}`, { x: 50, y: 600, size: 10 });
   paginaPrincipal.drawText(`DÍAS A RECUPERAR ANTE ESSALUD: ${datosTrabajador.diasSubsidiados}`, { x: 50, y: 580, size: 10 });
 
-  // 2. Fusionar Anexos (CITTs físicos guardados en el volumen, con protección anti path-traversal)
-  const uploadsDir = path.resolve(process.cwd(), 'storage_vol');
+  // 2. Fusionar Anexos (PDFs o imágenes guardadas en storage_vol/evidencias, con protección anti path-traversal)
+  const storageRoot = path.resolve(process.cwd(), 'storage_vol');
+  const evidenciasRoot = path.resolve(storageRoot, 'evidencias');
 
   for (const rutaRelativa of rutasArchivosLocales) {
     try {
-      const limpia = String(rutaRelativa || '').replace(/^\/+/, '');
+      let limpia = String(rutaRelativa || '').trim();
       if (!limpia || limpia.includes('\0')) continue;
-      const rutaAbsoluta = path.resolve(uploadsDir, limpia);
-      if (!rutaAbsoluta.startsWith(uploadsDir + path.sep)) {
-        console.warn(`Ruta fuera de storage_vol rechazada: ${rutaRelativa}`);
+      if (limpia.startsWith('/api/evidencias/')) {
+        limpia = 'evidencias/' + limpia.slice('/api/evidencias/'.length);
+      } else if (limpia.startsWith('/uploads/')) {
+        limpia = 'evidencias/' + limpia.slice('/uploads/'.length);
+      } else {
+        limpia = limpia.replace(/^\/+/, '');
+        if (!limpia.startsWith('evidencias/') && !limpia.includes('/') && !limpia.includes('\\')) {
+          limpia = 'evidencias/' + limpia;
+        }
+      }
+
+      const rutaAbsoluta = path.resolve(storageRoot, limpia);
+      if (
+        !rutaAbsoluta.startsWith(storageRoot + path.sep) ||
+        !rutaAbsoluta.startsWith(evidenciasRoot + path.sep)
+      ) {
+        console.warn(`Ruta fuera de storage_vol/evidencias rechazada: ${rutaRelativa}`);
         continue;
       }
+
       const archivoBuffer = await fs.readFile(rutaAbsoluta);
-      
-      const pdfAnexo = await PDFDocument.load(archivoBuffer);
-      const paginasCopiadas = await pdfFinal.copyPages(pdfAnexo, pdfAnexo.getPageIndices());
-      
-      paginasCopiadas.forEach(pagina => pdfFinal.addPage(pagina));
+      const isPdf =
+        rutaAbsoluta.toLowerCase().endsWith('.pdf') ||
+        archivoBuffer.subarray(0, 4).toString('ascii') === '%PDF';
+
+      if (isPdf) {
+        const pdfAnexo = await PDFDocument.load(archivoBuffer);
+        const paginasCopiadas = await pdfFinal.copyPages(pdfAnexo, pdfAnexo.getPageIndices());
+        paginasCopiadas.forEach((pagina) => pdfFinal.addPage(pagina));
+      } else {
+        // Convertir cualquier imagen soportada (JPG/PNG/WEBP) a PNG compatible con pdf-lib
+        const pngBuffer = await sharp(archivoBuffer).rotate().png().toBuffer();
+        const embeddedImg = await pdfFinal.embedPng(pngBuffer);
+        const page = pdfFinal.addPage([595.28, 841.89]);
+        const maxW = 515.28;
+        const maxH = 761.89;
+        const scale = Math.min(maxW / embeddedImg.width, maxH / embeddedImg.height, 1);
+        const w = embeddedImg.width * scale;
+        const h = embeddedImg.height * scale;
+        page.drawImage(embeddedImg, {
+          x: (595.28 - w) / 2,
+          y: (841.89 - h) / 2,
+          width: w,
+          height: h,
+        });
+      }
     } catch (err) {
       console.warn(`No se pudo adjuntar el archivo ${rutaRelativa}`, err);
     }

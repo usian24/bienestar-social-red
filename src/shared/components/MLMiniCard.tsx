@@ -5,17 +5,25 @@ import Link from 'next/link';
 import {
   TrendingUp,
   ShieldAlert,
-  Clock,
   ArrowRight,
   GitCompare
 } from 'lucide-react';
 
 interface MLMiniData {
   fechaEntrenamiento: string;
+  microredFiltroAplicado?: string | null;
   modelo1_forecasting: {
     metricas: { mae_dias: number; rmse_dias: number };
+    historialMensual?: Array<{
+      mes: string;
+      mesAbrev?: string;
+      anio: number;
+      diasSubsidio: number;
+      totalDiasSalud?: number;
+    }>;
     proyeccionesProximosMeses: Array<{
       mes: string;
+      mesAbrev?: string;
       anio: number;
       diasSubsidioEstimados: number;
       montoEstimadoRecupero: number;
@@ -73,7 +81,26 @@ export default function MLMiniCard() {
 
   if (!data) return null;
 
-  const proxMes = data.modelo1_forecasting.proyeccionesProximosMeses?.[0];
+  const proys = data.modelo1_forecasting.proyeccionesProximosMeses || [];
+  const proxMes = proys[0];
+  const histSlice = (data.modelo1_forecasting.historialMensual || []).slice(-6);
+
+  const chartItems = [
+    ...histSlice.map((h) => ({
+      mes: h.mesAbrev || h.mes.split(' ')[0],
+      dias: h.diasSubsidio ?? 0,
+      tipo: 'hist' as const,
+    })),
+    ...proys.map((p) => ({
+      mes: `${p.mesAbrev || p.mes.slice(0, 3)}*`,
+      dias: p.diasSubsidioEstimados ?? 0,
+      tipo: 'pred' as const,
+    })),
+  ];
+
+  const maxHeight = Math.max(10, ...chartItems.map((i) => i.dias));
+  const pctEsSalud = data.modelo5_origen_canjes?.metricas?.pctGlobalEsSalud ?? 0;
+  const pctParticular = data.modelo5_origen_canjes?.metricas?.pctGlobalParticular ?? 0;
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 transition-all">
@@ -84,7 +111,9 @@ export default function MLMiniCard() {
             Modelos Predictivos y Control de Licencias
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Pronóstico de ausentismo institucional y detección de anomalías
+            {data.microredFiltroAplicado
+              ? `Pronóstico y detección de anomalías · ${data.microredFiltroAplicado}`
+              : 'Pronóstico de ausentismo institucional y detección de anomalías'}
           </p>
         </div>
 
@@ -103,16 +132,16 @@ export default function MLMiniCard() {
           <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between">
             <div>
               <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider block">
-                Próximo Mes ({proxMes?.mes || 'Nov'})
+                Próximo Mes ({proxMes?.mes || 'Próx.'})
               </span>
               <span className="text-lg font-bold text-slate-900 tracking-tight font-mono">
-                {proxMes?.diasSubsidioEstimados || 107} días
+                {proxMes?.diasSubsidioEstimados ?? 0} días
               </span>
             </div>
             <div className="text-right">
               <span className="text-[10px] text-slate-400 uppercase block">Recupero</span>
               <span className="text-xs font-bold text-slate-800 font-mono">
-                S/ {(proxMes?.montoEstimadoRecupero || 8399).toLocaleString('es-PE')}
+                S/ {(proxMes?.montoEstimadoRecupero ?? 0).toLocaleString('es-PE')}
               </span>
             </div>
           </div>
@@ -134,13 +163,13 @@ export default function MLMiniCard() {
                 Procedencia
               </span>
               <span className="text-xs font-bold text-slate-900 font-mono block mt-0.5">
-                {data.modelo5_origen_canjes?.metricas.pctGlobalEsSalud || 63.1}% EsSalud
+                {pctEsSalud}% EsSalud
               </span>
             </div>
           </div>
         </div>
 
-        {/* Mini Gráfico Representativo de Demanda */}
+        {/* Mini Gráfico Dinámico de Demanda Real vs Pronóstico */}
         <div className="md:col-span-2 bg-slate-50/60 p-3.5 rounded-lg border border-slate-100">
           <div className="flex items-center justify-between text-[11px] text-slate-500 mb-2">
             <span className="font-medium text-slate-700">Demanda Histórica vs Pronóstico Próximos Meses</span>
@@ -151,19 +180,8 @@ export default function MLMiniCard() {
           </div>
 
           <div className="h-24 w-full flex items-end justify-between gap-1.5 sm:gap-2 px-1 border-b border-slate-200 pb-1.5">
-            {[
-              { mes: 'May', dias: 112, tipo: 'hist' },
-              { mes: 'Jun', dias: 98, tipo: 'hist' },
-              { mes: 'Jul', dias: 106, tipo: 'hist' },
-              { mes: 'Ago', dias: 115, tipo: 'hist' },
-              { mes: 'Set', dias: 102, tipo: 'hist' },
-              { mes: 'Oct', dias: 105, tipo: 'hist' },
-              { mes: 'Nov*', dias: data.modelo1_forecasting.proyeccionesProximosMeses[0]?.diasSubsidioEstimados || 107, tipo: 'pred' },
-              { mes: 'Dic*', dias: data.modelo1_forecasting.proyeccionesProximosMeses[1]?.diasSubsidioEstimados || 107, tipo: 'pred' },
-              { mes: 'Ene*', dias: data.modelo1_forecasting.proyeccionesProximosMeses[2]?.diasSubsidioEstimados || 108, tipo: 'pred' }
-            ].map((item, idx) => {
-              const maxHeight = 130;
-              const heightPct = Math.round((item.dias / maxHeight) * 100);
+            {chartItems.map((item, idx) => {
+              const heightPct = item.dias > 0 ? Math.max(6, Math.round((item.dias / maxHeight) * 100)) : 2;
               const isPred = item.tipo === 'pred';
 
               return (
@@ -178,7 +196,7 @@ export default function MLMiniCard() {
                     {item.mes}
                   </span>
 
-                  {/* Tooltip flotante superior sin parpadeo */}
+                  {/* Tooltip flotante superior */}
                   <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:flex flex-col items-center z-50">
                     <div className="bg-slate-900 text-white text-[10px] font-mono py-0.5 px-2 rounded shadow-md whitespace-nowrap">
                       {item.mes}: {item.dias} días
@@ -191,9 +209,9 @@ export default function MLMiniCard() {
           </div>
 
           <div className="flex items-center justify-between text-[10px] text-slate-400 mt-2">
-            <span>Canal regional: {data.modelo5_origen_canjes?.metricas.pctGlobalEsSalud || 63.1}% EsSalud CITT vs {data.modelo5_origen_canjes?.metricas.pctGlobalParticular || 36.9}% Particulares</span>
+            <span>Canal en jurisdicción: {pctEsSalud}% EsSalud CITT vs {pctParticular}% Particulares</span>
             <Link href="/analisis" className="text-slate-700 hover:underline font-medium">
-              Explorar modelos predictivos de tu jurisdicción →
+              Explorar modelos predictivos →
             </Link>
           </div>
         </div>

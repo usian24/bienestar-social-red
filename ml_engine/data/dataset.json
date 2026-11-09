@@ -1,6 +1,608 @@
 {
+  "metadata": {
+    "extraidoEn": "2026-11-09T15:03:17.360Z",
+    "totalEstablecimientos": 85
+  },
+  "totalEstablecimientos": 85,
   "totalTrabajadores": 1620,
-  "totalLicencias": 255,
+  "totalLicencias": 256,
+  "establecimientos": [
+    {
+      "id": 1,
+      "establecimiento": "C.S. LAS MORAS",
+      "microredId": 5,
+      "microred": "APARICIO POMARES",
+      "totalPersonal": 0
+    },
+    {
+      "id": 2,
+      "establecimiento": "SEDE RED SALUD HUANUCO",
+      "microredId": 3,
+      "microred": "HUANUCO",
+      "totalPersonal": 0
+    },
+    {
+      "id": 3,
+      "establecimiento": "C.S AMARILIS",
+      "microredId": 1,
+      "microred": "AMARILIS",
+      "totalPersonal": 0
+    },
+    {
+      "id": 4,
+      "establecimiento": "C.S. PERU COREA",
+      "microredId": 1,
+      "microred": "AMARILIS",
+      "totalPersonal": 3
+    },
+    {
+      "id": 5,
+      "establecimiento": "P.S. POTRACANCHA",
+      "microredId": 10,
+      "microred": "PILLCO MARCA",
+      "totalPersonal": 0
+    },
+    {
+      "id": 6,
+      "establecimiento": "C.S. STA. MARIA DEL VALLE",
+      "microredId": 2,
+      "microred": "SANTA MARIA DEL VALLE",
+      "totalPersonal": 3
+    },
+    {
+      "id": 7,
+      "establecimiento": "C.S. ACOMAYO",
+      "microredId": 15,
+      "microred": "MICRO RED ACOMAYO",
+      "totalPersonal": 75
+    },
+    {
+      "id": 8,
+      "establecimiento": "C.S. PILLAO",
+      "microredId": 16,
+      "microred": "MICRO RED PILLAO",
+      "totalPersonal": 30
+    },
+    {
+      "id": 9,
+      "establecimiento": "P.S. PUEBLO LIBRE DE MAYOBAMBA",
+      "microredId": 15,
+      "microred": "MICRO RED ACOMAYO",
+      "totalPersonal": 5
+    },
+    {
+      "id": 10,
+      "establecimiento": "SEDE RED SALUD HUANUCO",
+      "microredId": 17,
+      "microred": "SEDE RED SALUD HUANUCO",
+      "totalPersonal": 130
+    },
+    {
+      "id": 11,
+      "establecimiento": "C.S. STA. MARIA DEL VALLE",
+      "microredId": 18,
+      "microred": "MICRO RED STA. MARIA DEL VALLE",
+      "totalPersonal": 74
+    },
+    {
+      "id": 12,
+      "establecimiento": "C.S AMARILIS",
+      "microredId": 19,
+      "microred": "MICRO RED AMARILIS",
+      "totalPersonal": 99
+    },
+    {
+      "id": 13,
+      "establecimiento": "C.S. LAS MORAS",
+      "microredId": 20,
+      "microred": "MICRO RED APARICIO POMARES",
+      "totalPersonal": 113
+    },
+    {
+      "id": 14,
+      "establecimiento": "C.S. PERU COREA",
+      "microredId": 19,
+      "microred": "MICRO RED AMARILIS",
+      "totalPersonal": 143
+    },
+    {
+      "id": 15,
+      "establecimiento": "P.S. POTRACANCHA",
+      "microredId": 21,
+      "microred": "MICRO RED PILLCO MARCA",
+      "totalPersonal": 132
+    },
+    {
+      "id": 16,
+      "establecimiento": "P.S. CHINCHINGA",
+      "microredId": 16,
+      "microred": "MICRO RED PILLAO",
+      "totalPersonal": 6
+    },
+    {
+      "id": 17,
+      "establecimiento": "C.S. CAYRAN",
+      "microredId": 22,
+      "microred": "MICRO RED SAN FCO. DE CAYRAN",
+      "totalPersonal": 29
+    },
+    {
+      "id": 18,
+      "establecimiento": "C.S MENTAL COMUNITARIO UNIVERSITARI",
+      "microredId": 19,
+      "microred": "MICRO RED AMARILIS",
+      "totalPersonal": 9
+    },
+    {
+      "id": 19,
+      "establecimiento": "P.S. TAMBO DE SAN JOSE",
+      "microredId": 18,
+      "microred": "MICRO RED STA. MARIA DEL VALLE",
+      "totalPersonal": 6
+    },
+    {
+      "id": 20,
+      "establecimiento": "C.S. MARGOS",
+      "microredId": 23,
+      "microred": "MICRO RED MARGOS",
+      "totalPersonal": 35
+    },
+    {
+      "id": 21,
+      "establecimiento": "C.S. HUANCAPALLAC",
+      "microredId": 24,
+      "microred": "MICRO RED HUANCAPALLAC",
+      "totalPersonal": 29
+    },
+    {
+      "id": 22,
+      "establecimiento": "P.S. YACUS",
+      "microredId": 25,
+      "microred": "MICRO RED YACUS",
+      "totalPersonal": 20
+    },
+    {
+      "id": 23,
+      "establecimiento": "C.S. APARICIO POMARES",
+      "microredId": 20,
+      "microred": "MICRO RED APARICIO POMARES",
+      "totalPersonal": 197
+    },
+    {
+      "id": 24,
+      "establecimiento": "P.S. POMACUCHO",
+      "microredId": 18,
+      "microred": "MICRO RED STA. MARIA DEL VALLE",
+      "totalPersonal": 12
+    },
+    {
+      "id": 25,
+      "establecimiento": "C.S. SAN SEBASTIAN DE QUERA",
+      "microredId": 18,
+      "microred": "MICRO RED STA. MARIA DEL VALLE",
+      "totalPersonal": 14
+    },
+    {
+      "id": 26,
+      "establecimiento": "P.S. UTAO",
+      "microredId": 26,
+      "microred": "MICRO RED CHURUBAMBA",
+      "totalPersonal": 19
+    },
+    {
+      "id": 27,
+      "establecimiento": "P.S. LA ESPERANZA",
+      "microredId": 19,
+      "microred": "MICRO RED AMARILIS",
+      "totalPersonal": 23
+    },
+    {
+      "id": 28,
+      "establecimiento": "P.S. LLACSA",
+      "microredId": 18,
+      "microred": "MICRO RED STA. MARIA DEL VALLE",
+      "totalPersonal": 4
+    },
+    {
+      "id": 29,
+      "establecimiento": "P.S. SAN ISIDRO DE PAURA",
+      "microredId": 25,
+      "microred": "MICRO RED YACUS",
+      "totalPersonal": 3
+    },
+    {
+      "id": 30,
+      "establecimiento": "P.S. CHURUBAMBA",
+      "microredId": 26,
+      "microred": "MICRO RED CHURUBAMBA",
+      "totalPersonal": 31
+    },
+    {
+      "id": 31,
+      "establecimiento": "C.S. CHAULAN",
+      "microredId": 27,
+      "microred": "MICRO RED SAN PEDRO DE CHAULAN",
+      "totalPersonal": 17
+    },
+    {
+      "id": 32,
+      "establecimiento": "P.S. PAMPAS",
+      "microredId": 24,
+      "microred": "MICRO RED HUANCAPALLAC",
+      "totalPersonal": 5
+    },
+    {
+      "id": 33,
+      "establecimiento": "P.S. MALCONGA",
+      "microredId": 19,
+      "microred": "MICRO RED AMARILIS",
+      "totalPersonal": 11
+    },
+    {
+      "id": 34,
+      "establecimiento": "C.S COMUNITARIO PAKARIN",
+      "microredId": 19,
+      "microred": "MICRO RED AMARILIS",
+      "totalPersonal": 10
+    },
+    {
+      "id": 35,
+      "establecimiento": "P.S. TRES DE MAYO DE PACSHAG",
+      "microredId": 26,
+      "microred": "MICRO RED CHURUBAMBA",
+      "totalPersonal": 7
+    },
+    {
+      "id": 36,
+      "establecimiento": "C.S MENTAL COMUNITARIO LA ESPERANZA",
+      "microredId": 20,
+      "microred": "MICRO RED APARICIO POMARES",
+      "totalPersonal": 13
+    },
+    {
+      "id": 37,
+      "establecimiento": "P.S. SAN MIGUEL DE MITOQUERA",
+      "microredId": 18,
+      "microred": "MICRO RED STA. MARIA DEL VALLE",
+      "totalPersonal": 5
+    },
+    {
+      "id": 38,
+      "establecimiento": "P.S. LLACON",
+      "microredId": 18,
+      "microred": "MICRO RED STA. MARIA DEL VALLE",
+      "totalPersonal": 9
+    },
+    {
+      "id": 39,
+      "establecimiento": "AISPED UTAO PAGSHAG",
+      "microredId": 26,
+      "microred": "MICRO RED CHURUBAMBA",
+      "totalPersonal": 2
+    },
+    {
+      "id": 40,
+      "establecimiento": "P.S. HUANACAURE",
+      "microredId": 16,
+      "microred": "MICRO RED PILLAO",
+      "totalPersonal": 2
+    },
+    {
+      "id": 41,
+      "establecimiento": "P.S. LLICUA",
+      "microredId": 19,
+      "microred": "MICRO RED AMARILIS",
+      "totalPersonal": 15
+    },
+    {
+      "id": 42,
+      "establecimiento": "P.S. JESUS DE NAZARET DE COCHAS",
+      "microredId": 23,
+      "microred": "MICRO RED MARGOS",
+      "totalPersonal": 6
+    },
+    {
+      "id": 43,
+      "establecimiento": "P.S. TRES DE MYO-ANDAS CHICO",
+      "microredId": 28,
+      "microred": "MICRO RED YARUMAYO",
+      "totalPersonal": 5
+    },
+    {
+      "id": 44,
+      "establecimiento": "P.S. PACHABAMBA",
+      "microredId": 18,
+      "microred": "MICRO RED STA. MARIA DEL VALLE",
+      "totalPersonal": 7
+    },
+    {
+      "id": 45,
+      "establecimiento": "P.S. TAMBOGAN",
+      "microredId": 26,
+      "microred": "MICRO RED CHURUBAMBA",
+      "totalPersonal": 12
+    },
+    {
+      "id": 46,
+      "establecimiento": "P.S. HUALMISH",
+      "microredId": 26,
+      "microred": "MICRO RED CHURUBAMBA",
+      "totalPersonal": 2
+    },
+    {
+      "id": 47,
+      "establecimiento": "P.S. PAUCAR",
+      "microredId": 19,
+      "microred": "MICRO RED AMARILIS",
+      "totalPersonal": 9
+    },
+    {
+      "id": 48,
+      "establecimiento": "HOGAR PROTEGIDO AMIGOS DE JESUS",
+      "microredId": 19,
+      "microred": "MICRO RED AMARILIS",
+      "totalPersonal": 1
+    },
+    {
+      "id": 49,
+      "establecimiento": "P.S. SANTA ROSA DE SIRABAMBA",
+      "microredId": 18,
+      "microred": "MICRO RED STA. MARIA DEL VALLE",
+      "totalPersonal": 9
+    },
+    {
+      "id": 50,
+      "establecimiento": "P.S. CHULLAY",
+      "microredId": 28,
+      "microred": "MICRO RED YARUMAYO",
+      "totalPersonal": 6
+    },
+    {
+      "id": 51,
+      "establecimiento": "P.S TABRAJ",
+      "microredId": 15,
+      "microred": "MICRO RED ACOMAYO",
+      "totalPersonal": 2
+    },
+    {
+      "id": 52,
+      "establecimiento": "P.S. COLPA BAJA",
+      "microredId": 20,
+      "microred": "MICRO RED APARICIO POMARES",
+      "totalPersonal": 17
+    },
+    {
+      "id": 53,
+      "establecimiento": "P.S CHOQUECANCHA",
+      "microredId": 18,
+      "microred": "MICRO RED STA. MARIA DEL VALLE",
+      "totalPersonal": 3
+    },
+    {
+      "id": 54,
+      "establecimiento": "C.S. YARUMAYO",
+      "microredId": 28,
+      "microred": "MICRO RED YARUMAYO",
+      "totalPersonal": 15
+    },
+    {
+      "id": 55,
+      "establecimiento": "P.S. HUANCHAN",
+      "microredId": 25,
+      "microred": "MICRO RED YACUS",
+      "totalPersonal": 3
+    },
+    {
+      "id": 56,
+      "establecimiento": "P.S. INGENIO BAJO",
+      "microredId": 18,
+      "microred": "MICRO RED STA. MARIA DEL VALLE",
+      "totalPersonal": 3
+    },
+    {
+      "id": 57,
+      "establecimiento": "P.S. SAN PEDRO DE PILLAO",
+      "microredId": 16,
+      "microred": "MICRO RED PILLAO",
+      "totalPersonal": 3
+    },
+    {
+      "id": 58,
+      "establecimiento": "P.S. STA. ISABEL",
+      "microredId": 16,
+      "microred": "MICRO RED PILLAO",
+      "totalPersonal": 1
+    },
+    {
+      "id": 59,
+      "establecimiento": "P.S. PACAYHUA",
+      "microredId": 23,
+      "microred": "MICRO RED MARGOS",
+      "totalPersonal": 4
+    },
+    {
+      "id": 60,
+      "establecimiento": "P.S. SN-FCO.DE COCHABAMBA",
+      "microredId": 26,
+      "microred": "MICRO RED CHURUBAMBA",
+      "totalPersonal": 3
+    },
+    {
+      "id": 61,
+      "establecimiento": "P.S. HUACORA",
+      "microredId": 25,
+      "microred": "MICRO RED YACUS",
+      "totalPersonal": 7
+    },
+    {
+      "id": 62,
+      "establecimiento": "C.S.C. PAKARIN",
+      "microredId": 19,
+      "microred": "MICRO RED AMARILIS",
+      "totalPersonal": 22
+    },
+    {
+      "id": 63,
+      "establecimiento": "C.S.M.C. LA ESPERANZA",
+      "microredId": 20,
+      "microred": "MICRO RED APARICIO POMARES",
+      "totalPersonal": 18
+    },
+    {
+      "id": 64,
+      "establecimiento": "P.S. SANTA CRUZ DE RATACOCHA",
+      "microredId": 18,
+      "microred": "MICRO RED STA. MARIA DEL VALLE",
+      "totalPersonal": 3
+    },
+    {
+      "id": 65,
+      "establecimiento": "HOGARES PROTEGIDOS AMIGOS DE JESUS",
+      "microredId": 19,
+      "microred": "MICRO RED AMARILIS",
+      "totalPersonal": 10
+    },
+    {
+      "id": 66,
+      "establecimiento": "P.S. SAN JOSE DE COZO TINGO",
+      "microredId": 27,
+      "microred": "MICRO RED SAN PEDRO DE CHAULAN",
+      "totalPersonal": 3
+    },
+    {
+      "id": 67,
+      "establecimiento": "C.S. MENTAL COMUNITARIO UNIVERSITAR",
+      "microredId": 19,
+      "microred": "MICRO RED AMARILIS",
+      "totalPersonal": 14
+    },
+    {
+      "id": 68,
+      "establecimiento": "P.S. HUANCACHUPAC",
+      "microredId": 22,
+      "microred": "MICRO RED SAN FCO. DE CAYRAN",
+      "totalPersonal": 4
+    },
+    {
+      "id": 69,
+      "establecimiento": "P.S. STO.TBIO MJO AMP CHINCHAO",
+      "microredId": 15,
+      "microred": "MICRO RED ACOMAYO",
+      "totalPersonal": 5
+    },
+    {
+      "id": 70,
+      "establecimiento": "C.S.AMARILIS",
+      "microredId": 19,
+      "microred": "MICRO RED AMARILIS",
+      "totalPersonal": 15
+    },
+    {
+      "id": 71,
+      "establecimiento": "H.P.SEÑOR DE BURGOS",
+      "microredId": 19,
+      "microred": "MICRO RED AMARILIS",
+      "totalPersonal": 9
+    },
+    {
+      "id": 72,
+      "establecimiento": "P.S.PUENTE DURAND",
+      "microredId": 15,
+      "microred": "MICRO RED ACOMAYO",
+      "totalPersonal": 5
+    },
+    {
+      "id": 73,
+      "establecimiento": "P.S. NAUYAN RONDOS",
+      "microredId": 20,
+      "microred": "MICRO RED APARICIO POMARES",
+      "totalPersonal": 5
+    },
+    {
+      "id": 74,
+      "establecimiento": "P.S. SAN PEDRO DE CANI",
+      "microredId": 24,
+      "microred": "MICRO RED HUANCAPALLAC",
+      "totalPersonal": 6
+    },
+    {
+      "id": 75,
+      "establecimiento": "P.S. SAN FCO DE ASIS DE LLAMAPASHIL",
+      "microredId": 23,
+      "microred": "MICRO RED MARGOS",
+      "totalPersonal": 2
+    },
+    {
+      "id": 76,
+      "establecimiento": "P.S. SAN JUAN DE LA LIBERTAD",
+      "microredId": 27,
+      "microred": "MICRO RED SAN PEDRO DE CHAULAN",
+      "totalPersonal": 4
+    },
+    {
+      "id": 77,
+      "establecimiento": "P.S.STA. ISABEL",
+      "microredId": 16,
+      "microred": "MICRO RED PILLAO",
+      "totalPersonal": 3
+    },
+    {
+      "id": 78,
+      "establecimiento": "P.S. MANANTIAL DE VIDA DE QUECHUALO",
+      "microredId": 26,
+      "microred": "MICRO RED CHURUBAMBA",
+      "totalPersonal": 2
+    },
+    {
+      "id": 79,
+      "establecimiento": "P.S.SAN ISIDRO DE PAURA",
+      "microredId": 25,
+      "microred": "MICRO RED YACUS",
+      "totalPersonal": 1
+    },
+    {
+      "id": 80,
+      "establecimiento": "C.S. APARICIO POMARES",
+      "microredId": 3,
+      "microred": "HUANUCO",
+      "totalPersonal": 7
+    },
+    {
+      "id": 81,
+      "establecimiento": "C.S. LAS MORAS",
+      "microredId": 3,
+      "microred": "HUANUCO",
+      "totalPersonal": 5
+    },
+    {
+      "id": 82,
+      "establecimiento": "P.S. MALCONGA",
+      "microredId": 1,
+      "microred": "AMARILIS",
+      "totalPersonal": 1
+    },
+    {
+      "id": 83,
+      "establecimiento": "P.S. CHURUBAMBA",
+      "microredId": 6,
+      "microred": "CHURUBAMBA",
+      "totalPersonal": 1
+    },
+    {
+      "id": 84,
+      "establecimiento": "C.S. POTRACANCHA",
+      "microredId": 10,
+      "microred": "PILLCO MARCA",
+      "totalPersonal": 5
+    },
+    {
+      "id": 85,
+      "establecimiento": "C.S.AMARILIS",
+      "microredId": 1,
+      "microred": "AMARILIS",
+      "totalPersonal": 12
+    }
+  ],
   "trabajadores": [
     {
       "id": "8ad71c17-9874-4c40-89ac-2dd373da8042",
@@ -13523,8 +14125,8 @@
       "establecimiento": "SEDE RED SALUD HUANUCO",
       "microredId": 17,
       "microred": "SEDE RED SALUD HUANUCO",
-      "numLicencias": 12,
-      "diasTotales": 21
+      "numLicencias": 13,
+      "diasTotales": 23
     },
     {
       "id": "68e70665-f1b4-4d3b-9826-d2cec8177180",
@@ -27492,25 +28094,6 @@
       "creadoEn": "2026-09-29T17:58:01.213Z"
     },
     {
-      "id": "061307c5-05b8-4e83-ade1-9624bdeedd8b",
-      "trabajadorId": "93250d77-831b-440d-aa50-0226e35216ee",
-      "dni": "44517165",
-      "apellidosNombres": "GONZALES LINARES, PEDRO LUIS NICOLAS",
-      "cargo": "INGENIERO DE SISTEMAS",
-      "condicionLaboral": "CAS",
-      "establecimiento": "SEDE RED SALUD HUANUCO",
-      "microred": "SEDE RED SALUD HUANUCO",
-      "tipoLicencia": "ENFERMEDAD_COMUN",
-      "origen": "ESSALUD_CITT",
-      "numeroCertificado": "A-475-00011426-26",
-      "fechaInicio": "2026-09-11",
-      "fechaFin": "2026-09-11",
-      "diasOtorgados": 1,
-      "anioEjercicio": 2026,
-      "mesEjercicio": 9,
-      "creadoEn": "2026-10-17T15:55:42.954Z"
-    },
-    {
       "id": "777f3656-66c9-4036-a626-7d5b7998ad22",
       "trabajadorId": "dee4ca19-a1c5-45fa-9875-2de4993de6b6",
       "dni": "22530073",
@@ -27528,6 +28111,44 @@
       "anioEjercicio": 2026,
       "mesEjercicio": 9,
       "creadoEn": "2026-10-19T17:31:42.035Z"
+    },
+    {
+      "id": "1ced92de-9f3a-4272-9835-bac3c80c5118",
+      "trabajadorId": "93250d77-831b-440d-aa50-0226e35216ee",
+      "dni": "44517165",
+      "apellidosNombres": "GONZALES LINARES, PEDRO LUIS NICOLAS",
+      "cargo": "INGENIERO DE SISTEMAS",
+      "condicionLaboral": "CAS",
+      "establecimiento": "SEDE RED SALUD HUANUCO",
+      "microred": "SEDE RED SALUD HUANUCO",
+      "tipoLicencia": "ENFERMEDAD_COMUN",
+      "origen": "ESSALUD_CITT",
+      "numeroCertificado": "A-475-00011426-26",
+      "fechaInicio": "2026-09-11",
+      "fechaFin": "2026-09-11",
+      "diasOtorgados": 1,
+      "anioEjercicio": 2026,
+      "mesEjercicio": 9,
+      "creadoEn": "2026-10-28T00:51:33.854Z"
+    },
+    {
+      "id": "8648494e-3ce8-48ca-8cb5-2b772ff93af8",
+      "trabajadorId": "6ba1fa0c-085f-44d4-9fd6-7ab3c8d4c991",
+      "dni": "42237682",
+      "apellidosNombres": "FANO URETA, ENDIRA EMMA",
+      "cargo": "0431-ENFERMERA/O I",
+      "condicionLaboral": "NOMBRADO",
+      "establecimiento": "SEDE RED SALUD HUANUCO",
+      "microred": "SEDE RED SALUD HUANUCO",
+      "tipoLicencia": "ENFERMEDAD_COMUN",
+      "origen": "PARTICULAR",
+      "numeroCertificado": "930372",
+      "fechaInicio": "2026-10-01",
+      "fechaFin": "2026-10-02",
+      "diasOtorgados": 2,
+      "anioEjercicio": 2026,
+      "mesEjercicio": 10,
+      "creadoEn": "2026-10-28T14:54:24.868Z"
     }
   ]
 }
