@@ -39,7 +39,7 @@ async function main() {
       const estParts = row['CODEST'].toString().split(' - ');
       const estName = estParts.length > 1 ? estParts[1].trim() : row['CODEST'].toString().trim();
       
-      let nombres = row['NOM'] ? row['NOM'].toString().trim() : '';
+      const nombres = row['NOM'] ? row['NOM'].toString().trim() : '';
       let apellidos = '';
       if (row['PAT'] || row['MAT']) {
         apellidos = `${row['PAT'] || ''} ${row['MAT'] || ''}`.trim();

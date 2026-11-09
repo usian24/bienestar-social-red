@@ -92,12 +92,6 @@ export default function UsuariosPage() {
     );
   };
 
-  useEffect(() => {
-    fetchUsuarios();
-    fetchMicroredes();
-    fetchRoles();
-  }, []);
-
   const fetchRoles = async () => {
     try {
       const res = await fetch('/api/roles');
@@ -130,6 +124,31 @@ export default function UsuariosPage() {
       console.error("Error al cargar microredes:", e);
     }
   };
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([fetch('/api/usuarios'), fetch('/api/filtros'), fetch('/api/roles')])
+      .then(async ([resU, resF, resR]) => {
+        if (!active) return;
+        if (resU.ok) {
+          const dataU = await resU.json();
+          if (active) setUsuarios(dataU);
+        }
+        if (resF.ok) {
+          const dataF = await resF.json();
+          if (active) setMicroredes(dataF);
+        }
+        if (resR.ok) {
+          const dataR = await resR.json();
+          if (active) setRoles(dataR);
+        }
+      })
+      .catch((e) => console.error('Error al cargar usuarios/roles/microredes:', e))
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
 
   const handleDniChange = async (val: string) => {
     const dniLimpio = val.replace(/\D/g, '').slice(0, 8);

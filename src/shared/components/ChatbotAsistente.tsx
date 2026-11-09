@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Send, RefreshCw, X, MessageCircle, ShieldCheck, User, ArrowLeft, HeartPulse, Sparkles } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { puedeUsarChatbot } from '@/shared/utils/permisos';
@@ -28,6 +28,7 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
   const nombreUsuario = (session?.user?.name || 'Servidor').split(' ')[0];
 
   const [mensajes, setMensajes] = useState<MensajeChat[]>([]);
+  const [textoReset, setTextoReset] = useState<string | null>(null);
   const [inputTexto, setInputTexto] = useState('');
   const [cargando, setCargando] = useState(false);
   const [modalMovilAbierto, setModalMovilAbierto] = useState(false);
@@ -47,18 +48,13 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
   } | null>(null);
   const ignoreClickRef = useRef(false);
 
-  // Posición inicial por defecto y adaptación al tamaño de pantalla
+  // Adaptación de posición al redimensionar pantalla (sin setState síncrono al montar)
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const BUBBLE_SIZE = 56;
-    const MARGIN_BOTTOM = 86; // Por encima de la barra inferior de navegación (64px)
+    const MARGIN_BOTTOM = 86;
     const MARGIN_SIDE = 14;
-
-    const inicialX = Math.max(MARGIN_SIDE, window.innerWidth - BUBBLE_SIZE - MARGIN_SIDE);
-    const inicialY = Math.max(80, window.innerHeight - MARGIN_BOTTOM - BUBBLE_SIZE);
-
-    setPosicionBurbuja({ x: inicialX, y: inicialY });
 
     const handleResize = () => {
       setPosicionBurbuja(prev => {
@@ -77,13 +73,20 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
 
   const handleBubblePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
-    if (!posicionBurbuja) return;
+    let initialX = posicionBurbuja?.x;
+    let initialY = posicionBurbuja?.y;
+    if (initialX === undefined || initialY === undefined) {
+      const rect = bubbleRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      initialX = rect.left;
+      initialY = rect.top;
+    }
 
     dragStartRef.current = {
       startX: e.clientX,
       startY: e.clientY,
-      initialX: posicionBurbuja.x,
-      initialY: posicionBurbuja.y,
+      initialX,
+      initialY,
       hasMoved: false,
     };
     setArrastrandoBurbuja(true);
@@ -170,19 +173,21 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
     };
   }, [arrastrandoBurbuja]);
 
-  // Inicializar mensaje de bienvenida cálido, empático e institucional
-  useEffect(() => {
-    if (!tieneAcceso) return;
+  // Saludo inicial derivado sin efectos ni mutaciones síncronas
+  const mensajesMostrados = useMemo<MensajeChat[]>(() => {
+    if (!tieneAcceso) return mensajes;
     const saludoInicial: MensajeChat = {
-      id: 'saludo-1',
+      id: textoReset ? 'saludo-reset' : 'saludo-1',
       remitente: 'asistente',
-      texto: rol === 'TRABAJADOR'
-        ? `¡Hola, ${nombreUsuario}! Soy **BienestarBot**, tu orientador institucional de la Red de Salud Huánuco. Puedo ayudarte a consultar tus descansos médicos, saldo de días acumulados, requisitos de canje de CITT y subsidios. ¿En qué te oriento hoy?`
-        : `¡Hola, ${nombreUsuario}! Bienvenido al área de Bienestar Social. Como asistente de la Red de Salud Huánuco, puedo ayudarte a buscar expedientes por DNI/nombre, revisar alertas críticas de CITT y calcular subsidios EsSalud.`,
-      fecha: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      texto:
+        textoReset ??
+        (rol === 'TRABAJADOR'
+          ? `¡Hola, ${nombreUsuario}! Soy **BienestarBot**, tu orientador institucional de la Red de Salud Huánuco. Puedo ayudarte a consultar tus descansos médicos, saldo de días acumulados, requisitos de canje de CITT y subsidios. ¿En qué te oriento hoy?`
+          : `¡Hola, ${nombreUsuario}! Bienvenido al área de Bienestar Social. Como asistente de la Red de Salud Huánuco, puedo ayudarte a buscar expedientes por DNI/nombre, revisar alertas críticas de CITT y calcular subsidios EsSalud.`),
+      fecha: 'Ahora',
     };
-    setMensajes([saludoInicial]);
-  }, [tieneAcceso, rol, nombreUsuario]);
+    return [saludoInicial, ...mensajes];
+  }, [tieneAcceso, rol, nombreUsuario, textoReset, mensajes]);
 
   // Auto-scroll al final en ambos contenedores (desktop y móvil)
   useEffect(() => {
@@ -192,7 +197,7 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
     if (mobileChatContainerRef.current) {
       mobileChatContainerRef.current.scrollTop = mobileChatContainerRef.current.scrollHeight;
     }
-  }, [mensajes, cargando, modalMovilAbierto]);
+  }, [mensajesMostrados, cargando, modalMovilAbierto]);
 
   // Preguntas sugeridas contextuales según el rol
   const sugerencias = rol === 'TRABAJADOR' ? [
@@ -207,17 +212,24 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
     '¿Cómo funciona la regla de los 20 días?'
   ];
 
+  const msgSeqRef = useRef(0);
+
   const enviarMensaje = async (textoAEnviar?: string) => {
     const texto = (textoAEnviar || inputTexto).trim();
     if (!texto || cargando) return;
 
+    msgSeqRef.current += 1;
+    const seq = msgSeqRef.current;
+    const ahoraLabel = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
     const nuevoMsgUsuario: MensajeChat = {
-      id: 'usr-' + Date.now(),
+      id: `usr-${seq}`,
       remitente: 'usuario',
       texto,
-      fecha: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      fecha: ahoraLabel
     };
 
+    const historialPrevio = mensajesMostrados.slice(-4);
     setMensajes(prev => [...prev, nuevoMsgUsuario]);
     if (!textoAEnviar) setInputTexto('');
     setCargando(true);
@@ -228,17 +240,19 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mensaje: texto,
-          historial: mensajes.slice(-4)
+          historial: historialPrevio
         })
       });
 
       const data = await res.json();
 
       if (res.ok && data.respuesta) {
+        msgSeqRef.current += 1;
+        const botSeq = msgSeqRef.current;
         setMensajes(prev => [
           ...prev,
           {
-            id: 'bot-' + Date.now(),
+            id: `bot-${botSeq}`,
             remitente: 'asistente',
             texto: data.respuesta,
             origen: data.origen,
@@ -250,10 +264,12 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
       }
     } catch (err) {
       console.error('Error enviando mensaje:', err);
+      msgSeqRef.current += 1;
+      const errSeq = msgSeqRef.current;
       setMensajes(prev => [
         ...prev,
         {
-          id: 'bot-err-' + Date.now(),
+          id: `bot-err-${errSeq}`,
           remitente: 'asistente',
           texto: 'Disculpa el inconveniente, hubo un breve retraso al consultar los registros. Por favor, reintenta tu pregunta en unos segundos.',
           origen: 'error',
@@ -273,13 +289,8 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
   };
 
   const reiniciarChat = () => {
-    const saludoInicial: MensajeChat = {
-      id: 'saludo-' + Date.now(),
-      remitente: 'asistente',
-      texto: `Conversación reiniciada. Con gusto puedo orientarte con otra consulta, ${nombreUsuario}.`,
-      fecha: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    setMensajes([saludoInicial]);
+    setTextoReset(`Conversación reiniciada. Con gusto puedo orientarte con otra consulta, ${nombreUsuario}.`);
+    setMensajes([]);
   };
 
   // Renderizador amigable de markdown (negritas y viñetas)
@@ -306,7 +317,7 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
   // CONTENIDO REUTILIZABLE DE LA CONVERSACIÓN
   const renderListaMensajes = (refContenedor: React.RefObject<HTMLDivElement | null>) => (
     <div ref={refContenedor} className="flex-1 p-4 overflow-y-auto space-y-3.5 bg-slate-50/80 dark:bg-slate-900/60 text-[13px]">
-      {mensajes.map((msg) => (
+      {mensajesMostrados.map((msg) => (
         <div
           key={msg.id}
           className={`flex items-start gap-2.5 ${msg.remitente === 'usuario' ? 'justify-end' : 'justify-start'}`}
@@ -358,7 +369,7 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
   const renderInputForm = () => (
     <>
       {/* Sugerencias Rápidas */}
-      {mensajes.length <= 2 && (
+      {mensajesMostrados.length <= 2 && (
         <div className="px-3 py-2 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700/60 flex flex-wrap gap-1.5 shrink-0">
           {sugerencias.map((sug, i) => (
             <button

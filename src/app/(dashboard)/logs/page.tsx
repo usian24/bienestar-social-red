@@ -9,8 +9,7 @@ export default function LogsPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const fetchLogs = async () => {
-    setLoading(true);
+  const cargarLogs = async () => {
     setErrorMsg('');
     try {
       const res = await fetch('/api/logs');
@@ -33,8 +32,35 @@ export default function LogsPage() {
     }
   };
 
+  const fetchLogs = () => {
+    setLoading(true);
+    void cargarLogs();
+  };
+
   useEffect(() => {
-    fetchLogs();
+    let active = true;
+    fetch('/api/logs')
+      .then(async (res) => {
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || 'Error al obtener los logs');
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (!active) return;
+        setLogs(data.logs);
+        setTimeout(() => {
+          bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      })
+      .catch((error: any) => {
+        if (active) setErrorMsg(error.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
   }, []);
 
   const downloadLogs = () => {

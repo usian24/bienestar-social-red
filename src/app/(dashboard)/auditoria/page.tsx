@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { 
   Shield, 
   Activity, 
@@ -49,15 +49,7 @@ export default function AuditoriaPage() {
   const [ejecutandoPrueba, setEjecutandoPrueba] = useState(false);
   const [mensajeFeedback, setMensajeFeedback] = useState<string | null>(null);
 
-  // Cargar datos al montar
-  useEffect(() => {
-    if (esSuperAdmin) {
-      cargarDatos();
-      cargarSalud();
-    }
-  }, [esSuperAdmin, pestañaActiva]);
-
-  const cargarDatos = async () => {
+  const cargarDatos = useCallback(async () => {
     setLoading(true);
     try {
       let url = '/api/auditoria?limite=200';
@@ -77,9 +69,9 @@ export default function AuditoriaPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pestañaActiva]);
 
-  const cargarSalud = async () => {
+  const cargarSalud = useCallback(async () => {
     setLoadingSalud(true);
     try {
       const res = await fetch('/api/sistema/salud');
@@ -92,7 +84,41 @@ export default function AuditoriaPage() {
     } finally {
       setLoadingSalud(false);
     }
-  };
+  }, []);
+
+  // Cargar datos al montar
+  useEffect(() => {
+    if (!esSuperAdmin) return;
+    let active = true;
+    let url = '/api/auditoria?limite=200';
+    if (pestañaActiva === 'errores') {
+      url += '&tipo=ERRORES';
+    } else if (pestañaActiva === 'auditoria') {
+      url += '&tipo=AUDITORIA';
+    }
+
+    Promise.all([fetch(url), fetch('/api/sistema/salud')])
+      .then(async ([resLogs, resSalud]) => {
+        if (!active) return;
+        if (resLogs.ok) {
+          const data = await resLogs.json();
+          if (active) setRegistros(Array.isArray(data) ? data : []);
+        }
+        if (resSalud.ok) {
+          const salud = await resSalud.json();
+          if (active) setSaludData(salud);
+        }
+      })
+      .catch((e) => console.error('Error cargando logs/salud:', e))
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+          setLoadingSalud(false);
+        }
+      });
+
+    return () => { active = false; };
+  }, [esSuperAdmin, pestañaActiva]);
 
   const ejecutarPruebaError = async () => {
     setEjecutandoPrueba(true);

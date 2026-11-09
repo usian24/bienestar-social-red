@@ -11,15 +11,12 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronUp,
-  AlertTriangle,
   Info,
-  DollarSign,
   BarChart3,
   Calendar,
   MapPin,
   GitCompare,
   Check,
-  Sliders,
   CheckCircle2
 } from 'lucide-react';
 
@@ -178,6 +175,31 @@ interface MLInsightsData {
   };
 }
 
+// Funciones puras de concordancia y normalización de nombres de microred
+function normalizeMr(name: string): string {
+  if (!name) return '';
+  return name
+    .toUpperCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/^MICRO\s*RED\s+/i, '')
+    .replace(/^MR\s+/i, '')
+    .replace(/SAN\s*FCO\.?/i, 'SAN FRANCISCO')
+    .replace(/STA\.?/i, 'SANTA')
+    .replace(/\./g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function matchMr(mr1: string, mr2: string): boolean {
+  if (!mr1 || !mr2) return false;
+  if (mr2 === 'TODAS' || mr1 === 'TODAS') return true;
+  const n1 = normalizeMr(mr1);
+  const n2 = normalizeMr(mr2);
+  if (n1 === n2) return true;
+  if (n1.includes(n2) || n2.includes(n1)) return true;
+  return false;
+}
+
 export default function MLDashboardCard() {
   const { data: session } = useSession();
   const user = session?.user as any;
@@ -188,7 +210,7 @@ export default function MLDashboardCard() {
   const [data, setData] = useState<MLInsightsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [retraining, setRetraining] = useState(false);
-  const [activeTab, setActiveTab] = useState<'forecasting' | 'anomalias' | 'citt' | 'clustering' | 'origen'>('forecasting');
+  const [activeTabRaw, setActiveTab] = useState<'forecasting' | 'anomalias' | 'citt' | 'clustering' | 'origen'>('forecasting');
   const [error, setError] = useState<string | null>(null);
   const [colapsado, setColapsado] = useState(false);
   const [selectedMicrored, setSelectedMicrored] = useState<MicroredDetalle | null>(null);
@@ -196,45 +218,15 @@ export default function MLDashboardCard() {
   const [busquedaEst, setBusquedaEst] = useState('');
   const [filtroAlertaEst, setFiltroAlertaEst] = useState<'TODOS' | 'ALTA_CARGA' | 'MODERADA' | 'COBERTURA_DIRECTA'>('TODOS');
   const [notification, setNotification] = useState<string | null>(null);
-  const [filtroMicrored, setFiltroMicrored] = useState<string>('TODAS');
+  const [filtroMicroredRaw, setFiltroMicrored] = useState<string>('TODAS');
 
-  // Inicializar microred según la sesión o datos del backend
-  useEffect(() => {
-    if (!esSuperAdmin) {
-      const mr = userMicroredNombre || (data as any)?.microredFiltroAplicado || (data as any)?.usuarioMicrored;
-      if (mr) {
-        setFiltroMicrored(mr);
-      }
-      if (activeTab === 'clustering' || activeTab === 'origen') {
-        setActiveTab('forecasting');
-      }
-    }
-  }, [esSuperAdmin, userMicroredNombre, data, activeTab]);
-
-  // Funciones de concordancia y normalización de nombres de microred
-  const normalizeMr = (name: string): string => {
-    if (!name) return '';
-    return name
-      .toUpperCase()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-      .replace(/^MICRO\s*RED\s+/i, '')
-      .replace(/^MR\s+/i, '')
-      .replace(/SAN\s*FCO\.?/i, 'SAN FRANCISCO')
-      .replace(/STA\.?/i, 'SANTA')
-      .replace(/\./g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-  };
-
-  const matchMr = (mr1: string, mr2: string): boolean => {
-    if (!mr1 || !mr2) return false;
-    if (mr2 === 'TODAS' || mr1 === 'TODAS') return true;
-    const n1 = normalizeMr(mr1);
-    const n2 = normalizeMr(mr2);
-    if (n1 === n2) return true;
-    if (n1.includes(n2) || n2.includes(n1)) return true;
-    return false;
-  };
+  // Microred y pestaña activas derivadas según el rol (sin sincronización por useEffect)
+  const filtroMicrored = esSuperAdmin
+    ? filtroMicroredRaw
+    : (userMicroredNombre || data?.microredFiltroAplicado || data?.usuarioMicrored || 'TODAS');
+  const activeTab = !esSuperAdmin && (activeTabRaw === 'clustering' || activeTabRaw === 'origen')
+    ? 'forecasting'
+    : activeTabRaw;
 
   // Lista única de microredes analizadas en el modelo
   const listaMicroredes = useMemo(() => {
@@ -374,38 +366,38 @@ export default function MLDashboardCard() {
     return establecimientosBaseTab5.filter(e => e.alerta === filtroAlertaEst);
   }, [establecimientosBaseTab5, filtroAlertaEst]);
 
-  const fetchInsights = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/ml');
-      if (!res.ok) {
-        throw new Error('No se pudieron consultar los modelos.');
-      }
-      const json = await res.json();
-      setData(json);
-
-      if (json?.modelo4_clustering?.microredesDetalle?.length > 0) {
-        if (!esSuperAdmin && userMicroredNombre) {
-          const matched = json.modelo4_clustering.microredesDetalle.find((m: any) => matchMr(m.microred, userMicroredNombre));
-          setSelectedMicrored(matched || json.modelo4_clustering.microredesDetalle[0]);
-        } else {
-          setSelectedMicrored(json.modelo4_clustering.microredesDetalle[0]);
-        }
-      }
-      if (json?.modelo2_anomalias?.topCasosAtipicos?.length > 0) {
-        setSelectedCaso(json.modelo2_anomalias.topCasosAtipicos[0]);
-      }
-    } catch (err: any) {
-      setError(err?.message || 'Error de conexión con el servicio de análisis');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchInsights();
-  }, []);
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch('/api/ml');
+        if (!res.ok) {
+          throw new Error('No se pudieron consultar los modelos.');
+        }
+        const json = await res.json();
+        if (!active) return;
+        setData(json);
+        setError(null);
+
+        if (json?.modelo4_clustering?.microredesDetalle?.length > 0) {
+          if (!esSuperAdmin && userMicroredNombre) {
+            const matched = json.modelo4_clustering.microredesDetalle.find((m: any) => matchMr(m.microred, userMicroredNombre));
+            setSelectedMicrored(matched || json.modelo4_clustering.microredesDetalle[0]);
+          } else {
+            setSelectedMicrored(json.modelo4_clustering.microredesDetalle[0]);
+          }
+        }
+        if (json?.modelo2_anomalias?.topCasosAtipicos?.length > 0) {
+          setSelectedCaso(json.modelo2_anomalias.topCasosAtipicos[0]);
+        }
+      } catch (err: any) {
+        if (active) setError(err?.message || 'Error de conexión con el servicio de análisis');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [esSuperAdmin, userMicroredNombre]);
 
   const handleRetrain = async () => {
     if (retraining) return;

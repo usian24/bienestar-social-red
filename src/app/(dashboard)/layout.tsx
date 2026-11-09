@@ -28,14 +28,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
 
   useEffect(() => {
-    // En móviles o pantallas pequeñas, colapsar el menú lateral por defecto
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      setIsSidebarOpen(false);
-    }
-
-    // Al cargar la app, comprobar si ya está en dark mode
-    const isDark = document.documentElement.classList.contains('dark');
-    setDarkMode(isDark);
+    // Al cargar la app, comprobar si ya está en dark mode dentro de rAF (sin setState síncrono)
+    const rafId = requestAnimationFrame(() => {
+      const isDark = document.documentElement.classList.contains('dark');
+      setDarkMode(isDark);
+    });
+    return () => cancelAnimationFrame(rafId);
   }, []);
 
   useEffect(() => {
@@ -48,13 +46,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         .catch(e => console.error(e));
     }
   }, [status, sessionRol]);
-
-  // En móvil cerrar el sidebar al navegar entre páginas
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      setIsSidebarOpen(false);
-    }
-  }, [pathname]);
 
   const handleCerrarSesion = async () => {
     try {

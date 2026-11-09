@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Move, AlignLeft, AlignCenter, AlignRight, 
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
-  ZoomIn, ZoomOut, X, Maximize2
+  ZoomIn, ZoomOut, X
 } from 'lucide-react';
 
 interface WordMovableControllerProps {
@@ -13,10 +13,9 @@ interface WordMovableControllerProps {
 }
 
 export default function WordMovableController({ paperRef, escala = 1 }: WordMovableControllerProps) {
-  const [selectedEl, setSelectedEl] = useState<HTMLElement | null>(null);
+  const selectedElRef = useRef<HTMLElement | null>(null);
+  const [selectedMeta, setSelectedMeta] = useState<{ tick: number; tagLabel: string } | null>(null);
   const [bounds, setBounds] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
-  const [isResizing, setIsResizing] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
   const [sizeTooltip, setSizeTooltip] = useState<string | null>(null);
 
   // Recalcular los límites exactos del elemento respecto al papel
@@ -54,10 +53,14 @@ export default function WordMovableController({ paperRef, escala = 1 }: WordMova
       const clicked = target.closest('img, table, .bg-slate-50') as HTMLElement | null;
 
       if (clicked && paper.contains(clicked)) {
-        setSelectedEl(clicked);
+        const tag = clicked.tagName.toLowerCase();
+        const tagLabel = tag === 'img' ? 'Imagen' : tag === 'table' ? 'Tabla' : 'Cuadro';
+        selectedElRef.current = clicked;
+        setSelectedMeta((prev) => ({ tick: (prev?.tick || 0) + 1, tagLabel }));
         updateBounds(clicked);
       } else {
-        setSelectedEl(null);
+        selectedElRef.current = null;
+        setSelectedMeta(null);
         setBounds(null);
       }
     };
@@ -68,17 +71,17 @@ export default function WordMovableController({ paperRef, escala = 1 }: WordMova
 
   // Actualizar posición periódicamente y cuando cambie de tamaño
   useEffect(() => {
-    if (!selectedEl) return;
-    updateBounds(selectedEl);
+    const el = selectedElRef.current;
+    if (!selectedMeta || !el) return;
 
     const observer = new ResizeObserver(() => {
-      if (selectedEl) updateBounds(selectedEl);
+      if (selectedElRef.current) updateBounds(selectedElRef.current);
     });
-    observer.observe(selectedEl);
+    observer.observe(el);
 
     // Actualizar también al hacer scroll
     const handleScroll = () => {
-      if (selectedEl) updateBounds(selectedEl);
+      if (selectedElRef.current) updateBounds(selectedElRef.current);
     };
     window.addEventListener('scroll', handleScroll, true);
 
@@ -86,7 +89,7 @@ export default function WordMovableController({ paperRef, escala = 1 }: WordMova
       observer.disconnect();
       window.removeEventListener('scroll', handleScroll, true);
     };
-  }, [selectedEl, updateBounds]);
+  }, [selectedMeta, updateBounds]);
 
   // =========================================================
   // REDIMENSIONAMIENTO INTERACTIVO POR ARRASTRE DE ESQUINAS
@@ -94,13 +97,12 @@ export default function WordMovableController({ paperRef, escala = 1 }: WordMova
   const handleStartResize = (corner: 'se' | 'sw' | 'ne' | 'nw', e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!selectedEl) return;
+    const el = selectedElRef.current;
+    if (!el) return;
 
-    setIsResizing(true);
     const startX = e.clientX;
-    const startY = e.clientY;
-    const initialWidth = selectedEl.offsetWidth;
-    const initialHeight = selectedEl.offsetHeight;
+    const initialWidth = el.offsetWidth;
+    const initialHeight = el.offsetHeight;
     const aspectRatio = initialWidth / (initialHeight || 1);
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
@@ -115,19 +117,18 @@ export default function WordMovableController({ paperRef, escala = 1 }: WordMova
       }
 
       // Aplicar ancho
-      selectedEl.style.width = `${newWidth}px`;
-      if (selectedEl.tagName.toLowerCase() === 'img') {
-        selectedEl.style.height = 'auto'; // Mantener proporción natural
-        selectedEl.style.maxHeight = 'none';
+      el.style.width = `${newWidth}px`;
+      if (el.tagName.toLowerCase() === 'img') {
+        el.style.height = 'auto'; // Mantener proporción natural
+        el.style.maxHeight = 'none';
       }
 
       const calculatedHeight = Math.round(newWidth / aspectRatio);
       setSizeTooltip(`${newWidth} × ${calculatedHeight} px`);
-      updateBounds(selectedEl);
+      updateBounds(el);
     };
 
     const handleMouseUp = () => {
-      setIsResizing(false);
       setSizeTooltip(null);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
@@ -143,31 +144,30 @@ export default function WordMovableController({ paperRef, escala = 1 }: WordMova
   const handleStartMove = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!selectedEl) return;
+    const el = selectedElRef.current;
+    if (!el) return;
 
-    setIsDragging(true);
     const startX = e.clientX;
     const startY = e.clientY;
 
-    const currentLeft = parseFloat(selectedEl.style.left) || 0;
-    const currentTop = parseFloat(selectedEl.style.top) || 0;
+    const currentLeft = parseFloat(el.style.left) || 0;
+    const currentTop = parseFloat(el.style.top) || 0;
 
-    selectedEl.style.position = 'relative';
-    selectedEl.style.zIndex = '20';
+    el.style.position = 'relative';
+    el.style.zIndex = '20';
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const scale = escala || 1;
       const deltaX = (moveEvent.clientX - startX) / scale;
       const deltaY = (moveEvent.clientY - startY) / scale;
 
-      selectedEl.style.left = `${Math.round(currentLeft + deltaX)}px`;
-      selectedEl.style.top = `${Math.round(currentTop + deltaY)}px`;
+      el.style.left = `${Math.round(currentLeft + deltaX)}px`;
+      el.style.top = `${Math.round(currentTop + deltaY)}px`;
 
-      updateBounds(selectedEl);
+      updateBounds(el);
     };
 
     const handleMouseUp = () => {
-      setIsDragging(false);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
@@ -178,55 +178,61 @@ export default function WordMovableController({ paperRef, escala = 1 }: WordMova
 
   // Desplazamiento fino con flechas
   const nudge = (dx: number, dy: number) => {
-    if (!selectedEl) return;
-    selectedEl.style.position = 'relative';
-    const currentLeft = parseFloat(selectedEl.style.left) || 0;
-    const currentTop = parseFloat(selectedEl.style.top) || 0;
+    const el = selectedElRef.current;
+    if (!el) return;
+    el.style.position = 'relative';
+    const currentLeft = parseFloat(el.style.left) || 0;
+    const currentTop = parseFloat(el.style.top) || 0;
 
-    selectedEl.style.left = `${currentLeft + dx}px`;
-    selectedEl.style.top = `${currentTop + dy}px`;
-    updateBounds(selectedEl);
+    el.style.left = `${currentLeft + dx}px`;
+    el.style.top = `${currentTop + dy}px`;
+    updateBounds(el);
   };
 
   // Redimensionamiento porcentual rápido
   const scalePercent = (factor: number) => {
-    if (!selectedEl) return;
-    const currentWidth = selectedEl.offsetWidth;
+    const el = selectedElRef.current;
+    if (!el) return;
+    const currentWidth = el.offsetWidth;
     const newWidth = Math.max(30, Math.round(currentWidth * factor));
-    selectedEl.style.width = `${newWidth}px`;
-    if (selectedEl.tagName.toLowerCase() === 'img') {
-      selectedEl.style.height = 'auto';
+    el.style.width = `${newWidth}px`;
+    if (el.tagName.toLowerCase() === 'img') {
+      el.style.height = 'auto';
     }
-    setTimeout(() => updateBounds(selectedEl), 30);
+    setTimeout(() => {
+      if (selectedElRef.current) updateBounds(selectedElRef.current);
+    }, 30);
   };
 
   // Alineaciones estándar
   const setAlignment = (type: 'left' | 'center' | 'right') => {
-    if (!selectedEl) return;
-    selectedEl.style.position = '';
-    selectedEl.style.left = '';
-    selectedEl.style.top = '';
+    const el = selectedElRef.current;
+    if (!el) return;
+    el.style.position = '';
+    el.style.left = '';
+    el.style.top = '';
 
     if (type === 'left') {
-      selectedEl.style.marginLeft = '0';
-      selectedEl.style.marginRight = 'auto';
-      selectedEl.style.display = 'block';
+      el.style.marginLeft = '0';
+      el.style.marginRight = 'auto';
+      el.style.display = 'block';
     } else if (type === 'center') {
-      selectedEl.style.marginLeft = 'auto';
-      selectedEl.style.marginRight = 'auto';
-      selectedEl.style.display = 'block';
+      el.style.marginLeft = 'auto';
+      el.style.marginRight = 'auto';
+      el.style.display = 'block';
     } else if (type === 'right') {
-      selectedEl.style.marginLeft = 'auto';
-      selectedEl.style.marginRight = '0';
-      selectedEl.style.display = 'block';
+      el.style.marginLeft = 'auto';
+      el.style.marginRight = '0';
+      el.style.display = 'block';
     }
-    setTimeout(() => updateBounds(selectedEl), 30);
+    setTimeout(() => {
+      if (selectedElRef.current) updateBounds(selectedElRef.current);
+    }, 30);
   };
 
-  if (!selectedEl || !bounds) return null;
+  if (!selectedMeta || !bounds) return null;
 
-  const isImage = selectedEl.tagName.toLowerCase() === 'img';
-  const tagLabel = isImage ? 'Imagen' : selectedEl.tagName.toLowerCase() === 'table' ? 'Tabla' : 'Cuadro';
+  const tagLabel = selectedMeta.tagLabel;
 
   // Posición de la barra flotante encima del elemento
   const toolbarTop = Math.max(2, bounds.top - 34);
@@ -396,7 +402,8 @@ export default function WordMovableController({ paperRef, escala = 1 }: WordMova
         <button
           type="button"
           onClick={() => {
-            setSelectedEl(null);
+            selectedElRef.current = null;
+            setSelectedMeta(null);
             setBounds(null);
           }}
           className="p-1 rounded hover:bg-red-800 text-slate-400 hover:text-white"

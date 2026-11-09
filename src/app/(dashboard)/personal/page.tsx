@@ -38,11 +38,6 @@ export default function PersonalPage() {
     }
   }, [busqueda, condicion, page, limit]);
 
-  // Si escriben en el buscador o cambian el filtro, volvemos a la página 1
-  useEffect(() => {
-    setPage(1);
-  }, [busqueda, condicion]);
-
   // Cada vez que cambia algo, traer data con un pequeño retraso si están escribiendo
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
@@ -69,14 +64,14 @@ export default function PersonalPage() {
               type="text" 
               placeholder="Ingresa DNI o Apellidos..." 
               value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
+              onChange={(e) => { setBusqueda(e.target.value); setPage(1); }}
               className="w-full bg-slate-50 border border-slate-300 rounded-md pl-10 pr-4 py-2 text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
             />
           </div>
           <div className="w-full sm:w-64">
             <select
               value={condicion}
-              onChange={(e) => setCondicion(e.target.value)}
+              onChange={(e) => { setCondicion(e.target.value); setPage(1); }}
               className="w-full bg-slate-50 border border-slate-300 rounded-md px-4 py-2 text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium text-sm"
             >
               <option value="">Todas las Condiciones</option>

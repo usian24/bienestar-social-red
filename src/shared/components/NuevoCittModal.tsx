@@ -19,13 +19,28 @@ interface NuevoCittModalProps {
   trabajadorFijo?: any; // Si ya sabemos de qué trabajador es
 }
 
-export default function NuevoCittModal({ 
-  isOpen, onClose, onSuccess, tipoPorDefecto = 'ENFERMEDAD_COMUN', editData, trabajadorFijo 
+export default function NuevoCittModal(props: NuevoCittModalProps) {
+  if (!props.isOpen) return null;
+  const modalKey = `${props.editData?.id || 'new'}-${props.trabajadorFijo?.id || 'none'}-${props.tipoPorDefecto || 'ENFERMEDAD_COMUN'}`;
+  return <NuevoCittModalInner key={modalKey} {...props} />;
+}
+
+function NuevoCittModalInner({
+  onClose, onSuccess, tipoPorDefecto = 'ENFERMEDAD_COMUN', editData, trabajadorFijo
 }: NuevoCittModalProps) {
   const { data: session } = useSession();
   const rol = (session?.user as any)?.rol || 'CONSULTA';
   const permisos = (session?.user as any)?.permisos || [];
   const puedeSubirArchivo = tienePermiso(permisos, rol, 'SUBIR_ARCHIVOS');
+
+  const inicioCalInicial = editData ? getCalendarDateStr(editData.fechaInicio) : '';
+  const fechaFinInicial = editData
+    ? editData.fechaFin
+      ? getCalendarDateStr(editData.fechaFin)
+      : inicioCalInicial
+      ? addDaysToCalendarDate(inicioCalInicial, Math.max(0, Number(editData.diasOtorgados) - 1))
+      : ''
+    : '';
 
   // Pestaña activa: 'manual' o 'escaner' (estilo Reportes)
   const [tabActiva, setTabActiva] = useState<'manual' | 'escaner'>('manual');
@@ -33,31 +48,46 @@ export default function NuevoCittModal({
   // Estados del Buscador de Trabajador
   const [busqueda, setBusqueda] = useState('');
   const [trabajadores, setTrabajadores] = useState<any[]>([]);
-  const [trabajadorSeleccionado, setTrabajadorSeleccionado] = useState<any | null>(null);
+  const [trabajadorSeleccionado, setTrabajadorSeleccionado] = useState<any | null>(trabajadorFijo || null);
   const [buscando, setBuscando] = useState(false);
 
   // Estados del Formulario del CITT
-  const [origen, setOrigen] = useState('ESSALUD_CITT');
-  const [tipoLicencia, setTipoLicencia] = useState<'ENFERMEDAD_COMUN' | 'ACCIDENTE_COMUN' | 'MATERNIDAD' | 'PATERNIDAD' | 'LEY_30012'>(tipoPorDefecto);
-  const [numeroCertificado, setNumeroCertificado] = useState('');
-  const [fechaInicio, setFechaInicio] = useState('');
-  const [fechaFin, setFechaFin] = useState('');
-  const [diasOtorgados, setDiasOtorgados] = useState('');
-  const [medico, setMedico] = useState('');
-  const [colegiatura, setColegiatura] = useState('');
-  const [diagnostico, setDiagnostico] = useState('');
-  const [familiarPaciente, setFamiliarPaciente] = useState('');
+  const [origen, setOrigen] = useState(
+    editData ? editData.origen : (tipoPorDefecto === 'LEY_30012' ? 'PARTICULAR' : 'ESSALUD_CITT')
+  );
+  const [tipoLicencia, setTipoLicencia] = useState<'ENFERMEDAD_COMUN' | 'ACCIDENTE_COMUN' | 'MATERNIDAD' | 'PATERNIDAD' | 'LEY_30012'>(
+    editData ? (editData.tipoLicencia || tipoPorDefecto || 'ENFERMEDAD_COMUN') : tipoPorDefecto
+  );
+  const [numeroCertificado, setNumeroCertificado] = useState(editData ? editData.numeroCertificado : '');
+  const [fechaInicio, setFechaInicio] = useState(inicioCalInicial);
+  const [fechaFin, setFechaFin] = useState(fechaFinInicial);
+  const [diasOtorgados, setDiasOtorgados] = useState(editData ? editData.diasOtorgados.toString() : '');
+  const [medico, setMedico] = useState((editData as any)?.medico || '');
+  const [colegiatura, setColegiatura] = useState((editData as any)?.colegiatura || '');
+  const [diagnostico, setDiagnostico] = useState((editData as any)?.diagnostico || '');
+  const [familiarPaciente, setFamiliarPaciente] = useState((editData as any)?.familiarPaciente || '');
   
   const [guardando, setGuardando] = useState(false);
   const [mensajeGuardado, setMensajeGuardado] = useState('Guardando descanso médico...');
   const [exito, setExito] = useState(false);
   const [error, setError] = useState('');
   const [archivoAdjunto, setArchivoAdjunto] = useState<File | null>(null);
-  const [archivoRutaServidor, setArchivoRutaServidor] = useState<string | null>(null);
+  const [archivoRutaServidor, setArchivoRutaServidor] = useState<string | null>(editData?.archivoRuta || null);
 
   // Estados para Escáner y Cámara
   const [fotoCapturadaPreview, setFotoCapturadaPreview] = useState<string | null>(null);
   const [previewUrlManual, setPreviewUrlManual] = useState<string | null>(null);
+  const previewUrlManualRef = useRef<string | null>(null);
+  useEffect(() => {
+    previewUrlManualRef.current = previewUrlManual;
+  }, [previewUrlManual]);
+  useEffect(() => {
+    return () => {
+      if (previewUrlManualRef.current) {
+        URL.revokeObjectURL(previewUrlManualRef.current);
+      }
+    };
+  }, []);
   const [optimizandoFoto, setOptimizandoFoto] = useState(false);
   const [escaneandoIA, setEscaneandoIA] = useState(false);
   const [resumenEscaneo, setResumenEscaneo] = useState<{
@@ -86,66 +116,6 @@ export default function NuevoCittModal({
   const inputCamaraManualRef = useRef<HTMLInputElement>(null);
   const inputEvidenciaManualRef = useRef<HTMLInputElement>(null);
   const abortScanRef = useRef<AbortController | null>(null);
-
-  // Inicializar o limpiar datos al abrir/cerrar
-  useEffect(() => {
-    if (isOpen) {
-      if (editData) {
-        setTabActiva('manual');
-        setOrigen(editData.origen);
-        setTipoLicencia(editData.tipoLicencia || tipoPorDefecto || 'ENFERMEDAD_COMUN');
-        setNumeroCertificado(editData.numeroCertificado);
-        const inicioCal = getCalendarDateStr(editData.fechaInicio);
-        setFechaInicio(inicioCal);
-        if (editData.fechaFin) {
-          setFechaFin(getCalendarDateStr(editData.fechaFin));
-        } else if (inicioCal) {
-          setFechaFin(addDaysToCalendarDate(inicioCal, Math.max(0, Number(editData.diasOtorgados) - 1)));
-        } else {
-          setFechaFin('');
-        }
-        setDiasOtorgados(editData.diasOtorgados.toString());
-        setArchivoRutaServidor(editData.archivoRuta || null);
-        setMedico((editData as any).medico || '');
-        setColegiatura((editData as any).colegiatura || '');
-        setDiagnostico((editData as any).diagnostico || '');
-        setFamiliarPaciente((editData as any).familiarPaciente || '');
-      } else {
-        setTabActiva('manual');
-        setOrigen(tipoPorDefecto === 'LEY_30012' ? 'PARTICULAR' : 'ESSALUD_CITT');
-        setTipoLicencia(tipoPorDefecto || 'ENFERMEDAD_COMUN');
-        setNumeroCertificado('');
-        setFechaInicio('');
-        setFechaFin('');
-        setDiasOtorgados('');
-        setMedico('');
-        setColegiatura('');
-        setDiagnostico('');
-        setFamiliarPaciente('');
-        setArchivoAdjunto(null);
-        setArchivoRutaServidor(null);
-        if (previewUrlManual) {
-          URL.revokeObjectURL(previewUrlManual);
-          setPreviewUrlManual(null);
-        }
-      }
-
-      if (trabajadorFijo) {
-        setTrabajadorSeleccionado(trabajadorFijo);
-      } else if (!editData) {
-        setTrabajadorSeleccionado(null);
-      }
-      setError('');
-      setResumenEscaneo(null);
-      setFotoCapturadaPreview(null);
-    } else {
-      setFotoCapturadaPreview(null);
-      if (previewUrlManual) {
-        URL.revokeObjectURL(previewUrlManual);
-        setPreviewUrlManual(null);
-      }
-    }
-  }, [isOpen, editData, trabajadorFijo]);
 
   // Buscar trabajador cuando escriben el DNI o Nombre
   useEffect(() => {
@@ -471,8 +441,6 @@ export default function NuevoCittModal({
       setEscaneandoIA(false);
     }
   };
-
-  if (!isOpen) return null;
 
   const seleccionarTrabajador = (t: any) => {
     setTrabajadorSeleccionado(t);

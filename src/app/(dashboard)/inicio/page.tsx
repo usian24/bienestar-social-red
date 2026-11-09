@@ -68,14 +68,28 @@ export default function InicioPage() {
   }, []);
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      if (rol && rol !== 'TRABAJADOR') {
-        loadData();
-      } else {
-        setLoadingKpis(false);
-        setLoadingAlertas(false);
-      }
+    let active = true;
+    if (status === 'authenticated' && rol && rol !== 'TRABAJADOR') {
+      (async () => {
+        try {
+          const [resKpi, resAlertas] = await Promise.all([
+            fetch('/api/dashboard'),
+            fetch('/api/alertas')
+          ]);
+          if (!active) return;
+          if (resKpi.ok) setKpis(await resKpi.json());
+          if (resAlertas.ok) setAlertas(await resAlertas.json());
+        } catch (error) {
+          console.error("Error loading data", error);
+        } finally {
+          if (active) {
+            setLoadingKpis(false);
+            setLoadingAlertas(false);
+          }
+        }
+      })();
     }
+    return () => { active = false; };
   }, [status, rol]);
 
   const handleVerExpediente = (alerta: any) => {
@@ -100,15 +114,9 @@ export default function InicioPage() {
   });
 
   const totalPaginas = Math.max(1, Math.ceil(alertasFiltradas.length / ITEMS_POR_PAGINA));
-  const indiceInicio = (paginaAlertas - 1) * ITEMS_POR_PAGINA;
+  const paginaActual = Math.min(paginaAlertas, totalPaginas);
+  const indiceInicio = (paginaActual - 1) * ITEMS_POR_PAGINA;
   const alertasPaginadas = alertasFiltradas.slice(indiceInicio, indiceInicio + ITEMS_POR_PAGINA);
-
-  // Auto-ajuste de página si se reduce la lista filtrada
-  useEffect(() => {
-    if (paginaAlertas > totalPaginas) {
-      setPaginaAlertas(totalPaginas);
-    }
-  }, [totalPaginas, paginaAlertas]);
 
   const handleCanjeRapido = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -282,20 +290,20 @@ export default function InicioPage() {
                 <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5 shadow-xs">
                   <button
                     type="button"
-                    onClick={() => setPaginaAlertas(p => Math.max(1, p - 1))}
-                    disabled={paginaAlertas === 1}
+                    onClick={() => setPaginaAlertas(Math.max(1, paginaActual - 1))}
+                    disabled={paginaActual === 1}
                     className="p-1 rounded text-slate-600 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
                     title="Página anterior"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   <span className="text-[11px] font-mono font-bold px-1.5 text-slate-800">
-                    {paginaAlertas} / {totalPaginas}
+                    {paginaActual} / {totalPaginas}
                   </span>
                   <button
                     type="button"
-                    onClick={() => setPaginaAlertas(p => Math.min(totalPaginas, p + 1))}
-                    disabled={paginaAlertas >= totalPaginas}
+                    onClick={() => setPaginaAlertas(Math.min(totalPaginas, paginaActual + 1))}
+                    disabled={paginaActual >= totalPaginas}
                     className="p-1 rounded text-slate-600 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
                     title="Página siguiente"
                   >

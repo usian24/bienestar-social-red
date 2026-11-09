@@ -84,7 +84,7 @@ export async function GET(
     for (const candidate of [privatePath, legacyPath]) {
       if (!candidate) continue;
       try {
-        fileBuffer = await readFile(candidate);
+        fileBuffer = await readFile(/*turbopackIgnore: true*/ candidate);
         break;
       } catch {
         // Probar siguiente ubicación permitida

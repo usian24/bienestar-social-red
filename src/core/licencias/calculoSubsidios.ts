@@ -104,7 +104,7 @@ export function buildUniqueSheetName(
     .trim();
   const suffixStr = suffix !== '' && suffix !== null && suffix !== undefined ? ` ${suffix}` : '';
   const maxBaseLen = Math.max(1, 31 - suffixStr.length);
-  let candidate = `${cleanBase.slice(0, maxBaseLen).trim()}${suffixStr}`.slice(0, 31).trim();
+  const candidate = `${cleanBase.slice(0, maxBaseLen).trim()}${suffixStr}`.slice(0, 31).trim();
 
   if (!usedNames.has(candidate)) {
     usedNames.add(candidate);

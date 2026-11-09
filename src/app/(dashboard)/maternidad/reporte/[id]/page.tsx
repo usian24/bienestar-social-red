@@ -96,7 +96,7 @@ export default function ReporteMaternidadPdfPage() {
                 <div className="text-center px-2">UNIDAD DE<br/>RECURSOS<br/>HUMANOS</div>
               </div>
               <div className="text-center mt-2 font-bold text-[10px] text-slate-500">
-                "Año de la esperanza y fortalecimiento de la democracia"
+                &quot;Año de la esperanza y fortalecimiento de la democracia&quot;
               </div>
             </div>
 

@@ -247,7 +247,7 @@ export async function POST(request: Request) {
     }
 
     // 4. CONSTRUIR MICRO-CONTEXTO SEGURO Y COMPACTO
-    let contextoCompacto: any = {
+    const contextoCompacto: any = {
       rol,
       nombre,
       fechaActual: new Date().toLocaleDateString('es-PE', { timeZone: 'America/Lima' })

@@ -27,37 +27,42 @@ export default function VisorDocumentoA4({ children, conRegla = true }: VisorDoc
   const ANCHO_REGLA_VERT_PX = 24;
   const ALTO_REGLA_HORIZ_PX = 28;
 
-  // Medir contenedor y calcular escala de ajuste a pantalla
-  const recalcularEscala = () => {
-    if (!containerRef.current) return;
-    const anchoContenedor = containerRef.current.clientWidth;
-    const anchoTotal = ANCHO_A4_PX + (mostrarRegla ? ANCHO_REGLA_VERT_PX : 0);
-    
-    if (anchoContenedor > 0) {
-      const disponible = Math.max(280, anchoContenedor - 16);
-      const factor = Math.min(1, disponible / anchoTotal);
-      setEscalaAjustada(factor);
-    }
-  };
+  const initializedModeRef = useRef(false);
 
+  // Medir contenedor y calcular escala mediante ResizeObserver (sin setState síncrono en useEffect)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      if (window.innerWidth < 850) {
-        setModo('ajustar');
-      } else {
-        setModo('manual');
-        setZoomManual(1);
+    const container = containerRef.current;
+    if (!container) return;
+
+    const recalcular = () => {
+      const anchoContenedor = container.clientWidth;
+      const anchoTotal = ANCHO_A4_PX + (mostrarRegla ? ANCHO_REGLA_VERT_PX : 0);
+
+      if (!initializedModeRef.current && typeof window !== 'undefined') {
+        initializedModeRef.current = true;
+        if (window.innerWidth < 850) {
+          setModo('ajustar');
+        } else {
+          setModo('manual');
+          setZoomManual(1);
+        }
       }
-    }
 
-    recalcularEscala();
-
-    const handleResize = () => {
-      recalcularEscala();
+      if (anchoContenedor > 0) {
+        const disponible = Math.max(280, anchoContenedor - 16);
+        const factor = Math.min(1, disponible / anchoTotal);
+        setEscalaAjustada(factor);
+      }
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const observer = new ResizeObserver(recalcular);
+    observer.observe(container);
+    window.addEventListener('resize', recalcular);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', recalcular);
+    };
   }, [mostrarRegla]);
 
   // Escuchar si la cinta de Word solicita alternar la regla

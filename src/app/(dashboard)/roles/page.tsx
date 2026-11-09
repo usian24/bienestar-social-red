@@ -22,10 +22,6 @@ export default function RolesPage() {
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  useEffect(() => {
-    fetchRoles();
-  }, []);
-
   const fetchRoles = async () => {
     try {
       const res = await fetch('/api/roles');
@@ -34,6 +30,19 @@ export default function RolesPage() {
       console.error(e);
     }
   };
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/roles')
+      .then(async (res) => {
+        if (res.ok) {
+          const data = await res.json();
+          if (active) setRoles(data);
+        }
+      })
+      .catch((e) => console.error(e));
+    return () => { active = false; };
+  }, []);
 
   const handleOpenModal = (rol?: any) => {
     setErrorMsg('');

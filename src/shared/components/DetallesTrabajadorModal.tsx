@@ -45,10 +45,24 @@ export default function DetallesTrabajadorModal({ isOpen, onClose, trabajadorInf
   };
 
   useEffect(() => {
-    if (isOpen && trabajadorInfoFijo?.id) {
-      fetchDetalles();
-    }
-  }, [isOpen, trabajadorInfoFijo]);
+    let active = true;
+    if (!isOpen || !trabajadorInfoFijo?.id) return () => { active = false; };
+    (async () => {
+      try {
+        const res = await fetch(`/api/licencias?trabajadorId=${trabajadorInfoFijo.id}`);
+        let data = await res.json();
+        if (tipoLicenciaRestriccion) {
+          data = data.filter((lic: any) => lic.tipoLicencia === tipoLicenciaRestriccion);
+        }
+        if (active) setLicencias(data);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [isOpen, trabajadorInfoFijo?.id, tipoLicenciaRestriccion]);
 
   const handleDelete = async (licenciaId: string) => {
     if (!window.confirm('¿Estás seguro de que deseas eliminar este registro de licencia? Esta acción no se puede deshacer.')) {

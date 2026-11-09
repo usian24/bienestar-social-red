@@ -36,8 +36,7 @@ export default function MaternidadPage() {
   const [fechaHasta, setFechaHasta] = useState('');
 
   // Cargar datos de la tabla y filtros
-  const fetchInicial = async () => {
-    setLoading(true);
+  const cargarInicial = async () => {
     try {
       // Cargar registros matemáticos
       const resSalud = await fetch('/api/maternidad');
@@ -64,8 +63,35 @@ export default function MaternidadPage() {
     }
   };
 
+  const fetchInicial = () => {
+    setLoading(true);
+    void cargarInicial();
+  };
+
   useEffect(() => {
-    fetchInicial();
+    let active = true;
+    Promise.all([fetch('/api/maternidad'), fetch('/api/filtros')])
+      .then(async ([resSalud, resFiltros]) => {
+        if (!active) return;
+        const dataSalud = await resSalud.json();
+        if (active) {
+          if (Array.isArray(dataSalud)) {
+            setRegistros(dataSalud);
+          } else {
+            console.error("API /api/maternidad devolvió error:", dataSalud);
+            setRegistros([]);
+          }
+        }
+        const dataFiltros = await resFiltros.json();
+        if (active) {
+          setMicroredesDb(Array.isArray(dataFiltros) ? dataFiltros : []);
+        }
+      })
+      .catch((e) => console.error(e))
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
   }, []);
 
   // Filtrado de la tabla en tiempo real

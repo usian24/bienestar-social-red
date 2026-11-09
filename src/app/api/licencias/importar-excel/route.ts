@@ -109,8 +109,8 @@ export async function POST(request: Request) {
              numeroCertificado = motivo.substring(0, 50); // Cortar para evitar overflow
           }
 
-          let origen = detalle === 'ESSALUD' ? 'ESSALUD_CITT' : 'PARTICULAR';
-          let tipoLicencia = 'ENFERMEDAD_COMUN'; // Por defecto para esta importación
+          const origen = detalle === 'ESSALUD' ? 'ESSALUD_CITT' : 'PARTICULAR';
+          const tipoLicencia = 'ENFERMEDAD_COMUN'; // Por defecto para esta importación
 
           // Evitar duplicados (misma persona, misma fecha calendario inicio, ya sea T00:00Z o T05:00Z)
           const inicioCalStr = getCalendarDateStr(fechaInicio);
