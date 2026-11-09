@@ -11,6 +11,7 @@ import ChatbotAsistente from '@/shared/components/ChatbotAsistente';
 import VideoGuiaCard from '@/shared/components/VideoGuiaCard';
 import MLMiniCard from '@/shared/components/MLMiniCard';
 import DetallesTrabajadorModal from '@/shared/components/DetallesTrabajadorModal';
+import { formatCalendarDateDMY } from '@/core/licencias/calculoSubsidios';
 
 export default function InicioPage() {
   const { data: session, status } = useSession();
@@ -362,12 +363,25 @@ export default function InicioPage() {
                           <span className="text-slate-400"> · {alerta.trabajador.establecimiento.microred.nombre}</span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded flex items-center gap-1 font-mono">
-                          <Calendar className="w-3 h-3 text-slate-400" /> {new Date(alerta.creadoEn).toLocaleDateString('es-PE')}
+                      <div className="flex flex-wrap items-center gap-2 mt-2">
+                        {alerta.fechaInicio && alerta.fechaFin && (
+                          <span className="text-xs text-slate-700 bg-slate-100 px-2 py-0.5 rounded flex items-center gap-1 font-medium">
+                            <Calendar className="w-3 h-3 text-slate-500 shrink-0" />
+                            <span>
+                              {formatCalendarDateDMY(alerta.fechaInicio) === formatCalendarDateDMY(alerta.fechaFin)
+                                ? formatCalendarDateDMY(alerta.fechaInicio)
+                                : `${formatCalendarDateDMY(alerta.fechaInicio)} – ${formatCalendarDateDMY(alerta.fechaFin)}`}
+                            </span>
+                            {alerta.diasOtorgados ? (
+                              <span className="text-slate-500 font-semibold">· {alerta.diasOtorgados}d</span>
+                            ) : null}
+                          </span>
+                        )}
+                        <span className="text-[11px] text-slate-700 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded font-mono font-semibold">
+                          {alerta.numeroCertificado || 'Certificado S/N'}
                         </span>
                         <span className="text-[11px] text-slate-400 font-mono">
-                          Certificado: {alerta.numeroCertificado || 'S/N'}
+                          Reg: {new Date(alerta.creadoEn).toLocaleDateString('es-PE')}
                         </span>
                       </div>
                     </div>

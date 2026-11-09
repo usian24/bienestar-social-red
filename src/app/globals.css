@@ -11,10 +11,12 @@ body {
     top: 6%;
     opacity: 0.6;
   }
+
   50% {
     top: 92%;
     opacity: 1;
   }
+
   100% {
     top: 6%;
     opacity: 0.6;
@@ -29,6 +31,7 @@ body {
   0% {
     transform: translateX(-100%);
   }
+
   100% {
     transform: translateX(200%);
   }
@@ -38,3 +41,61 @@ body {
   animation: shimmer 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+@keyframes chatSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-chat-enter {
+  animation: chatSlideIn 0.3s ease-out forwards;
+}
+
+@keyframes dotBounce {
+
+  0%,
+  80%,
+  100% {
+    transform: scale(0.35);
+    opacity: 0.35;
+  }
+
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.chat-dot-bounce {
+  animation: dotBounce 1.4s infinite ease-in-out both;
+}
+
+.chat-dot-bounce-1 {
+  animation-delay: -0.32s;
+}
+
+.chat-dot-bounce-2 {
+  animation-delay: -0.16s;
+}
+
+@keyframes orbBreathe {
+
+  0%,
+  100% {
+    transform: translateY(0px) scale(1);
+  }
+
+  50% {
+    transform: translateY(-6px) scale(1.03);
+  }
+}
+
+.animate-bounce-slow {
+  animation: orbBreathe 4s ease-in-out infinite;
+}
