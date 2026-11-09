@@ -91,7 +91,7 @@ export default function LogsPage() {
             <div className="w-3 h-3 rounded-full bg-red-500"></div>
             <div className="w-3 h-3 rounded-full bg-amber-500"></div>
             <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-            <span className="ml-2 text-xs font-mono text-slate-400">system.log - {logs ? logs.split('\\n').length : 0} lineas</span>
+            <span className="ml-2 text-xs font-mono text-slate-400">system.log - {logs ? logs.split('\n').length : 0} lineas</span>
           </div>
           
           <div className="p-4 overflow-y-auto flex-1 font-mono text-xs sm:text-sm text-slate-300 whitespace-pre-wrap break-all">
@@ -100,7 +100,7 @@ export default function LogsPage() {
             ) : !logs ? (
               <span className="text-slate-500 italic">No hay logs registrados aún en el servidor.</span>
             ) : (
-              logs.split('\\n').map((line, i) => {
+              logs.split('\n').map((line, i) => {
                 // Colorear lineas segun el nivel
                 let colorClass = 'text-slate-300';
                 if (line.includes('[ERROR]')) colorClass = 'text-red-400 font-bold';

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
 import { canAccessWorkerMicrored, requireStaffAccess } from '@/core/auth/rbac';
+import { parseNormalizedCalendarDate } from '@/core/licencias/calculoSubsidios';
 
 export async function DELETE(
   request: Request,
@@ -96,17 +97,35 @@ export async function PUT(
       familiarPaciente
     } = body;
 
+    const fechaInicioNorm = parseNormalizedCalendarDate(fechaInicio);
+    const fechaFinNorm = parseNormalizedCalendarDate(fechaFin);
+    if (!fechaInicioNorm || !fechaFinNorm) {
+      return NextResponse.json({ error: 'Las fechas ingresadas no son válidas' }, { status: 400 });
+    }
+    if (fechaFinNorm < fechaInicioNorm) {
+      return NextResponse.json({ error: 'La fecha de fin no puede ser anterior a la fecha de inicio' }, { status: 400 });
+    }
+
+    const anioEjercicioFinal =
+      anioEjercicio !== undefined && anioEjercicio !== null && Number.isFinite(Number(anioEjercicio))
+        ? Number(anioEjercicio)
+        : fechaInicioNorm.getUTCFullYear();
+    const mesEjercicioFinal =
+      mesEjercicio !== undefined && mesEjercicio !== null && Number.isFinite(Number(mesEjercicio))
+        ? Number(mesEjercicio)
+        : fechaInicioNorm.getUTCMonth() + 1;
+
     const licenciaActualizada = await prisma.licencia.update({
       where: { id },
       data: {
         ...(tipoLicencia !== undefined && { tipoLicencia }),
         origen,
         numeroCertificado,
-        fechaInicio: new Date(fechaInicio),
-        fechaFin: new Date(fechaFin),
+        fechaInicio: fechaInicioNorm,
+        fechaFin: fechaFinNorm,
         diasOtorgados: Number(diasOtorgados),
-        anioEjercicio: Number(anioEjercicio),
-        mesEjercicio: Number(mesEjercicio),
+        anioEjercicio: anioEjercicioFinal,
+        mesEjercicio: mesEjercicioFinal,
         ...(archivoRuta !== undefined && { archivoRuta }),
         ...(medico !== undefined && { medico: medico ? String(medico).trim() : null }),
         ...(colegiatura !== undefined && { colegiatura: colegiatura ? String(colegiatura).trim() : null }),

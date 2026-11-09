@@ -56,7 +56,9 @@ function ReporteRangoContent() {
     if (desde && hasta) {
       generarReporte();
     }
-  }, [desde, hasta, condicion, microred, establecimiento]);
+  }, [desde, hasta, condicion, microred, establecimiento, tipoLicencia]);
+
+  const anioReporte = /^\d{4}/.test(desde) ? Number(desde.slice(0, 4)) : new Date().getFullYear();
 
   return (
     <div className="space-y-6 pb-20 print:space-y-0 print:pb-0 print:m-0">
@@ -88,7 +90,7 @@ function ReporteRangoContent() {
             <div className="w-full flex-1 bg-slate-100 dark:bg-slate-950 p-1 sm:p-4 rounded-xl shadow-inner min-h-screen border border-slate-200 dark:border-slate-800">
               <VisorDocumentoA4>
                 <div className="w-full flex flex-col items-center gap-8 print:gap-0" ref={componentRef}>
-                  <ReporteMensualTemplate data={dataReporte} mes="Rango" anio={new Date().getFullYear()} condicionLaboral={condicion} />
+                  <ReporteMensualTemplate data={dataReporte} mes="Rango" anio={anioReporte} condicionLaboral={condicion} />
                 </div>
               </VisorDocumentoA4>
             </div>

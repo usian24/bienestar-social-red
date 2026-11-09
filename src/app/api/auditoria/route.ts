@@ -17,41 +17,48 @@ export async function GET(request: Request) {
     const modulo = searchParams.get('modulo') || '';
     const busqueda = (searchParams.get('busqueda') || '').trim();
 
-    // Construcción dinámica de filtros Prisma
-    const where: any = {};
+    // Construcción dinámica de filtros Prisma combinados siempre con AND
+    const andConditions: any[] = [];
 
     if (modulo) {
-      where.modulo = modulo;
+      andConditions.push({ modulo });
     }
 
     if (tipo === 'ERRORES') {
-      where.OR = [
-        { accion: { startsWith: 'ERROR' } },
-        { accion: { startsWith: 'CRITICO' } },
-        { detalles: { contains: '"nivel":"ERROR"' } },
-        { detalles: { contains: '"nivel":"CRITICO"' } }
-      ];
+      andConditions.push({
+        OR: [
+          { accion: { startsWith: 'ERROR' } },
+          { accion: { startsWith: 'CRITICO' } },
+          { detalles: { contains: '"nivel":"ERROR"' } },
+          { detalles: { contains: '"nivel":"CRITICO"' } }
+        ]
+      });
     } else if (tipo === 'ADVERTENCIAS') {
-      where.OR = [
-        { accion: { startsWith: 'ADVERTENCIA' } },
-        { detalles: { contains: '"nivel":"ADVERTENCIA"' } }
-      ];
+      andConditions.push({
+        OR: [
+          { accion: { startsWith: 'ADVERTENCIA' } },
+          { detalles: { contains: '"nivel":"ADVERTENCIA"' } }
+        ]
+      });
     } else if (tipo === 'AUDITORIA') {
-      where.AND = [
+      andConditions.push(
         { NOT: { accion: { startsWith: 'ERROR' } } },
         { NOT: { accion: { startsWith: 'CRITICO' } } },
         { NOT: { accion: { startsWith: 'ADVERTENCIA' } } }
-      ];
+      );
     }
 
     if (busqueda) {
-      where.OR = [
-        ...(where.OR || []),
-        { accion: { contains: busqueda, mode: 'insensitive' } },
-        { modulo: { contains: busqueda, mode: 'insensitive' } },
-        { detalles: { contains: busqueda, mode: 'insensitive' } }
-      ];
+      andConditions.push({
+        OR: [
+          { accion: { contains: busqueda, mode: 'insensitive' } },
+          { modulo: { contains: busqueda, mode: 'insensitive' } },
+          { detalles: { contains: busqueda, mode: 'insensitive' } }
+        ]
+      });
     }
+
+    const where = andConditions.length > 0 ? { AND: andConditions } : {};
 
     const registros = await prisma.auditoria.findMany({
       where,

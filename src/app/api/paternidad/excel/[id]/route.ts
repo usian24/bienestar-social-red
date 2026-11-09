@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
 import ExcelJS from 'exceljs';
 import { canAccessWorkerMicrored, requireStaffAccess } from '@/core/auth/rbac';
+import { formatCalendarDateDMY } from '@/core/licencias/calculoSubsidios';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
@@ -20,7 +21,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         establecimiento: { include: { microred: true } },
         licencias: {
           where: { tipoLicencia: 'PATERNIDAD' },
-          orderBy: { fechaInicio: 'asc' }
+          orderBy: [{ fechaInicio: 'asc' }, { creadoEn: 'asc' }]
         }
       }
     });
@@ -35,7 +36,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     let totalDiasGlobal = 0;
     trabajador.licencias.forEach(lic => {
-      totalDiasGlobal += lic.diasOtorgados;
+      if (lic.origen !== 'PARTICULAR_PERDIDO') {
+        totalDiasGlobal += lic.diasOtorgados;
+      }
     });
 
     const workbook = new ExcelJS.Workbook();
@@ -77,32 +80,32 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     });
 
     const apellidosNombres = trabajador.apellidos ? `${trabajador.apellidos} ${trabajador.nombres}` : trabajador.nombres;
+    const establecimientoNombre = trabajador.establecimiento?.nombre || 'NO ASIGNADO';
     
     // Si no hay licencias, poner una fila vacía
     if (trabajador.licencias.length === 0) {
       worksheet.addRow({
         nro: 1, nombres: apellidosNombres, cargo: trabajador.cargo,
-        establecimiento: trabajador.establecimiento.nombre, dni: trabajador.dni,
+        establecimiento: establecimientoNombre, dni: trabajador.dni,
         citt: 'SIN REGISTROS', inicio: '-', fin: '-', totalCitt: 0
       });
     } else {
       // Agregar filas
       trabajador.licencias.forEach((lic, idx) => {
-        const dateInicio = new Date(lic.fechaInicio);
-        const dateFin = new Date(lic.fechaFin);
-        const fInicio = new Date(dateInicio.toLocaleString('en-US', { timeZone: 'America/Lima' })).toLocaleDateString('es-PE');
-        const fFin = new Date(dateFin.toLocaleString('en-US', { timeZone: 'America/Lima' })).toLocaleDateString('es-PE');
+        const fInicio = formatCalendarDateDMY(lic.fechaInicio);
+        const fFin = formatCalendarDateDMY(lic.fechaFin);
+        const diasCargoRed = lic.origen === 'PARTICULAR_PERDIDO' ? 0 : lic.diasOtorgados;
         
         worksheet.addRow({
           nro: 1,
           nombres: apellidosNombres.toUpperCase(),
           cargo: (trabajador.cargo || '').toUpperCase(),
-          establecimiento: (trabajador.establecimiento.nombre || '').toUpperCase(),
+          establecimiento: establecimientoNombre.toUpperCase(),
           dni: trabajador.dni,
-          citt: lic.numeroCertificado,
+          citt: lic.numeroCertificado || 'S/N',
           inicio: fInicio,
           fin: fFin,
-          totalCitt: lic.diasOtorgados,
+          totalCitt: diasCargoRed,
         });
         
         // Pintar celda total días de gris

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
 import { logger } from '@/core/logging/systemLogger';
 import { canAccessWorkerMicrored, requireStaffAccess } from '@/core/auth/rbac';
+import { parseNormalizedCalendarDate } from '@/core/licencias/calculoSubsidios';
 
 export async function GET(request: Request) {
   try {
@@ -85,6 +86,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 });
     }
 
+    const fechaInicioNorm = parseNormalizedCalendarDate(fechaInicio);
+    const fechaFinNorm = parseNormalizedCalendarDate(fechaFin);
+    if (!fechaInicioNorm || !fechaFinNorm) {
+      return NextResponse.json({ error: 'Las fechas ingresadas no son válidas' }, { status: 400 });
+    }
+    if (fechaFinNorm < fechaInicioNorm) {
+      return NextResponse.json({ error: 'La fecha de fin no puede ser anterior a la fecha de inicio' }, { status: 400 });
+    }
+
+    const diasNum = Number(diasOtorgados);
+    if (!Number.isFinite(diasNum) || diasNum <= 0) {
+      return NextResponse.json({ error: 'Los días otorgados deben ser mayores a cero' }, { status: 400 });
+    }
+
     const trabajador = await prisma.trabajador.findUnique({
       where: { id: trabajadorId },
       include: {
@@ -104,17 +119,26 @@ export async function POST(request: Request) {
       }, { status: 403 });
     }
 
+    const anioEjercicioFinal =
+      anioEjercicio !== undefined && anioEjercicio !== null && Number.isFinite(Number(anioEjercicio))
+        ? Number(anioEjercicio)
+        : fechaInicioNorm.getUTCFullYear();
+    const mesEjercicioFinal =
+      mesEjercicio !== undefined && mesEjercicio !== null && Number.isFinite(Number(mesEjercicio))
+        ? Number(mesEjercicio)
+        : fechaInicioNorm.getUTCMonth() + 1;
+
     const nuevaLicencia = await prisma.licencia.create({
       data: {
         trabajadorId,
         tipoLicencia,
         origen,
         numeroCertificado,
-        fechaInicio: new Date(fechaInicio),
-        fechaFin: new Date(fechaFin),
-        diasOtorgados: Number(diasOtorgados),
-        anioEjercicio: Number(anioEjercicio),
-        mesEjercicio: Number(mesEjercicio),
+        fechaInicio: fechaInicioNorm,
+        fechaFin: fechaFinNorm,
+        diasOtorgados: diasNum,
+        anioEjercicio: anioEjercicioFinal,
+        mesEjercicio: mesEjercicioFinal,
         archivoRuta,
         medico: medico ? String(medico).trim() : null,
         colegiatura: colegiatura ? String(colegiatura).trim() : null,

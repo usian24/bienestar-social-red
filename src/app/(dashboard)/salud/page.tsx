@@ -9,6 +9,7 @@ import DetallesTrabajadorModal from "@/shared/components/DetallesTrabajadorModal
 import CargaExcelLicenciasModal from "@/shared/components/CargaExcelLicenciasModal";
 import PrevisualizadorExcelModal from "@/shared/components/PrevisualizadorExcelModal";
 import PrevisualizadorExcelMasivoModal from "@/shared/components/PrevisualizadorExcelMasivoModal";
+import { getCalendarDateStr } from "@/core/licencias/calculoSubsidios";
 
 export default function SaludPage() {
   const router = useRouter();
@@ -97,23 +98,17 @@ export default function SaludPage() {
     const matchEstablecimiento = establecimiento === '--Todos--' || r.establecimiento === establecimiento;
     const matchCondicion = condicionLaboral === '--TODOS--' || r.condicionLaboral === condicionLaboral;
     
-    // Filtrado por fecha (si tiene alguna licencia dentro del rango)
+    // Filtrado por fecha (solapamiento exacto con calendario YYYY-MM-DD, evitando desfases por zona horaria)
     let matchFechas = true;
     if (fechaDesde || fechaHasta) {
       if (r.licencias && r.licencias.length > 0) {
         matchFechas = r.licencias.some((lic: any) => {
-          const licFecha = new Date(lic.fechaInicio);
-          let cumpleDesde = true;
-          let cumpleHasta = true;
-          
-          if (fechaDesde) {
-            const desde = new Date(fechaDesde + 'T00:00:00');
-            cumpleDesde = licFecha >= desde;
-          }
-          if (fechaHasta) {
-            const hasta = new Date(fechaHasta + 'T23:59:59');
-            cumpleHasta = licFecha <= hasta;
-          }
+          const licIni = getCalendarDateStr(lic.fechaInicio);
+          const licFin = getCalendarDateStr(lic.fechaFin) || licIni;
+          if (!licIni) return false;
+
+          const cumpleDesde = fechaDesde ? licFin >= fechaDesde : true;
+          const cumpleHasta = fechaHasta ? licIni <= fechaHasta : true;
           return cumpleDesde && cumpleHasta;
         });
       } else {
@@ -148,8 +143,12 @@ export default function SaludPage() {
     } else if (orden === 'dias_subsidio_desc') {
       return b.diasSubsidioEsSalud - a.diasSubsidioEsSalud;
     } else if (orden === 'registro_reciente') {
-      const dateA = a.licencias && a.licencias.length > 0 ? new Date(a.licencias[0].creadoEn).getTime() : 0;
-      const dateB = b.licencias && b.licencias.length > 0 ? new Date(b.licencias[0].creadoEn).getTime() : 0;
+      const dateA = a.licencias && a.licencias.length > 0
+        ? Math.max(0, ...a.licencias.map((l: any) => new Date(l.creadoEn || l.fechaInicio).getTime()))
+        : 0;
+      const dateB = b.licencias && b.licencias.length > 0
+        ? Math.max(0, ...b.licencias.map((l: any) => new Date(l.creadoEn || l.fechaInicio).getTime()))
+        : 0;
       return dateB - dateA;
     }
     return 0;
@@ -254,7 +253,7 @@ export default function SaludPage() {
               value={establecimiento} 
               onChange={(e) => setEstablecimiento(e.target.value)}
               className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-blue-500 focus:bg-white dark:bg-slate-800 transition-colors disabled:opacity-50"
-              disabled={isSuperAdmin && microred === 'Todas'}
+              disabled={isSuperAdmin && ambito !== 'Sede Administrativa' && microred === 'Todas'}
             >
               <option value="--Todos--">-- Todos los Establecimientos --</option>
               {establecimientosActuales.map((est: any) => (
@@ -320,7 +319,7 @@ export default function SaludPage() {
                     desde: fechaDesde,
                     hasta: fechaHasta,
                     condicionLaboral,
-                    microred,
+                    microred: ambito === 'Sede Administrativa' ? 'SEDE RED SALUD HUANUCO' : microred,
                     establecimiento,
                     tipoLicencia
                   });
@@ -525,7 +524,14 @@ export default function SaludPage() {
       <PrevisualizadorExcelMasivoModal
         isOpen={isPrevisualizadorMasivoOpen}
         onClose={() => setIsPrevisualizadorMasivoOpen(false)}
-        filters={{ microred, establecimiento, condicionLaboral, tipoLicencia, desde: fechaDesde, hasta: fechaHasta }}
+        filters={{
+          microred: ambito === 'Sede Administrativa' ? 'SEDE RED SALUD HUANUCO' : microred,
+          establecimiento,
+          condicionLaboral,
+          tipoLicencia,
+          desde: fechaDesde,
+          hasta: fechaHasta
+        }}
       />
     </>
   );

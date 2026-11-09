@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { tienePermiso } from '@/shared/utils/permisos';
+import { addDaysToCalendarDate, getCalendarDateStr } from '@/core/licencias/calculoSubsidios';
 
 interface NuevoCittModalProps {
   isOpen: boolean;
@@ -94,15 +95,14 @@ export default function NuevoCittModal({
         setOrigen(editData.origen);
         setTipoLicencia(editData.tipoLicencia || tipoPorDefecto || 'ENFERMEDAD_COMUN');
         setNumeroCertificado(editData.numeroCertificado);
-        const fecha = new Date(editData.fechaInicio);
-        setFechaInicio(fecha.toISOString().split('T')[0]);
+        const inicioCal = getCalendarDateStr(editData.fechaInicio);
+        setFechaInicio(inicioCal);
         if (editData.fechaFin) {
-          const fechaF = new Date(editData.fechaFin);
-          setFechaFin(fechaF.toISOString().split('T')[0]);
+          setFechaFin(getCalendarDateStr(editData.fechaFin));
+        } else if (inicioCal) {
+          setFechaFin(addDaysToCalendarDate(inicioCal, Math.max(0, Number(editData.diasOtorgados) - 1)));
         } else {
-          const fechaF = new Date(fecha);
-          fechaF.setDate(fechaF.getDate() + (Number(editData.diasOtorgados) - 1));
-          setFechaFin(fechaF.toISOString().split('T')[0]);
+          setFechaFin('');
         }
         setDiasOtorgados(editData.diasOtorgados.toString());
         setArchivoRutaServidor(editData.archivoRuta || null);
@@ -578,9 +578,9 @@ export default function NuevoCittModal({
       : 'Registrando descanso médico en la base de datos...'
     );
 
-    const fechaObj = new Date(fechaInicio + 'T00:00:00');
-    const mesContable = fechaObj.getMonth() + 1;
-    const anioContable = fechaObj.getFullYear();
+    const [anioPart, mesPart] = fechaInicio.split('-').map(Number);
+    const mesContable = mesPart || (new Date().getMonth() + 1);
+    const anioContable = anioPart || new Date().getFullYear();
 
     try {
       if (archivoAdjunto && !archivoRutaServidor) {

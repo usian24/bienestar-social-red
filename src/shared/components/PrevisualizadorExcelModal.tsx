@@ -2,6 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { X, FileSpreadsheet, Download } from 'lucide-react';
+import { calcularHistorialDetalladoSalud } from '@/core/licencias/calculoSubsidios';
 
 interface PrevisualizadorExcelModalProps {
   isOpen: boolean;
@@ -14,67 +15,23 @@ export default function PrevisualizadorExcelModal({ isOpen, onClose, trabajador 
   const rows = useMemo(() => {
     if (!trabajador || !trabajador.licencias || !Array.isArray(trabajador.licencias) || trabajador.licencias.length === 0) return [];
 
-    let diasRedRestantes = 20;
-    let totalSubsidioGlobal = 0;
+    const { rows: detailedRows, totalSubsidioGlobal } = calcularHistorialDetalladoSalud(trabajador.licencias);
 
-    // Primer paso: pre-calcular total de subsidio global
-    trabajador.licencias.forEach((lic: any) => {
-      const redDays = Math.min(lic.diasOtorgados, diasRedRestantes);
-      const subDays = lic.diasOtorgados - redDays;
-      diasRedRestantes -= redDays;
-      totalSubsidioGlobal += subDays;
-    });
-
-    diasRedRestantes = 20; // reset
-    const resultRows: any[] = [];
-
-    // Segundo paso: generar filas
-    trabajador.licencias.forEach((lic: any) => {
-      // Las fechas de la BD llegan como strings ISO en UTC (ej: '2026-08-01T05:00:00.000Z')
-      const dateInicio = new Date(lic.fechaInicio);
-      const dateFin = new Date(lic.fechaFin);
-
-      // Convertir a string de fecha respetando la zona horaria de Perú
-      const fInicio = dateInicio.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
-      const fFin = dateFin.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
-      
-      let redDaysUsed = 0;
-      let subsidioDays = 0;
-      let fin20Str = '';
-      let subsidioInicioStr = '';
-
-      redDaysUsed = Math.min(lic.diasOtorgados, diasRedRestantes);
-      subsidioDays = lic.diasOtorgados - redDaysUsed;
-      diasRedRestantes -= redDaysUsed;
-
-      if (subsidioDays > 0) {
-        const subStartObj = new Date(dateInicio.getTime());
-        subStartObj.setDate(subStartObj.getDate() + redDaysUsed);
-        subsidioInicioStr = subStartObj.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
-        
-        const fin20Obj = new Date(subStartObj.getTime());
-        fin20Obj.setDate(fin20Obj.getDate() - 1);
-        fin20Str = fin20Obj.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
-      }
-
-      resultRows.push({
-        nombres: (trabajador.apellidosNombres || '').toUpperCase(),
-        cargo: (trabajador.cargo || '').toUpperCase(),
-        condicion: (trabajador.condicionLaboral || '').toUpperCase(),
-        establecimiento: (trabajador.establecimiento || '').toUpperCase(),
-        dni: trabajador.dni,
-        citt: lic.numeroCertificado,
-        inicio: fInicio,
-        fin: fFin,
-        fin20: fin20Str,
-        subsidio: subsidioInicioStr,
-        totalCitt: lic.diasOtorgados,
-        diasSubsidios: totalSubsidioGlobal,
-        isRed: redDaysUsed > 0 // Para pintar de azito
-      });
-    });
-
-    return resultRows;
+    return detailedRows.map((rowInfo) => ({
+      nombres: (trabajador.apellidosNombres || '').toUpperCase(),
+      cargo: (trabajador.cargo || '').toUpperCase(),
+      condicion: (trabajador.condicionLaboral || '').toUpperCase(),
+      establecimiento: (trabajador.establecimiento || '').toUpperCase(),
+      dni: trabajador.dni,
+      citt: rowInfo.origenLabel,
+      inicio: rowInfo.fechaInicio,
+      fin: rowInfo.fechaFin,
+      fin20: rowInfo.fin20Dias,
+      subsidio: rowInfo.subsidioStart,
+      totalCitt: rowInfo.diasOtorgados,
+      diasSubsidios: totalSubsidioGlobal,
+      isRed: rowInfo.isRed,
+    }));
   }, [trabajador]);
 
   if (!isOpen || !trabajador) return null;

@@ -31,7 +31,8 @@ export async function GET(request: Request) {
           include: { microred: true }
         },
         licencias: {
-          where: { tipoLicencia: 'PATERNIDAD' }
+          where: { tipoLicencia: 'PATERNIDAD' },
+          orderBy: [{ fechaInicio: 'asc' }, { creadoEn: 'asc' }]
         }
       }
     });

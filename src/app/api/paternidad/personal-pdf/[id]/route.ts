@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
 import { canAccessWorkerMicrored, requireStaffAccess } from '@/core/auth/rbac';
+import { formatCalendarDateDMY } from '@/core/licencias/calculoSubsidios';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +22,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         establecimiento: { include: { microred: true } },
         licencias: {
           where: { tipoLicencia: 'PATERNIDAD' },
-          orderBy: { fechaInicio: 'asc' }
+          orderBy: [{ fechaInicio: 'asc' }, { creadoEn: 'asc' }]
         }
       }
     });
@@ -37,23 +38,24 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     let totalDiasGlobal = 0;
 
     trabajador.licencias.forEach((lic) => {
-      totalDiasGlobal += lic.diasOtorgados;
+      if (lic.origen !== 'PARTICULAR_PERDIDO') {
+        totalDiasGlobal += lic.diasOtorgados;
+      }
     });
 
     const resultRows: any[] = [];
 
     trabajador.licencias.forEach((lic) => {
-      const dateInicio = new Date(lic.fechaInicio);
-      const dateFin = new Date(lic.fechaFin);
+      const fInicio = formatCalendarDateDMY(lic.fechaInicio);
+      const fFin = formatCalendarDateDMY(lic.fechaFin);
+      const esPerdido = lic.origen === 'PARTICULAR_PERDIDO';
 
-      const fInicio = dateInicio.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
-      const fFin = dateFin.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
-      
       resultRows.push({
-        origen: lic.numeroCertificado,
+        origen: lic.numeroCertificado || 'S/N',
         fechaInicio: fInicio,
         fechaFin: fFin,
-        diasOtorgados: lic.diasOtorgados,
+        diasOtorgados: esPerdido ? 0 : lic.diasOtorgados,
+        esPerdido,
       });
     });
 

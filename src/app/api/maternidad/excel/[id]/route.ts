@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
 import ExcelJS from 'exceljs';
 import { canAccessWorkerMicrored, requireStaffAccess } from '@/core/auth/rbac';
+import { formatCalendarDateDMY } from '@/core/licencias/calculoSubsidios';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
@@ -20,7 +21,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         establecimiento: { include: { microred: true } },
         licencias: {
           where: { tipoLicencia: 'MATERNIDAD' },
-          orderBy: { fechaInicio: 'asc' }
+          orderBy: [{ fechaInicio: 'asc' }, { creadoEn: 'asc' }]
         }
       }
     });
@@ -86,32 +87,32 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     });
 
     const apellidosNombres = trabajador.apellidos ? `${trabajador.apellidos} ${trabajador.nombres}` : trabajador.nombres;
+    const establecimientoNombre = trabajador.establecimiento?.nombre || 'NO ASIGNADO';
     
     // Si no hay licencias, poner una fila vacía
     if (trabajador.licencias.length === 0) {
       worksheet.addRow({
         nro: 1, nombres: apellidosNombres, cargo: trabajador.cargo,
-        establecimiento: trabajador.establecimiento.nombre, dni: trabajador.dni,
+        establecimiento: establecimientoNombre, dni: trabajador.dni,
         citt: 'SIN REGISTROS', inicio: '-', fin: '-', subsidio: '-', totalCitt: 0, diasSubsidios: 0
       });
     } else {
       // Agregar filas
-      trabajador.licencias.forEach((lic, idx) => {
-        const dateInicio = new Date(lic.fechaInicio);
-        const dateFin = new Date(lic.fechaFin);
-        const fInicio = new Date(dateInicio.toLocaleString('en-US', { timeZone: 'America/Lima' })).toLocaleDateString('es-PE');
-        const fFin = new Date(dateFin.toLocaleString('en-US', { timeZone: 'America/Lima' })).toLocaleDateString('es-PE');
+      trabajador.licencias.forEach((lic) => {
+        const fInicio = formatCalendarDateDMY(lic.fechaInicio);
+        const fFin = formatCalendarDateDMY(lic.fechaFin);
+        const esPerdido = lic.origen === 'PARTICULAR_PERDIDO';
         
         worksheet.addRow({
           nro: 1, // Siempre 1 porque es 1 solo trabajador en este reporte, o el usuario quería un correlativo general. Asumimos 1.
           nombres: apellidosNombres.toUpperCase(),
           cargo: (trabajador.cargo || '').toUpperCase(),
-          establecimiento: (trabajador.establecimiento.nombre || '').toUpperCase(),
+          establecimiento: establecimientoNombre.toUpperCase(),
           dni: trabajador.dni,
-          citt: lic.numeroCertificado,
+          citt: lic.numeroCertificado || 'S/N',
           inicio: fInicio,
           fin: fFin,
-          subsidio: fInicio, // Lo igualamos al inicio para seguir el Excel manual
+          subsidio: esPerdido ? '-' : fInicio, // Lo igualamos al inicio para seguir el Excel manual
           totalCitt: lic.diasOtorgados,
           diasSubsidios: diasSubsidioEsSalud // Lo pondremos en la primera fila y luego combinaremos
         });

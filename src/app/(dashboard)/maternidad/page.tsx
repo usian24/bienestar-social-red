@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import NuevoCittModal from "@/shared/components/NuevoCittModal";
 import DetallesTrabajadorModal from "@/shared/components/DetallesTrabajadorModal";
 import PrevisualizadorExcelMaternidadModal from "@/shared/components/PrevisualizadorExcelMaternidadModal";
+import { getCalendarDateStr } from "@/core/licencias/calculoSubsidios";
 
 export default function MaternidadPage() {
   const { data: session } = useSession();
@@ -27,7 +28,7 @@ export default function MaternidadPage() {
   
   // Estado de los Filtros
   const [searchDni, setSearchDni] = useState('');
-  const [ambito, setAmbito] = useState('Microred');
+  const [ambito, setAmbito] = useState('Todos');
   const [microred, setMicrored] = useState('Todas');
   const [establecimiento, setEstablecimiento] = useState('--Todos--');
   const [condicionLaboral, setCondicionLaboral] = useState('--TODOS--');
@@ -70,27 +71,33 @@ export default function MaternidadPage() {
   // Filtrado de la tabla en tiempo real
   const registrosFiltrados = registros.filter(r => {
     const matchDni = r.dni.includes(searchDni) || r.apellidosNombres.toLowerCase().includes(searchDni.toLowerCase());
-    const matchMicrored = microred === 'Todas' || r.microred === microred;
+
+    let matchAmbito = true;
+    if (searchDni.trim().length > 0) {
+      matchAmbito = true;
+    } else if (ambito === 'Sede Administrativa') {
+      matchAmbito = r.microred === 'SEDE RED SALUD HUANUCO';
+    } else if (ambito === 'Microred') {
+      matchAmbito = r.microred !== 'SEDE RED SALUD HUANUCO';
+    }
+
+    const matchMicrored = (ambito === 'Sede Administrativa' || searchDni.trim().length > 0)
+      ? true
+      : (microred === 'Todas' || r.microred === microred);
     const matchEstablecimiento = establecimiento === '--Todos--' || r.establecimiento === establecimiento;
     const matchCondicion = condicionLaboral === '--TODOS--' || r.condicionLaboral === condicionLaboral;
     
-    // Filtrado por fecha (si tiene alguna licencia dentro del rango)
+    // Filtrado por fecha (solapamiento exacto con calendario YYYY-MM-DD)
     let matchFechas = true;
     if (fechaDesde || fechaHasta) {
       if (r.licencias && r.licencias.length > 0) {
         matchFechas = r.licencias.some((lic: any) => {
-          const licFecha = new Date(lic.fechaInicio);
-          let cumpleDesde = true;
-          let cumpleHasta = true;
-          
-          if (fechaDesde) {
-            const desde = new Date(fechaDesde + 'T00:00:00');
-            cumpleDesde = licFecha >= desde;
-          }
-          if (fechaHasta) {
-            const hasta = new Date(fechaHasta + 'T23:59:59');
-            cumpleHasta = licFecha <= hasta;
-          }
+          const licIni = getCalendarDateStr(lic.fechaInicio);
+          const licFin = getCalendarDateStr(lic.fechaFin) || licIni;
+          if (!licIni) return false;
+
+          const cumpleDesde = fechaDesde ? licFin >= fechaDesde : true;
+          const cumpleHasta = fechaHasta ? licIni <= fechaHasta : true;
           return cumpleDesde && cumpleHasta;
         });
       } else {
@@ -98,12 +105,14 @@ export default function MaternidadPage() {
       }
     }
 
-    return matchDni && matchMicrored && matchEstablecimiento && matchCondicion && matchFechas;
+    return matchAmbito && matchDni && matchMicrored && matchEstablecimiento && matchCondicion && matchFechas;
   });
 
   // Obtener establecimientos de la microred seleccionada (o la asignada si es admin)
   const establecimientosActuales = isSuperAdmin
-    ? (microred === 'Todas' ? [] : microredesDb.find(m => m.nombre === microred)?.establecimientos || [])
+    ? (ambito === 'Sede Administrativa'
+        ? microredesDb.find(m => m.nombre === 'SEDE RED SALUD HUANUCO')?.establecimientos || []
+        : (microred === 'Todas' ? [] : microredesDb.find(m => m.nombre === microred)?.establecimientos || []))
     : (microredesDb.find(m => Number(m.id) === Number(userMicroredId))?.establecimientos || []);
 
   // Cuando cambia la microred, resetear el establecimiento
@@ -157,10 +166,15 @@ export default function MaternidadPage() {
                 <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1.5 font-medium">Ámbito</label>
                 <select 
                   value={ambito} 
-                  onChange={(e) => setAmbito(e.target.value)}
+                  onChange={(e) => {
+                    setAmbito(e.target.value);
+                    if (e.target.value !== 'Microred') setMicrored('Todas');
+                    setEstablecimiento('--Todos--');
+                  }}
                   className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-blue-500 focus:bg-white dark:bg-slate-800 transition-colors"
                 >
-                  <option value="Microred">Microred</option>
+                  <option value="Todos">-- Todos (Sede y Microredes) --</option>
+                  <option value="Microred">Microredes</option>
                   <option value="Sede Administrativa">Sede Administrativa</option>
                 </select>
               </div>
@@ -173,7 +187,7 @@ export default function MaternidadPage() {
                   className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-blue-500 focus:bg-white dark:bg-slate-800 transition-colors disabled:opacity-50"
                 >
                   <option value="Todas">-- Todas las Microredes --</option>
-                  {microredesDb.map(m => (
+                  {microredesDb.filter(m => m.nombre !== 'SEDE RED SALUD HUANUCO').map(m => (
                     <option key={m.id} value={m.nombre}>{m.nombre}</option>
                   ))}
                 </select>
@@ -186,7 +200,7 @@ export default function MaternidadPage() {
               value={establecimiento} 
               onChange={(e) => setEstablecimiento(e.target.value)}
               className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-blue-500 focus:bg-white dark:bg-slate-800 transition-colors disabled:opacity-50"
-              disabled={isSuperAdmin && microred === 'Todas'}
+              disabled={isSuperAdmin && ambito !== 'Sede Administrativa' && microred === 'Todas'}
             >
               <option value="--Todos--">-- Todos los Establecimientos --</option>
               {establecimientosActuales.map((est: any) => (
@@ -235,9 +249,11 @@ export default function MaternidadPage() {
                 type="button"
                 onClick={() => {
                   const params = new URLSearchParams();
-                  params.append('microred', microred);
+                  params.append('microred', ambito === 'Sede Administrativa' ? 'SEDE RED SALUD HUANUCO' : microred);
                   params.append('establecimiento', establecimiento);
                   params.append('condicionLaboral', condicionLaboral);
+                  if (fechaDesde) params.append('desde', fechaDesde);
+                  if (fechaHasta) params.append('hasta', fechaHasta);
                   window.open(`/api/maternidad/excel-masivo?${params.toString()}`, '_blank');
                 }}
                 className="bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 shadow-sm transition-colors w-full md:w-auto"

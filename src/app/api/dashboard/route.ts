@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
 import { requireStaffAccess } from '@/core/auth/rbac';
+import { calcularResumenSaludTrabajador } from '@/core/licencias/calculoSubsidios';
 
 export async function GET() {
   try {
@@ -24,21 +25,24 @@ export async function GET() {
     // 2. Total de Licencias Activas (Cualquier tipo de licencia)
     const licenciasActivas = await prisma.licencia.count({ where: licenciaWhere });
 
-    // 3. Subsidios Pendientes EsSalud (Licencias de SALUD que superan 20 días)
+    // 3. Subsidios Pendientes EsSalud (Licencias de SALUD que superan 20 días en el mismo año calendario)
     const trabajadoresConSalud = await prisma.trabajador.findMany({
       where: {
         ...trabajadorWhere,
-        licencias: { some: { tipoLicencia: 'ENFERMEDAD_COMUN' } }
+        licencias: { some: { tipoLicencia: { in: ['ENFERMEDAD_COMUN', 'ACCIDENTE_COMUN'] } } }
       },
       include: {
-        licencias: { where: { tipoLicencia: 'ENFERMEDAD_COMUN' } }
+        licencias: {
+          where: { tipoLicencia: { in: ['ENFERMEDAD_COMUN', 'ACCIDENTE_COMUN'] } },
+          orderBy: { fechaInicio: 'asc' }
+        }
       }
     });
 
     let subsidiosPendientes = 0;
     trabajadoresConSalud.forEach(t => {
-      const totalDias = t.licencias.reduce((sum, lic) => sum + lic.diasOtorgados, 0);
-      if (totalDias > 20) {
+      const resumen = calcularResumenSaludTrabajador(t.licencias);
+      if (resumen.diasSubsidioEsSalud > 0) {
         subsidiosPendientes++;
       }
     });

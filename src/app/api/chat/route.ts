@@ -5,6 +5,7 @@ import { logger } from '@/core/logging/systemLogger';
 import { getAuthContext } from '@/core/auth/rbac';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
+import { calcularResumenSaludTrabajador, formatCalendarDateDMY } from '@/core/licencias/calculoSubsidios';
 
 export const dynamic = 'force-dynamic';
 
@@ -501,24 +502,20 @@ Instrucciones de Respuesta:
   }
 }
 
-// Función auxiliar para formatear los datos de un trabajador
+// Función auxiliar para formatear los datos de un trabajador respetando reinicio anual de 20 días
 function formatearTrabajadorParaContexto(trabajador: any) {
-  let diasEssalud = 0;
-  let diasParticulares = 0;
-  let diasPerdidos = 0;
+  const resumen = calcularResumenSaludTrabajador(trabajador.licencias || []);
+  const anioActualPeru = Number(
+    new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' }).slice(0, 4)
+  ) || new Date().getUTCFullYear();
 
-  trabajador.licencias.forEach((lic: any) => {
-    if (lic.tipoLicencia === 'ENFERMEDAD_COMUN' || lic.tipoLicencia === 'ACCIDENTE_COMUN') {
-      if (lic.origen === 'ESSALUD_CITT') diasEssalud += lic.diasOtorgados;
-      else if (lic.origen === 'PARTICULAR') diasParticulares += lic.diasOtorgados;
-      else if (lic.origen === 'PARTICULAR_PERDIDO') diasPerdidos += lic.diasOtorgados;
-    }
-  });
-
-  const totalDiasSalud = diasEssalud + diasParticulares;
-  const diasRed = Math.min(totalDiasSalud, 20);
-  const diasSubsidioEsSalud = Math.max(0, totalDiasSalud - 20);
-  const diasRestantesRed = Math.max(0, 20 - totalDiasSalud);
+  const anioActualData = resumen.porAnio[anioActualPeru] || {
+    totalSalud: 0,
+    diasRedSalud: 0,
+    diasSubsidioEsSalud: 0,
+    diasRestantesRed: 20,
+    diasLey30012: 0,
+  };
 
   return {
     dni: trabajador.dni,
@@ -528,21 +525,27 @@ function formatearTrabajadorParaContexto(trabajador: any) {
     establecimiento: trabajador.establecimiento?.nombre || 'No asignado',
     microred: trabajador.establecimiento?.microred?.nombre || 'No asignada',
     balanceSalud: {
-      totalDiasSalud,
-      diasRed,
-      diasSubsidioEsSalud,
-      diasRestantesRed,
-      diasEssalud,
-      diasParticulares,
-      diasPerdidos
+      anioActual: anioActualPeru,
+      totalDiasSaludAnioActual: anioActualData.totalSalud,
+      diasRedAnioActual: anioActualData.diasRedSalud,
+      diasSubsidioAnioActual: anioActualData.diasSubsidioEsSalud,
+      diasRestantesRed: anioActualData.diasRestantesRed,
+      totalDiasSalud: resumen.totalDias,
+      diasRed: resumen.diasRed,
+      diasSubsidioEsSalud: resumen.diasSubsidioEsSalud,
+      diasEssalud: resumen.essalud,
+      diasParticulares: resumen.particulares,
+      diasPerdidos: resumen.perdidos,
+      diasLey30012: resumen.diasLey30012,
+      porAnio: resumen.porAnio,
     },
     totalLicencias: trabajador.licencias.length,
     ultimasLicencias: trabajador.licencias.slice(-6).map((l: any) => ({
       tipo: l.tipoLicencia,
       origen: l.origen,
       certificado: l.numeroCertificado,
-      inicio: l.fechaInicio ? new Date(l.fechaInicio).toLocaleDateString('es-PE') : '',
-      fin: l.fechaFin ? new Date(l.fechaFin).toLocaleDateString('es-PE') : '',
+      inicio: formatCalendarDateDMY(l.fechaInicio),
+      fin: formatCalendarDateDMY(l.fechaFin),
       dias: l.diasOtorgados
     }))
   };
@@ -561,11 +564,11 @@ function generarRespuestaDirecta(contexto: any, pregunta: string): string {
 • **Cargo:** ${pc.cargo} (${pc.condicionLaboral})
 • **Lugar de Trabajo:** ${pc.establecimiento} — Microred: ${pc.microred}
 
-**Liquidación de Descansos Médicos (Salud):**
-• **Total acumulado en el año:** ${b.totalDiasSalud} días.
-• **Días asumidos por la Red (1 al 20):** ${b.diasRed} días ${b.diasRestantesRed > 0 ? `(le restan ${b.diasRestantesRed} días cubiertos por la Red)` : '(tope anual cubierto)'}.
-• **Días en Subsidio ante EsSalud (día 21 en adelante):** ${b.diasSubsidioEsSalud} días.
-• **Certificados registrados:** ${pc.totalLicencias} en total (${b.diasEssalud} días CITT, ${b.diasParticulares} días particulares).`;
+**Liquidación de Descansos Médicos (Salud - Año ${b.anioActual}):**
+• **Días de Salud en ${b.anioActual}:** ${b.totalDiasSaludAnioActual} días (${b.diasRedAnioActual} asumidos por la Red, ${b.diasSubsidioAnioActual} en subsidio EsSalud).
+• **Saldo de cobertura Red (1 al 20 en ${b.anioActual}):** ${b.diasRestantesRed > 0 ? `le restan ${b.diasRestantesRed} días cubiertos por la Red` : 'tope anual de 20 días completado'}.
+• **Acumulado histórico total:** ${b.totalDiasSalud} días (${b.diasRed} Red, ${b.diasSubsidioEsSalud} Subsidio EsSalud).
+• **Certificados registrados:** ${pc.totalLicencias} en total (${b.diasEssalud} días CITT, ${b.diasParticulares} días particulares${b.diasLey30012 > 0 ? `, ${b.diasLey30012} días Ley 30012` : ''}).`;
   }
 
   // 2. Si el usuario es Trabajador consultando sus datos propios
@@ -574,10 +577,10 @@ function generarRespuestaDirecta(contexto: any, pregunta: string): string {
     const b = md.balanceSalud;
     return `Hola **${md.apellidosNombres}**. Según los registros oficiales de tu expediente en la Red de Salud Huánuco:
 
-**Estado de tus descansos médicos este año:**
-• **Total de días descansados acumulados:** ${b.totalDiasSalud} días.
-• **Días con goce cubiertos por la Red (días 1 al 20):** ${b.diasRed} días ${b.diasRestantesRed > 0 ? `(te quedan ${b.diasRestantesRed} días de cobertura directa por la institución)` : '(has completado el tope institucional de 20 días)'}.
-• **Días que corresponden a Subsidio por EsSalud (día 21 en adelante):** ${b.diasSubsidioEsSalud} días.
+**Estado de tus descansos médicos (Año ${b.anioActual}):**
+• **Total de días de Salud en ${b.anioActual}:** ${b.totalDiasSaludAnioActual} días.
+• **Días con goce cubiertos por la Red (1 al 20 en ${b.anioActual}):** ${b.diasRedAnioActual} días ${b.diasRestantesRed > 0 ? `(te quedan ${b.diasRestantesRed} días de cobertura directa por la institución)` : '(has completado el tope anual institucional de 20 días)'}.
+• **Días en Subsidio por EsSalud (${b.anioActual}):** ${b.diasSubsidioAnioActual} días${b.diasSubsidioEsSalud !== b.diasSubsidioAnioActual ? ` (acumulado histórico total: ${b.diasSubsidioEsSalud} días)` : ''}.
 • **Certificados registrados:** ${md.totalLicencias} documento(s) en total.
 
 *Nota:* Recuerda que si cuentas con certificados médicos particulares, debes canjearlos ante EsSalud antes de los 30 días hábiles para no perder el derecho al subsidio.`;

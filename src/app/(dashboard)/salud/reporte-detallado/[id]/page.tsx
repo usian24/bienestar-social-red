@@ -24,7 +24,7 @@ export default function ReporteIndividualPage() {
   useEffect(() => {
     const fetchHistorial = async () => {
       try {
-        const res = await fetch(`/api/salud/excel/${id}`);
+        const res = await fetch(`/api/salud/excel/${id}?preview=true`);
         if (!res.ok) throw new Error('Error al obtener datos');
         const json = await res.json();
         setData(json);

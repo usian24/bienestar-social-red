@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
 import { canAccessWorkerMicrored, requireStaffAccess } from '@/core/auth/rbac';
+import { formatCalendarDateDMY } from '@/core/licencias/calculoSubsidios';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +22,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         establecimiento: { include: { microred: true } },
         licencias: {
           where: { tipoLicencia: 'MATERNIDAD' },
-          orderBy: { fechaInicio: 'asc' }
+          orderBy: [{ fechaInicio: 'asc' }, { creadoEn: 'asc' }]
         }
       }
     });
@@ -36,29 +37,29 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     let totalSubsidioGlobal = 0;
 
-    // Primer paso: pre-calcular total de subsidio global
+    // Primer paso: pre-calcular total de subsidio global (excluyendo PARTICULAR_PERDIDO)
     trabajador.licencias.forEach((lic) => {
-      totalSubsidioGlobal += lic.diasOtorgados;
+      if (lic.origen !== 'PARTICULAR_PERDIDO') {
+        totalSubsidioGlobal += lic.diasOtorgados;
+      }
     });
 
     const resultRows: any[] = [];
 
-    // Segundo paso: generar filas
+    // Segundo paso: generar filas sin corrimientos de zona horaria
     trabajador.licencias.forEach((lic) => {
-      const dateInicio = new Date(lic.fechaInicio);
-      const dateFin = new Date(lic.fechaFin);
+      const fInicio = formatCalendarDateDMY(lic.fechaInicio);
+      const fFin = formatCalendarDateDMY(lic.fechaFin);
+      const esPerdido = lic.origen === 'PARTICULAR_PERDIDO';
 
-      // Convertir a string de fecha respetando la zona horaria de Perú
-      const fInicio = dateInicio.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
-      const fFin = dateFin.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
-      
       resultRows.push({
-        origen: lic.numeroCertificado,
+        origen: lic.numeroCertificado || 'S/N',
         fechaInicio: fInicio,
         fechaFin: fFin,
-        subsidioStart: fInicio,
-        subsidioEnd: fFin,
+        subsidioStart: esPerdido ? '' : fInicio,
+        subsidioEnd: esPerdido ? '' : fFin,
         diasOtorgados: lic.diasOtorgados,
+        esPerdido,
       });
     });
 

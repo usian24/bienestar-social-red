@@ -5,6 +5,7 @@ import { X, Pencil, Trash2, Calendar, FileText, User, Clock, Loader2 } from 'luc
 import NuevoCittModal from './NuevoCittModal';
 import { useSession } from 'next-auth/react';
 import { tienePermiso } from '@/shared/utils/permisos';
+import { formatCalendarDateDMY } from '@/core/licencias/calculoSubsidios';
 
 interface DetallesTrabajadorModalProps {
   isOpen: boolean;
@@ -156,6 +157,7 @@ export default function DetallesTrabajadorModal({ isOpen, onClose, trabajadorInf
                         {/* Banda de color según el origen y tipo */}
                         <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${
                           lic.tipoLicencia === 'LEY_30012' ? 'bg-purple-500' :
+                          lic.origen === 'PARTICULAR_PERDIDO' ? 'bg-rose-500' :
                           lic.origen === 'ESSALUD_CITT' ? 'bg-blue-500' : 'bg-emerald-500'
                         }`}></div>
                         
@@ -166,11 +168,15 @@ export default function DetallesTrabajadorModal({ isOpen, onClose, trabajadorInf
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide ${
                                 lic.tipoLicencia === 'LEY_30012'
                                   ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300'
-                                  : lic.origen === 'ESSALUD_CITT' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
+                                  : lic.origen === 'PARTICULAR_PERDIDO'
+                                    ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300'
+                                    : lic.origen === 'ESSALUD_CITT' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
                               }`}>
                                 {lic.tipoLicencia === 'LEY_30012'
                                   ? 'MINSA - Ley Nº 30012'
-                                  : (lic.origen === 'ESSALUD_CITT' ? 'CITT EsSalud' : 'Certificado Particular')}
+                                  : lic.origen === 'PARTICULAR_PERDIDO'
+                                    ? 'Particular (Perdido)'
+                                    : (lic.origen === 'ESSALUD_CITT' ? 'CITT EsSalud' : 'Certificado Particular')}
                               </span>
                               <h5 className="text-lg font-bold text-slate-800 dark:text-slate-100 mt-2">
                                 {lic.tipoLicencia === 'LEY_30012' ? 'Ley Nº 30012 (Familiar Grave)' : lic.tipoLicencia.replace('_', ' ')}
@@ -218,11 +224,11 @@ export default function DetallesTrabajadorModal({ isOpen, onClose, trabajadorInf
                             </div>
                             <div>
                               <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Fecha de Inicio</p>
-                              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{new Date(lic.fechaInicio).toLocaleDateString('es-PE')}</p>
+                              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{formatCalendarDateDMY(lic.fechaInicio)}</p>
                             </div>
                             <div>
                               <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Fecha de Fin</p>
-                              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{new Date(lic.fechaFin).toLocaleDateString('es-PE')}</p>
+                              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{formatCalendarDateDMY(lic.fechaFin)}</p>
                             </div>
                           </div>
 

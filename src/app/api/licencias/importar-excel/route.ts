@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
 import * as XLSX from 'xlsx';
 import { canAccessWorkerMicrored, requireStaffAccess } from '@/core/auth/rbac';
+import { getCalendarDateStr, parseNormalizedCalendarDate } from '@/core/licencias/calculoSubsidios';
 
 export async function POST(request: Request) {
   try {
@@ -64,34 +65,36 @@ export async function POST(request: Request) {
           const detalle = String(row[5] || '').trim().toUpperCase(); // "ESSALUD" o "PARTICULAR"
           const motivo = String(row[7] || '').trim(); // ej: "LICENCIA POR SALUD ESSALUD NºA-002-00046023-26"
           
-          // Parsear fechas. xlsx puede devolver fechas como números (serial de excel) o strings ("2026-08-01")
-          let fechaInicio: Date | null = null;
-          let fechaFin: Date | null = null;
-          
-          const parseDate = (val: any) => {
-             let d = null;
-             if (val instanceof Date) {
-                 d = val;
-             } else if (typeof val === 'number') {
-                 d = new Date((val - 25569) * 86400 * 1000);
-             } else if (typeof val === 'string') {
-                 d = new Date(val);
-             }
-             
-             if (d && !isNaN(d.getTime())) {
-                 // Las fechas llegan como medianoche UTC (ej. 2026-08-01T00:00:00.000Z).
-                 // Le sumamos 5 horas para que sea 05:00:00 UTC, lo que equivale a la medianoche exacta en Perú (UTC-5).
-                 return new Date(d.getTime() + (5 * 60 * 60 * 1000));
-             }
-             return null;
+          // Parsear fechas. xlsx puede devolver fechas como Date, números (serial de excel) o strings
+          const parseDate = (val: any): Date | null => {
+            if (val instanceof Date && !isNaN(val.getTime())) {
+              const adjusted = new Date(val.getTime() + 5 * 60 * 60 * 1000);
+              return parseNormalizedCalendarDate(adjusted.toISOString().slice(0, 10));
+            }
+            if (typeof val === 'number') {
+              const serialDate = new Date((val - 25569) * 86400 * 1000);
+              return isNaN(serialDate.getTime())
+                ? null
+                : parseNormalizedCalendarDate(serialDate.toISOString().slice(0, 10));
+            }
+            if (typeof val === 'string') {
+              const s = val.trim();
+              const dmy = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
+              if (dmy) {
+                const iso = `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+                return parseNormalizedCalendarDate(iso);
+              }
+              return parseNormalizedCalendarDate(s);
+            }
+            return null;
           };
 
-          fechaInicio = parseDate(row[9]);
-          fechaFin = parseDate(row[10]);
-          
+          const fechaInicio = parseDate(row[9]);
+          const fechaFin = parseDate(row[10]);
+
           const dias = parseInt(row[11]) || 0;
 
-          if (!fechaInicio || !fechaFin || isNaN(fechaInicio.getTime()) || isNaN(fechaFin.getTime())) {
+          if (!fechaInicio || !fechaFin || fechaFin < fechaInicio) {
              omitidosCount++;
              resultados.push({ file: file.name, dni, status: 'error', message: 'Fechas inválidas' });
              continue;
@@ -109,11 +112,14 @@ export async function POST(request: Request) {
           let origen = detalle === 'ESSALUD' ? 'ESSALUD_CITT' : 'PARTICULAR';
           let tipoLicencia = 'ENFERMEDAD_COMUN'; // Por defecto para esta importación
 
-          // Evitar duplicados (misma persona, misma fecha inicio)
+          // Evitar duplicados (misma persona, misma fecha calendario inicio, ya sea T00:00Z o T05:00Z)
+          const inicioCalStr = getCalendarDateStr(fechaInicio);
+          const dayStartUtc = new Date(`${inicioCalStr}T00:00:00.000Z`);
+          const dayEndUtc = new Date(`${inicioCalStr}T23:59:59.999Z`);
           const existe = await prisma.licencia.findFirst({
             where: {
               trabajadorId: trabajador.id,
-              fechaInicio: fechaInicio
+              fechaInicio: { gte: dayStartUtc, lte: dayEndUtc }
             }
           });
 
@@ -123,7 +129,7 @@ export async function POST(request: Request) {
             continue;
           }
 
-          // Insertar en la BD
+          // Insertar en la BD usando calendario UTC normalizado
           await prisma.licencia.create({
             data: {
               trabajadorId: trabajador.id,
@@ -133,8 +139,8 @@ export async function POST(request: Request) {
               fechaInicio,
               fechaFin,
               diasOtorgados: dias,
-              anioEjercicio: fechaInicio.getFullYear(),
-              mesEjercicio: fechaInicio.getMonth() + 1,
+              anioEjercicio: fechaInicio.getUTCFullYear(),
+              mesEjercicio: fechaInicio.getUTCMonth() + 1,
               registradoPorId: ctx.userId
             }
           });

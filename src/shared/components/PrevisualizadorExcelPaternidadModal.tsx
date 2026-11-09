@@ -2,6 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { X, FileSpreadsheet, Download } from 'lucide-react';
+import { formatCalendarDateDMY, getCalendarDateStr } from '@/core/licencias/calculoSubsidios';
 
 interface PrevisualizadorExcelModalProps {
   isOpen: boolean;
@@ -14,20 +15,24 @@ export default function PrevisualizadorExcelPaternidadModal({ isOpen, onClose, t
   const rows = useMemo(() => {
     if (!trabajador || !trabajador.licencias || !Array.isArray(trabajador.licencias) || trabajador.licencias.length === 0) return [];
 
+    const ordenadas = [...trabajador.licencias].sort((a: any, b: any) =>
+      getCalendarDateStr(a.fechaInicio).localeCompare(getCalendarDateStr(b.fechaInicio))
+    );
+
     let totalDiasGlobal = 0;
 
-    trabajador.licencias.forEach((lic: any) => {
-      totalDiasGlobal += lic.diasOtorgados;
+    ordenadas.forEach((lic: any) => {
+      if (lic.origen !== 'PARTICULAR_PERDIDO') {
+        totalDiasGlobal += lic.diasOtorgados;
+      }
     });
 
     const resultRows: any[] = [];
 
-    trabajador.licencias.forEach((lic: any) => {
-      const dateInicio = new Date(lic.fechaInicio);
-      const dateFin = new Date(lic.fechaFin);
-
-      const fInicio = dateInicio.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
-      const fFin = dateFin.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
+    ordenadas.forEach((lic: any) => {
+      const fInicio = formatCalendarDateDMY(lic.fechaInicio);
+      const fFin = formatCalendarDateDMY(lic.fechaFin);
+      const esPerdido = lic.origen === 'PARTICULAR_PERDIDO';
 
       resultRows.push({
         nombres: (trabajador.apellidosNombres || '').toUpperCase(),
@@ -35,10 +40,10 @@ export default function PrevisualizadorExcelPaternidadModal({ isOpen, onClose, t
         condicion: (trabajador.condicionLaboral || '').toUpperCase(),
         establecimiento: (trabajador.establecimiento || '').toUpperCase(),
         dni: trabajador.dni,
-        citt: lic.numeroCertificado,
+        citt: lic.numeroCertificado || 'S/N',
         inicio: fInicio,
         fin: fFin,
-        totalCitt: lic.diasOtorgados,
+        totalCitt: esPerdido ? 0 : lic.diasOtorgados,
         diasRedGlobal: totalDiasGlobal,
       });
     });

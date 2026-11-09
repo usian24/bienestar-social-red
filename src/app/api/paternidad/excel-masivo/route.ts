@@ -2,45 +2,16 @@ import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
 import ExcelJS from 'exceljs';
 import { requireStaffAccess } from '@/core/auth/rbac';
+import {
+  MESES,
+  buildUniqueSheetName,
+  calcularChunksReportes,
+} from '@/core/licencias/calculoSubsidios';
 
-function splitIntoMonths(inicioStr: string, finStr: string) {
-  const chunks = [];
-  let current = new Date(inicioStr + 'T00:00:00');
-  const end = new Date(finStr + 'T00:00:00');
-  
-  while (current <= end) {
-    const year = current.getFullYear();
-    const month = current.getMonth();
-    const endOfMonth = new Date(year, month + 1, 0); 
-    const chunkEnd = end < endOfMonth ? end : endOfMonth;
-    
-    const startMs = Date.UTC(current.getFullYear(), current.getMonth(), current.getDate());
-    const endMs = Date.UTC(chunkEnd.getFullYear(), chunkEnd.getMonth(), chunkEnd.getDate());
-    const days = Math.floor((endMs - startMs) / (1000 * 60 * 60 * 24)) + 1;
-
-    chunks.push({
-      start: new Date(current),
-      end: new Date(chunkEnd),
-      days,
-      month
-    });
-    
-    current = new Date(year, month + 1, 1);
-  }
-  return chunks;
-}
-
-const MESES = [
-  'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
-  'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
-];
-
-function getPeruDateString(dbDate: Date) {
-  const d = new Date(dbDate.toLocaleString('en-US', { timeZone: 'America/Lima' }));
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+function parseOptionalInt(val: string | null): number | null {
+  if (!val || val.trim() === '') return null;
+  const parsed = Number.parseInt(val, 10);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 export async function GET(request: Request) {
@@ -54,7 +25,25 @@ export async function GET(request: Request) {
   const microredNombre = searchParams.get('microred');
   const establecimientoNombre = searchParams.get('establecimiento');
   const condicionLaboral = searchParams.get('condicionLaboral');
-  const anio = new Date().getFullYear();
+  const desdeStr = (searchParams.get('desde') || '').trim();
+  const hastaStr = (searchParams.get('hasta') || '').trim();
+  const hasExplicitRange = Boolean(desdeStr || hastaStr);
+
+  const reqYearParsed = parseOptionalInt(searchParams.get('year'));
+  const anioFilter: number | null =
+    reqYearParsed !== null
+      ? reqYearParsed
+      : !hasExplicitRange
+        ? new Date().getFullYear()
+        : null;
+
+  const anioDisplay =
+    anioFilter ??
+    (desdeStr && /^\d{4}/.test(desdeStr)
+      ? Number(desdeStr.slice(0, 4))
+      : hastaStr && /^\d{4}/.test(hastaStr)
+        ? Number(hastaStr.slice(0, 4))
+        : new Date().getFullYear());
 
   try {
     const whereClause: any = {};
@@ -70,7 +59,7 @@ export async function GET(request: Request) {
         whereClause.establecimiento = { nombre: establecimientoNombre };
       }
     }
-    if (condicionLaboral && condicionLaboral !== '--TODOS--' && condicionLaboral !== '') {
+    if (condicionLaboral && condicionLaboral !== '--TODOS--' && condicionLaboral !== 'TODOS' && condicionLaboral !== '-- TODOS --' && condicionLaboral !== '') {
       whereClause.condicionLaboral = condicionLaboral;
     }
 
@@ -80,7 +69,7 @@ export async function GET(request: Request) {
         establecimiento: { include: { microred: true } },
         licencias: {
           where: { tipoLicencia: 'PATERNIDAD' },
-          orderBy: { fechaInicio: 'asc' }
+          orderBy: [{ fechaInicio: 'asc' }, { creadoEn: 'asc' }]
         }
       }
     });
@@ -91,7 +80,7 @@ export async function GET(request: Request) {
     // Agrupar por Microred
     const microredesMap = new Map<string, typeof trabajadores>();
     trabajadores.forEach(t => {
-      const mrName = t.establecimiento.microred?.nombre || 'SIN MICRORED';
+      const mrName = t.establecimiento?.microred?.nombre || 'SIN MICRORED';
       if (!microredesMap.has(mrName)) {
         microredesMap.set(mrName, []);
       }
@@ -112,69 +101,68 @@ export async function GET(request: Request) {
       }
     };
 
-    // Crear una hoja por cada Microred
-    for (const [mrName, trs] of Array.from(microredesMap.entries())) {
-      // Filtrar a los trabajadores que realmente tienen licencias
-      const workersWithLic = trs.filter(t => t.licencias && t.licencias.length > 0);
-      if (workersWithLic.length === 0) continue; // No crear la hoja si está vacía
+    const usedSheetNames = new Set<string>();
 
-      const sheetName = `${mrName.substring(0, 25)} ${anio}`;
+    // Crear una hoja por cada Microred que realmente tenga registros en el rango
+    for (const [mrName, trs] of Array.from(microredesMap.entries())) {
+      const workersWithLic = trs.filter(t => t.licencias && t.licencias.length > 0);
+      if (workersWithLic.length === 0) continue;
+
+      const workersData = workersWithLic
+        .map(t => {
+          const allChunks = calcularChunksReportes(t.licencias).filter(c => {
+            if (desdeStr && c.endStr < desdeStr) return false;
+            if (hastaStr && c.startStr > hastaStr) return false;
+            if (anioFilter !== null && c.year !== anioFilter) return false;
+            return true;
+          });
+          return { ...t, allChunks };
+        })
+        .filter(w => w.allChunks.length > 0);
+
+      if (workersData.length === 0) continue;
+
+      const yearMonths = Array.from(
+        new Set(workersData.flatMap(w => w.allChunks.map(c => `${c.year}-${String(c.month).padStart(2, '0')}`)))
+      )
+        .sort()
+        .map(k => {
+          const [y, m] = k.split('-').map(Number);
+          return { year: y, month: m };
+        });
+
+      if (yearMonths.length === 0) continue;
+
+      const sheetSuffix = hasExplicitRange && anioFilter === null ? 'RANGO' : anioDisplay;
+      const sheetName = buildUniqueSheetName(mrName, sheetSuffix, usedSheetNames);
       const worksheet = workbook.addWorksheet(sheetName);
 
-      // Preprocesar chunks por trabajador
-      const workersData = workersWithLic.map(t => {
-        const allChunks: any[] = [];
-        
-        for (const lic of t.licencias) {
-          const inicioStr = getPeruDateString(new Date(lic.fechaInicio));
-          const finStr = getPeruDateString(new Date(lic.fechaFin));
-          
-          const origInicioParts = inicioStr.split('-');
-          const origFinParts = finStr.split('-');
-          const origInicioFormatted = `${origInicioParts[2]}/${origInicioParts[1]}/${origInicioParts[0]}`;
-          const origFinFormatted = `${origFinParts[2]}/${origFinParts[1]}/${origFinParts[0]}`;
-
-          const chunks = splitIntoMonths(inicioStr, finStr);
-
-          for (const chunk of chunks) {
-            // PATERNIDAD: 100% a cargo de la RED
-            let redDaysInChunk = chunk.days;
-            let subsidioDaysInChunk = 0;
-            
-            let subsidioStartStr = '';
-            let subsidioEndStr = '';
-
-            allChunks.push({
-              ...chunk,
-              redDaysInChunk,
-              subsidioDaysInChunk,
-              subsidioStartStr,
-              subsidioEndStr,
-              origInicioFormatted,
-              origFinFormatted,
-              lic
-            });
-          }
-        }
-        return { ...t, allChunks };
-      });
+      worksheet.columns = [
+        { key: 'col1', width: 5 },
+        { key: 'col2', width: 35 },
+        { key: 'col3', width: 25 },
+        { key: 'col4', width: 25 },
+        { key: 'col5', width: 12 },
+        { key: 'col6', width: 18 },
+        { key: 'col7', width: 15 },
+        { key: 'col8', width: 15 },
+        { key: 'col9', width: 25 },
+      ];
 
       let currentRowIndex = 1;
 
-      // Iterar por meses (0 = Enero, 11 = Diciembre)
-      for (let m = 0; m < 12; m++) {
-        const workersInMonth = workersData.filter(w => w.allChunks.some(c => c.month === m));
+      for (const { year: yr, month: m } of yearMonths) {
+        const workersInMonth = workersData.filter(w => w.allChunks.some(c => c.year === yr && c.month === m));
         if (workersInMonth.length === 0) continue;
 
-        // Big Header del Mes
-        worksheet.mergeCells(`A${currentRowIndex}:L${currentRowIndex}`);
+        // Big Header del Mes (9 columnas exactas: A..I)
+        worksheet.mergeCells(`A${currentRowIndex}:I${currentRowIndex}`);
         const titleCell = worksheet.getCell(`A${currentRowIndex}`);
-        titleCell.value = `RELACION DEL PERSONAL LICENCIA POR PATERNIDAD - ${MESES[m]} ${anio} - MICRORED ${mrName}`;
+        titleCell.value = `RELACION DEL PERSONAL LICENCIA POR PATERNIDAD - ${MESES[m]} ${yr} - MICRORED ${mrName}`;
         titleCell.font = { bold: true, size: 12, color: { argb: 'FF000000' } };
         titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-        
-        // Colores de cabecera mensual para Paternidad (Verde y Morado/Gris)
-        const bgColor = m % 2 === 0 ? 'FFC6E0B4' : 'FFD9E1F2'; 
+
+        const bgColor = m % 2 === 0 ? 'FFC6E0B4' : 'FFD9E1F2';
         titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } } as ExcelJS.Fill;
         currentRowIndex++;
 
@@ -182,70 +170,46 @@ export async function GET(request: Request) {
         const headerRow = worksheet.getRow(currentRowIndex);
         headerRow.height = 30;
         const headers = [
-          'N°', 'APELLIDOS Y NOMBRES', 'CARGO', 'ESTABLECIMIENTO', 'DNI', 
-          'CITT O CMP', 'FECHA DE INICIO', 'FECHA FIN', 
+          'N°', 'APELLIDOS Y NOMBRES', 'CARGO', 'ESTABLECIMIENTO', 'DNI',
+          'CITT O CMP', 'FECHA DE INICIO', 'FECHA FIN',
           'TOTAL DE DIAS A CARGO RED'
         ];
-        
+
         headers.forEach((h, i) => {
           const cell = headerRow.getCell(i + 1);
           cell.value = h;
           cell.style = colHeaderStyle;
         });
-        
-        currentRowIndex++;
 
-        // Configurar anchos de columna (solo la primera vez)
-        if (m === 0 || worksheet.columns.length === 0) {
-          worksheet.columns = [
-            { key: 'col1', width: 5 },
-            { key: 'col2', width: 35 },
-            { key: 'col3', width: 25 },
-            { key: 'col4', width: 25 },
-            { key: 'col5', width: 12 },
-            { key: 'col6', width: 18 },
-            { key: 'col7', width: 15 },
-            { key: 'col8', width: 15 },
-            { key: 'col9', width: 25 },
-          ];
-        }
+        currentRowIndex++;
 
         // Llenar datos de los trabajadores para este mes
         let nro = 1;
         workersInMonth.sort((a, b) => (a.apellidos || '').localeCompare(b.apellidos || ''));
 
         for (const t of workersInMonth) {
-          const monthChunks = t.allChunks.filter(c => c.month === m);
+          const monthChunks = t.allChunks.filter(c => c.year === yr && c.month === m);
           if (monthChunks.length === 0) continue;
 
           const startRow = currentRowIndex;
           const apellidosNombres = t.apellidos ? `${t.apellidos} ${t.nombres}` : t.nombres;
-
-          let totalSubsidioMes = 0;
-          for (const chunk of monthChunks) {
-            if (chunk.lic.origen === 'ESSALUD_CITT') {
-              totalSubsidioMes += chunk.subsidioDaysInChunk;
-            }
-          }
+          const establecimientoNombre = t.establecimiento?.nombre || 'NO ASIGNADO';
 
           for (const chunk of monthChunks) {
             const row = worksheet.getRow(currentRowIndex);
             row.getCell(1).value = nro;
             row.getCell(2).value = apellidosNombres.toUpperCase();
             row.getCell(3).value = (t.cargo || '').toUpperCase();
-            row.getCell(4).value = (t.establecimiento.nombre || '').toUpperCase();
+            row.getCell(4).value = establecimientoNombre.toUpperCase();
             row.getCell(5).value = t.dni;
-            row.getCell(6).value = chunk.lic.numeroCertificado;
+            row.getCell(6).value = chunk.lic.numeroCertificado || 'S/N';
             row.getCell(7).value = chunk.origInicioFormatted;
             row.getCell(8).value = chunk.origFinFormatted;
-            
-            const totalDiasCell = row.getCell(9);
-            totalDiasCell.value = chunk.days;
-            
-            // Pintar la celda 'TOTAL DE DIAS A CARGO RED'
-            totalDiasCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } } as ExcelJS.Fill; // Color gris
 
-            // Bordes y alineación
+            const totalDiasCell = row.getCell(9);
+            // Excluye PARTICULAR_PERDIDO automáticamente vía redDaysInChunk
+            totalDiasCell.value = chunk.redDaysInChunk;
+
             row.eachCell({ includeEmpty: true }, (cell) => {
               cell.alignment = { vertical: 'middle', horizontal: 'center' };
               cell.border = {
@@ -253,17 +217,16 @@ export async function GET(request: Request) {
                 bottom: { style: 'thin' as any }, right: { style: 'thin' as any }
               };
             });
-            // Alineación izquierda para textos
+            // Pintar la celda 'TOTAL DE DIAS A CARGO RED' después de establecer estilo base
+            totalDiasCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } } as ExcelJS.Fill;
             row.getCell(2).alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
             row.getCell(3).alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
             row.getCell(4).alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
 
             currentRowIndex++;
           }
-          
+
           const endRow = currentRowIndex - 1;
-          
-          // Merge celdas de la izquierda si hay más de 1 chunk en el mes
           if (endRow > startRow) {
             worksheet.mergeCells(`A${startRow}:A${endRow}`);
             worksheet.mergeCells(`B${startRow}:B${endRow}`);
@@ -271,13 +234,17 @@ export async function GET(request: Request) {
             worksheet.mergeCells(`D${startRow}:D${endRow}`);
             worksheet.mergeCells(`E${startRow}:E${endRow}`);
           }
-          
+
           nro++;
         }
-        
-        // Espacio entre meses
+
         currentRowIndex += 2;
       }
+    }
+
+    if (workbook.worksheets.length === 0) {
+      const ws = workbook.addWorksheet('SIN REGISTROS');
+      ws.addRow(['No se encontraron licencias de paternidad para el período y filtros seleccionados']);
     }
 
     const buffer = await workbook.xlsx.writeBuffer();
@@ -286,7 +253,7 @@ export async function GET(request: Request) {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="Reporte_Masivo_Mensual_${anio}.xlsx"`
+        'Content-Disposition': `attachment; filename="Reporte_Masivo_Paternidad_${anioDisplay}.xlsx"`
       }
     });
   } catch (error) {

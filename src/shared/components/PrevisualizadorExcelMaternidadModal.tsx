@@ -2,6 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { X, FileSpreadsheet, Download } from 'lucide-react';
+import { formatCalendarDateDMY, getCalendarDateStr } from '@/core/licencias/calculoSubsidios';
 
 interface PrevisualizadorExcelModalProps {
   isOpen: boolean;
@@ -14,22 +15,26 @@ export default function PrevisualizadorExcelMaternidadModal({ isOpen, onClose, t
   const rows = useMemo(() => {
     if (!trabajador || !trabajador.licencias || !Array.isArray(trabajador.licencias) || trabajador.licencias.length === 0) return [];
 
+    const ordenadas = [...trabajador.licencias].sort((a: any, b: any) =>
+      getCalendarDateStr(a.fechaInicio).localeCompare(getCalendarDateStr(b.fechaInicio))
+    );
+
     let totalSubsidioGlobal = 0;
 
-    // Primer paso: pre-calcular total de subsidio global
-    trabajador.licencias.forEach((lic: any) => {
-      totalSubsidioGlobal += lic.diasOtorgados;
+    // Primer paso: pre-calcular total de subsidio global (excluyendo PARTICULAR_PERDIDO)
+    ordenadas.forEach((lic: any) => {
+      if (lic.origen !== 'PARTICULAR_PERDIDO') {
+        totalSubsidioGlobal += lic.diasOtorgados;
+      }
     });
 
     const resultRows: any[] = [];
 
-    // Segundo paso: generar filas
-    trabajador.licencias.forEach((lic: any) => {
-      const dateInicio = new Date(lic.fechaInicio);
-      const dateFin = new Date(lic.fechaFin);
-
-      const fInicio = dateInicio.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
-      const fFin = dateFin.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
+    // Segundo paso: generar filas sin desplazamiento horario
+    ordenadas.forEach((lic: any) => {
+      const fInicio = formatCalendarDateDMY(lic.fechaInicio);
+      const fFin = formatCalendarDateDMY(lic.fechaFin);
+      const esPerdido = lic.origen === 'PARTICULAR_PERDIDO';
 
       resultRows.push({
         nombres: (trabajador.apellidosNombres || '').toUpperCase(),
@@ -37,10 +42,10 @@ export default function PrevisualizadorExcelMaternidadModal({ isOpen, onClose, t
         condicion: (trabajador.condicionLaboral || '').toUpperCase(),
         establecimiento: (trabajador.establecimiento || '').toUpperCase(),
         dni: trabajador.dni,
-        citt: lic.numeroCertificado,
+        citt: lic.numeroCertificado || 'S/N',
         inicio: fInicio,
         fin: fFin,
-        subsidio: fInicio, // En maternidad el subsidio arranca desde el día 1
+        subsidio: esPerdido ? '-' : fInicio, // En maternidad el subsidio arranca desde el día 1
         totalCitt: lic.diasOtorgados,
         diasSubsidios: totalSubsidioGlobal,
       });

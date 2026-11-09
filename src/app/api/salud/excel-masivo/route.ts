@@ -3,45 +3,17 @@ import prisma from '@/core/db/prisma';
 import ExcelJS from 'exceljs';
 import { logger } from '@/core/logging/systemLogger';
 import { requireStaffAccess } from '@/core/auth/rbac';
+import {
+  MESES,
+  buildUniqueSheetName,
+  calcularChunksReportes,
+  formatCalendarDateDMY,
+} from '@/core/licencias/calculoSubsidios';
 
-function splitIntoMonths(inicioStr: string, finStr: string) {
-  const chunks = [];
-  let current = new Date(inicioStr + 'T00:00:00');
-  const end = new Date(finStr + 'T00:00:00');
-  
-  while (current <= end) {
-    const year = current.getFullYear();
-    const month = current.getMonth();
-    const endOfMonth = new Date(year, month + 1, 0); 
-    const chunkEnd = end < endOfMonth ? end : endOfMonth;
-    
-    const startMs = Date.UTC(current.getFullYear(), current.getMonth(), current.getDate());
-    const endMs = Date.UTC(chunkEnd.getFullYear(), chunkEnd.getMonth(), chunkEnd.getDate());
-    const days = Math.floor((endMs - startMs) / (1000 * 60 * 60 * 24)) + 1;
-
-    chunks.push({
-      start: new Date(current),
-      end: new Date(chunkEnd),
-      days,
-      month
-    });
-    
-    current = new Date(year, month + 1, 1);
-  }
-  return chunks;
-}
-
-const MESES = [
-  'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
-  'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
-];
-
-function getPeruDateString(dbDate: Date) {
-  const d = new Date(dbDate.toLocaleString('en-US', { timeZone: 'America/Lima' }));
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+function parseOptionalInt(val: string | null): number | null {
+  if (!val || val.trim() === '') return null;
+  const parsed = Number.parseInt(val, 10);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 export async function GET(request: Request) {
@@ -57,17 +29,21 @@ export async function GET(request: Request) {
   const condicionLaboral = searchParams.get('condicionLaboral');
   const tipoLicencia = searchParams.get('tipoLicencia');
   const isPreview = searchParams.get('preview') === 'true';
-  const reqMonthStr = searchParams.get('month');
-  const reqMonth = reqMonthStr !== null ? parseInt(reqMonthStr, 10) - 1 : null;
-  const monthDesdeStr = searchParams.get('monthDesde') || searchParams.get('monthStart');
-  const monthHastaStr = searchParams.get('monthHasta') || searchParams.get('monthEnd');
-  
+
+  const reqMonthParsed = parseOptionalInt(searchParams.get('month'));
+  const reqMonth = reqMonthParsed !== null && reqMonthParsed >= 1 && reqMonthParsed <= 12
+    ? reqMonthParsed - 1
+    : null;
+
+  const monthDesdeParsed = parseOptionalInt(searchParams.get('monthDesde') || searchParams.get('monthStart'));
+  const monthHastaParsed = parseOptionalInt(searchParams.get('monthHasta') || searchParams.get('monthEnd'));
+
   let mDesde: number | null = null;
   let mHasta: number | null = null;
 
-  if (monthDesdeStr !== null || monthHastaStr !== null) {
-    mDesde = monthDesdeStr ? Math.max(0, parseInt(monthDesdeStr, 10) - 1) : 0;
-    mHasta = monthHastaStr ? Math.min(11, parseInt(monthHastaStr, 10) - 1) : 11;
+  if (monthDesdeParsed !== null || monthHastaParsed !== null) {
+    mDesde = monthDesdeParsed !== null ? Math.min(11, Math.max(0, monthDesdeParsed - 1)) : 0;
+    mHasta = monthHastaParsed !== null ? Math.min(11, Math.max(0, monthHastaParsed - 1)) : 11;
     if (mDesde > mHasta) {
       const temp = mDesde;
       mDesde = mHasta;
@@ -78,13 +54,26 @@ export async function GET(request: Request) {
     mHasta = reqMonth;
   }
 
-  const reqYearStr = searchParams.get('year');
-  const anio = reqYearStr !== null ? parseInt(reqYearStr, 10) : new Date().getFullYear();
+  const desdeStr = (searchParams.get('desde') || '').trim();
+  const hastaStr = (searchParams.get('hasta') || '').trim();
+  const hasExplicitRange = Boolean(desdeStr || hastaStr);
 
-  const desdeStr = searchParams.get('desde');
-  const hastaStr = searchParams.get('hasta');
-  const desdeDate = desdeStr ? new Date(desdeStr + 'T00:00:00') : null;
-  const hastaDate = hastaStr ? new Date(hastaStr + 'T23:59:59') : null;
+  const reqYearParsed = parseOptionalInt(searchParams.get('year'));
+  // Si el usuario envía desde/hasta sin parámetro `year`, respetamos el rango multi-año sin recortar al año actual.
+  const anioFilter: number | null =
+    reqYearParsed !== null
+      ? reqYearParsed
+      : !hasExplicitRange
+        ? new Date().getFullYear()
+        : null;
+
+  const anioDisplay =
+    anioFilter ??
+    (desdeStr && /^\d{4}/.test(desdeStr)
+      ? Number(desdeStr.slice(0, 4))
+      : hastaStr && /^\d{4}/.test(hastaStr)
+        ? Number(hastaStr.slice(0, 4))
+        : new Date().getFullYear());
 
   try {
     const whereClause: any = {};
@@ -152,85 +141,25 @@ export async function GET(request: Request) {
     };
 
     const previewData: any = { sheets: [] };
+    const usedSheetNames = new Set<string>();
 
     // Crear una hoja por cada Microred
     for (const [mrName, trs] of Array.from(microredesMap.entries())) {
-      // Filtrar a los trabajadores que realmente tienen licencias
       const workersWithLic = trs.filter(t => t.licencias && t.licencias.length > 0);
-      if (workersWithLic.length === 0) continue; // No crear la hoja si está vacía
+      if (workersWithLic.length === 0) continue;
 
-      // sheetName and worksheet creation will happen later
-
-      // Preprocesar chunks por trabajador
       const workersData = workersWithLic.map(t => {
-        let currentYearForRed = 0;
-        let diasRedRestantes = 20;
-        let historicFin20Str = '';
-        const allChunks: any[] = [];
-        
-        for (const lic of t.licencias) {
-          const inicioStr = getPeruDateString(new Date(lic.fechaInicio));
-          const finStr = getPeruDateString(new Date(lic.fechaFin));
-          
-          const licYear = new Date(lic.fechaInicio).getFullYear();
-          if (licYear !== currentYearForRed) {
-            currentYearForRed = licYear;
-            diasRedRestantes = 20;
-            historicFin20Str = '';
-          }
-          
-          const origInicioParts = inicioStr.split('-');
-          const origFinParts = finStr.split('-');
-          const origInicioFormatted = `${origInicioParts[2]}/${origInicioParts[1]}/${origInicioParts[0]}`;
-          const origFinFormatted = `${origFinParts[2]}/${origFinParts[1]}/${origFinParts[0]}`;
-
-          const chunks = splitIntoMonths(inicioStr, finStr);
-
-          for (const chunk of chunks) {
-            let redDaysInChunk = Math.min(chunk.days, diasRedRestantes);
-            let subsidioDaysInChunk = chunk.days - redDaysInChunk;
-            diasRedRestantes -= redDaysInChunk;
-            
-            if (redDaysInChunk > 0 && diasRedRestantes === 0 && !historicFin20Str) {
-               const fin20Obj = new Date(chunk.start);
-               fin20Obj.setDate(fin20Obj.getDate() + redDaysInChunk - 1);
-               historicFin20Str = fin20Obj.toLocaleDateString('es-PE');
-            }
-
-            let subsidioStartStr = '';
-            let subsidioEndStr = '';
-            
-            if (subsidioDaysInChunk > 0) {
-              const subStart = new Date(chunk.start);
-              subStart.setDate(subStart.getDate() + redDaysInChunk);
-              subsidioStartStr = subStart.toLocaleDateString('es-PE');
-              subsidioEndStr = chunk.end.toLocaleDateString('es-PE');
-            }
-
-            // Filtrar si cae fuera del rango desde/hasta
-            if (desdeDate && chunk.end < desdeDate) continue;
-            if (hastaDate && chunk.start > hastaDate) continue;
-
-            allChunks.push({
-              ...chunk,
-              redDaysInChunk,
-              subsidioDaysInChunk,
-              subsidioStartStr,
-              subsidioEndStr,
-              origInicioFormatted,
-              origFinFormatted,
-              lic
-            });
-          }
-        }
-        return { ...t, allChunks, historicFin20Str };
+        const processedChunks = calcularChunksReportes(t.licencias);
+        return { ...t, processedChunks };
       });
 
-      // Filtrar trabajadores y chunks para el período solicitado
+      // Filtrar trabajadores y chunks para el período y rango calendario solicitado
       const workersInRange = workersData
         .map(w => {
-          const rangeChunks = w.allChunks.filter(c => {
-            if (c.start && c.start.getFullYear() !== anio) return false;
+          const rangeChunks = w.processedChunks.filter(c => {
+            if (desdeStr && c.endStr < desdeStr) return false;
+            if (hastaStr && c.startStr > hastaStr) return false;
+            if (anioFilter !== null && c.year !== anioFilter) return false;
             if (mDesde !== null && mHasta !== null) {
               return c.month >= mDesde && c.month <= mHasta;
             }
@@ -245,19 +174,21 @@ export async function GET(request: Request) {
 
       if (workersInRange.length === 0) continue;
 
-      const sheetName = `${mrName.substring(0, 25)} ${anio}`;
+      const sheetSuffix = hasExplicitRange && anioFilter === null ? 'RANGO' : anioDisplay;
+      const sheetName = buildUniqueSheetName(mrName, sheetSuffix, usedSheetNames);
       let worksheet: ExcelJS.Worksheet | null = null;
       if (!isPreview) {
         worksheet = workbook.addWorksheet(sheetName);
       }
       const sheetPreview: any = { name: sheetName, rows: [] };
 
-      // Etiqueta del período
       const labelPeriodo = (mDesde !== null && mHasta !== null)
-        ? (mDesde === mHasta ? MESES[mDesde] : `${MESES[mDesde]} A ${MESES[mHasta]}`)
-        : (reqMonth !== null ? MESES[reqMonth] : 'CONSOLIDADO');
+        ? (mDesde === mHasta ? `${MESES[mDesde]} ${anioDisplay}` : `${MESES[mDesde]} A ${MESES[mHasta]} ${anioDisplay}`)
+        : hasExplicitRange
+          ? `DESDE ${desdeStr ? formatCalendarDateDMY(desdeStr) : '...'} HASTA ${hastaStr ? formatCalendarDateDMY(hastaStr) : '...'}`
+          : (reqMonth !== null ? `${MESES[reqMonth]} ${anioDisplay}` : `CONSOLIDADO ${anioDisplay}`);
 
-      const titleText = `RELACION DEL PERSONAL LICENCIA POR ENFERMEDAD - ${labelPeriodo} ${anio} - MICRORED ${mrName}`;
+      const titleText = `RELACION DEL PERSONAL LICENCIA POR ENFERMEDAD - ${labelPeriodo} - MICRORED ${mrName}`;
 
       const headers = [
         'N°', 'APELLIDOS Y NOMBRES', 'CARGO', 'CONDICIÓN LABORAL', 'ESTABLECIMIENTO', 'DNI', 
@@ -282,34 +213,28 @@ export async function GET(request: Request) {
         let nro = 1;
         for (const t of workersInRange) {
           const apellidosNombres = t.apellidos ? `${t.apellidos} ${t.nombres}` : t.nombres;
+          const establecimientoNombre = t.establecimiento?.nombre || 'NO ASIGNADO';
           let totalSubsidioPeriodo = 0;
           for (const chunk of t.rangeChunks) {
             totalSubsidioPeriodo += chunk.subsidioDaysInChunk;
           }
 
-          const workerChunksForPreview = t.rangeChunks.map(chunk => {
-            let fin20Dias = '';
-            if (chunk.subsidioDaysInChunk > 0) {
-              fin20Dias = t.historicFin20Str;
-            }
-
-            return {
-              nro,
-              apellidosNombres: apellidosNombres.toUpperCase(),
-              cargo: (t.cargo || '').toUpperCase(),
-              condicion: (t.condicionLaboral || '').toUpperCase(),
-              establecimiento: (t.establecimiento.nombre || '').toUpperCase(),
-              dni: t.dni,
-              citt: chunk.lic.numeroCertificado,
-              inicio: chunk.origInicioFormatted,
-              fin: chunk.origFinFormatted,
-              fin20Dias,
-              subsidioStart: chunk.subsidioStartStr,
-              subsidioEnd: chunk.subsidioEndStr,
-              totalDias: chunk.days,
-              isRed: chunk.redDaysInChunk > 0
-            };
-          });
+          const workerChunksForPreview = t.rangeChunks.map(chunk => ({
+            nro,
+            apellidosNombres: apellidosNombres.toUpperCase(),
+            cargo: (t.cargo || '').toUpperCase(),
+            condicion: (t.condicionLaboral || '').toUpperCase(),
+            establecimiento: establecimientoNombre.toUpperCase(),
+            dni: t.dni,
+            citt: chunk.lic.numeroCertificado || 'S/N',
+            inicio: chunk.origInicioFormatted,
+            fin: chunk.origFinFormatted,
+            fin20Dias: chunk.fin20Dias,
+            subsidioStart: chunk.subsidioStartStr,
+            subsidioEnd: chunk.subsidioEndStr,
+            totalDias: chunk.days,
+            isRed: chunk.redDaysInChunk > 0
+          }));
 
           sheetPreview.rows.push({
             type: 'worker',
@@ -369,28 +294,24 @@ export async function GET(request: Request) {
         for (const t of workersInRange) {
           const startRow = currentRowIndex;
           const apellidosNombres = t.apellidos ? `${t.apellidos} ${t.nombres}` : t.nombres;
+          const establecimientoNombre = t.establecimiento?.nombre || 'NO ASIGNADO';
           let totalSubsidioPeriodo = 0;
           for (const chunk of t.rangeChunks) {
             totalSubsidioPeriodo += chunk.subsidioDaysInChunk;
           }
 
           for (const chunk of t.rangeChunks) {
-            let fin20Dias = '';
-            if (chunk.subsidioDaysInChunk > 0) {
-              fin20Dias = t.historicFin20Str;
-            }
-
             const row = worksheet!.getRow(currentRowIndex);
             row.getCell(1).value = nro;
             row.getCell(2).value = apellidosNombres.toUpperCase();
             row.getCell(3).value = (t.cargo || '').toUpperCase();
             row.getCell(4).value = (t.condicionLaboral || '').toUpperCase(); 
-            row.getCell(5).value = (t.establecimiento.nombre || '').toUpperCase();
+            row.getCell(5).value = establecimientoNombre.toUpperCase();
             row.getCell(6).value = t.dni;
-            row.getCell(7).value = chunk.lic.numeroCertificado;
+            row.getCell(7).value = chunk.lic.numeroCertificado || 'S/N';
             row.getCell(8).value = chunk.origInicioFormatted;
             row.getCell(9).value = chunk.origFinFormatted;
-            row.getCell(10).value = fin20Dias; 
+            row.getCell(10).value = chunk.fin20Dias; 
             row.getCell(11).value = chunk.subsidioStartStr;
             row.getCell(12).value = chunk.subsidioEndStr;
             
@@ -449,8 +370,10 @@ export async function GET(request: Request) {
 
     const monthLabel = (mDesde !== null && mHasta !== null)
       ? (mDesde === mHasta ? MESES[mDesde] : `${MESES[mDesde]}_A_${MESES[mHasta]}`)
-      : (reqMonth !== null ? MESES[reqMonth] : 'CONSOLIDADO');
-    const filename = `Reporte_Masivo_${monthLabel}_${anio}.xlsx`;
+      : hasExplicitRange
+        ? `${desdeStr || 'INICIO'}_A_${hastaStr || 'FIN'}`
+        : (reqMonth !== null ? MESES[reqMonth] : 'CONSOLIDADO');
+    const filename = `Reporte_Masivo_${monthLabel}_${anioDisplay}.xlsx`;
 
     return new NextResponse(buffer, {
       status: 200,

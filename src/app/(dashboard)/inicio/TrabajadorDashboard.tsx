@@ -6,6 +6,7 @@ import {
   Lock, KeyRound, Eye, EyeOff, ShieldCheck, CheckCircle2, AlertCircle, X, Loader2
 } from 'lucide-react';
 import ChatbotAsistente from '@/shared/components/ChatbotAsistente';
+import { formatCalendarDateDMY } from '@/core/licencias/calculoSubsidios';
 
 export default function TrabajadorDashboard() {
   const [userData, setUserData] = useState<any>(null);
@@ -264,13 +265,19 @@ export default function TrabajadorDashboard() {
                         {lic.tipoLicencia?.replace(/_/g, ' ')}
                       </td>
                       <td className="px-5 py-4">
-                        <span className="text-[11px] font-bold uppercase text-slate-500">
-                          {lic.origen?.replace(/_/g, ' ')}
-                        </span>
+                        {lic.origen === 'PARTICULAR_PERDIDO' ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-rose-100 text-rose-700 border border-rose-200">
+                            PARTICULAR (PERDIDO)
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-bold uppercase text-slate-500">
+                            {lic.origen?.replace(/_/g, ' ')}
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-4 text-slate-600 flex items-center gap-1.5">
                         <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                        {new Date(lic.fechaInicio).toLocaleDateString('es-PE')} - {new Date(lic.fechaFin).toLocaleDateString('es-PE')}
+                        {formatCalendarDateDMY(lic.fechaInicio)} - {formatCalendarDateDMY(lic.fechaFin)}
                       </td>
                       <td className="px-5 py-4 text-center">
                         <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 font-bold text-xs">

@@ -2,10 +2,17 @@ import { NextResponse } from 'next/server';
 import prisma from '@/core/db/prisma';
 import ExcelJS from 'exceljs';
 import { canAccessWorkerMicrored, requireStaffAccess } from '@/core/auth/rbac';
+import {
+  MESES,
+  calcularChunksReportes,
+  calcularHistorialDetalladoSalud,
+} from '@/core/licencias/calculoSubsidios';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
   const { id } = resolvedParams;
+  const { searchParams } = new URL(request.url);
+  const isPreview = searchParams.get('preview') === 'true';
 
   try {
     const auth = await requireStaffAccess({
@@ -31,6 +38,45 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     if (!canAccessWorkerMicrored(ctx, trabajador.establecimiento?.microredId)) {
       return NextResponse.json({ error: 'No tiene permisos para acceder a trabajadores de otra microred' }, { status: 403 });
+    }
+
+    if (isPreview) {
+      const chunks = calcularChunksReportes(trabajador.licencias);
+      const mesesMap = new Map<string, { mesStr: string; totalSubsidioMes: number; licencias: any[] }>();
+      let totalSubsidioGlobal = 0;
+
+      for (const chunk of chunks) {
+        const key = `${chunk.year}-${String(chunk.month + 1).padStart(2, '0')}`;
+        if (!mesesMap.has(key)) {
+          mesesMap.set(key, {
+            mesStr: `${MESES[chunk.month]} ${chunk.year}`,
+            totalSubsidioMes: 0,
+            licencias: [],
+          });
+        }
+        const entry = mesesMap.get(key)!;
+        entry.totalSubsidioMes += chunk.subsidioDaysInChunk;
+        totalSubsidioGlobal += chunk.subsidioDaysInChunk;
+
+        const cert = chunk.lic.numeroCertificado || 'S/N';
+        const cmp = (chunk.lic as any).colegiatura;
+        entry.licencias.push({
+          origen: cmp ? `${cert} (CMP: ${cmp})` : cert,
+          fechaInicio: chunk.origInicioFormatted,
+          fechaFin: chunk.origFinFormatted,
+          fin20Dias: chunk.fin20Dias,
+          subsidioStart: chunk.subsidioStartStr,
+          subsidioEnd: chunk.subsidioEndStr,
+          diasOtorgados: chunk.days,
+          isRed: chunk.redDaysInChunk > 0,
+        });
+      }
+
+      return NextResponse.json({
+        trabajador,
+        mesesInfo: Array.from(mesesMap.values()),
+        totalSubsidioGlobal,
+      });
     }
 
     const workbook = new ExcelJS.Workbook();
@@ -76,102 +122,45 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     });
 
     const apellidosNombres = trabajador.apellidos ? `${trabajador.apellidos} ${trabajador.nombres}` : trabajador.nombres;
-    
+    const establecimientoNombre = trabajador.establecimiento?.nombre || 'NO ASIGNADO';
+    const { rows: detailedRows, totalSubsidioGlobal } = calcularHistorialDetalladoSalud(trabajador.licencias);
+
     // Si no hay licencias, poner una fila vacía
-    if (trabajador.licencias.length === 0) {
+    if (detailedRows.length === 0) {
       worksheet.addRow({
         nro: 1, nombres: apellidosNombres, cargo: trabajador.cargo, condicion: trabajador.condicionLaboral,
-        establecimiento: trabajador.establecimiento.nombre, dni: trabajador.dni,
+        establecimiento: establecimientoNombre, dni: trabajador.dni,
         citt: 'SIN REGISTROS', inicio: '-', fin: '-', fin20: '-', subsidio: '-', totalCitt: 0, diasSubsidios: 0
       });
     } else {
-      let currentYearForPrecalc = 0;
-      let diasRedRestantes = 20;
-      let totalSubsidioGlobal = 0;
-
-      // Pre-calcular el subsidio global
-      trabajador.licencias.forEach((lic) => {
-        const licYear = new Date(lic.fechaInicio).getFullYear();
-        if (licYear !== currentYearForPrecalc) {
-          currentYearForPrecalc = licYear;
-          diasRedRestantes = 20;
-        }
-        const redDays = Math.min(lic.diasOtorgados, diasRedRestantes);
-        const subDays = lic.diasOtorgados - redDays;
-        diasRedRestantes -= redDays;
-        totalSubsidioGlobal += subDays;
-      });
-
-      let currentYearForRender = 0;
-      diasRedRestantes = 20; // Reiniciar para el renderizado
-      let historicFin20Str = '';
-
-      // Calcular filas
-      trabajador.licencias.forEach((lic) => {
-        const licYear = new Date(lic.fechaInicio).getFullYear();
-        if (licYear !== currentYearForRender) {
-          currentYearForRender = licYear;
-          diasRedRestantes = 20;
-          historicFin20Str = '';
-        }
-
-        const dateInicio = new Date(lic.fechaInicio);
-        const dateFin = new Date(lic.fechaFin);
-
-        // Mantener las fechas locales correctas usando UTC
-        const fInicio = dateInicio.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
-        const fFin = dateFin.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
-        
-        let redDaysUsed = 0;
-        let subsidioDays = 0;
-        let fin20Str = '';
-        let subsidioInicioStr = '';
-
-        redDaysUsed = Math.min(lic.diasOtorgados, diasRedRestantes);
-        subsidioDays = lic.diasOtorgados - redDaysUsed;
-        diasRedRestantes -= redDaysUsed;
-        
-        if (redDaysUsed > 0 && diasRedRestantes === 0 && !historicFin20Str) {
-           const fin20Obj = new Date(dateInicio.getTime());
-           fin20Obj.setDate(fin20Obj.getDate() + redDaysUsed - 1);
-           historicFin20Str = fin20Obj.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
-        }
-
-        if (subsidioDays > 0) {
-           const subStartObj = new Date(dateInicio.getTime());
-           subStartObj.setDate(subStartObj.getDate() + redDaysUsed);
-           subsidioInicioStr = subStartObj.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
-           
-           fin20Str = historicFin20Str;
-        }
-
+      detailedRows.forEach((rowInfo) => {
         const newRow = worksheet.addRow({
-          nro: 1, // Siempre 1
+          nro: 1,
           nombres: apellidosNombres.toUpperCase(),
           cargo: (trabajador.cargo || '').toUpperCase(),
           condicion: (trabajador.condicionLaboral || '').toUpperCase(),
-          establecimiento: (trabajador.establecimiento.nombre || '').toUpperCase(),
+          establecimiento: establecimientoNombre.toUpperCase(),
           dni: trabajador.dni,
-          citt: (lic as any).colegiatura ? `${lic.numeroCertificado} (CMP: ${(lic as any).colegiatura})` : lic.numeroCertificado,
-          inicio: fInicio,
-          fin: fFin,
-          fin20: fin20Str,
-          subsidio: subsidioInicioStr, 
-          totalCitt: lic.diasOtorgados,
-          diasSubsidios: totalSubsidioGlobal 
+          citt: rowInfo.origenLabel,
+          inicio: rowInfo.fechaInicio,
+          fin: rowInfo.fechaFin,
+          fin20: rowInfo.fin20Dias,
+          subsidio: rowInfo.subsidioStart,
+          totalCitt: rowInfo.diasOtorgados,
+          diasSubsidios: totalSubsidioGlobal
         });
 
-        // Pintar de azul clarito ("azito") la celda TOTAL DE DIAS (columna 12) si consumió días de la RED
-        if (redDaysUsed > 0) {
-            newRow.getCell(12).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } } as ExcelJS.Fill;
+        // Pintar de azul clarito la celda TOTAL DE DIAS (columna 12) si consumió días de la RED
+        if (rowInfo.isRed) {
+          newRow.getCell(12).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } } as ExcelJS.Fill;
         }
       });
 
       // Combinar celdas para el trabajador (solo si hay más de 1 licencia)
-      if (trabajador.licencias.length > 1) {
-        const rowStart = 2; // Fila 1 es cabecera
-        const rowEnd = rowStart + trabajador.licencias.length - 1;
-        
+      if (detailedRows.length > 1) {
+        const rowStart = 2;
+        const rowEnd = rowStart + detailedRows.length - 1;
+
         worksheet.mergeCells(`A${rowStart}:A${rowEnd}`);
         worksheet.mergeCells(`B${rowStart}:B${rowEnd}`);
         worksheet.mergeCells(`C${rowStart}:C${rowEnd}`);
