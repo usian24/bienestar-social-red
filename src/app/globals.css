@@ -99,3 +99,74 @@ body {
 .animate-bounce-slow {
   animation: orbBreathe 4s ease-in-out infinite;
 }
+
+@keyframes nfFloat {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes nfPulseRing {
+  0% {
+    transform: scale(0.94);
+    opacity: 0.45;
+  }
+
+  70% {
+    transform: scale(1.38);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(1.38);
+    opacity: 0;
+  }
+}
+
+@keyframes nfFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0px) scale(1);
+  }
+}
+
+@keyframes nfAmbientDrift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate3d(18px, -14px, 0) scale(1.06);
+  }
+}
+
+.animate-nf-float {
+  animation: nfFloat 5.2s ease-in-out infinite;
+}
+
+.animate-nf-pulse {
+  animation: nfPulseRing 3.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+.animate-nf-pulse-delayed {
+  animation: nfPulseRing 3.2s cubic-bezier(0.16, 1, 0.3, 1) 1.6s infinite;
+}
+
+.animate-nf-fade-up {
+  animation: nfFadeUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-nf-ambient {
+  animation: nfAmbientDrift 12s ease-in-out infinite;
+}

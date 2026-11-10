@@ -6,11 +6,14 @@ import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { tienePermiso } from '@/shared/utils/permisos';
+import { useBackHandler } from '@/shared/utils/appBackHandler';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [darkMode, setDarkMode] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  useBackHandler(isMobileMenuOpen, () => setIsMobileMenuOpen(false));
   const [busquedaMenu, setBusquedaMenu] = useState('');
   
   const showMenu = (name: string) => {

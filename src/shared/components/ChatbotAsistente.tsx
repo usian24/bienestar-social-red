@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { Maximize2, Minimize2, RotateCcw, X, ArrowUp, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { puedeUsarChatbot } from '@/shared/utils/permisos';
+import { useBackHandler } from '@/shared/utils/appBackHandler';
 import { NeuralOrb, OrbState } from './NeuralOrb';
 
 interface MensajeChat {
@@ -36,6 +37,9 @@ export default function ChatbotAsistente({ modo = 'tarjeta', onCerrar }: Chatbot
   const [statusText, setStatusText] = useState('En espera');
   const [isExpanded, setIsExpanded] = useState(false);
   const [modalMovilAbierto, setModalMovilAbierto] = useState(false);
+
+  useBackHandler(modalMovilAbierto, () => setModalMovilAbierto(false));
+  useBackHandler(isExpanded, () => setIsExpanded(false));
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const expandedChatContainerRef = useRef<HTMLDivElement>(null);

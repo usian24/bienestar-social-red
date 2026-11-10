@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Play, Video, BookOpen, ExternalLink, Maximize2, X, Sparkles, CheckCircle2, Clock } from 'lucide-react';
+import { useBackHandler } from '@/shared/utils/appBackHandler';
 
 interface VideoGuiaCardProps {
   titulo?: string;
@@ -31,6 +32,8 @@ export default function VideoGuiaCard({
 
   const [modalAbierto, setModalAbierto] = useState(false);
   const [reproduciendo, setReproduciendo] = useState(false);
+
+  useBackHandler(modalAbierto, () => setModalAbierto(false));
   const [videoUrl, setVideoUrl] = useState(videoSrc);
   const [mostrarConfigUrl, setMostrarConfigUrl] = useState(false);
 

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { PERMISOS, PERMISOS_DESCRIPCION, Permiso } from '@/shared/utils/permisos';
+import { useBackHandler } from '@/shared/utils/appBackHandler';
 
 export default function UsuariosPage() {
   const { data: session } = useSession();
@@ -30,6 +31,8 @@ export default function UsuariosPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [trabajadorVinculado, setTrabajadorVinculado] = useState<any | null>(null);
   const [buscandoDni, setBuscandoDni] = useState(false);
+
+  useBackHandler(isModalOpen && !saving, () => setIsModalOpen(false));
 
   const selectedRol = roles.find(r => r.id === formData.rolId);
 

@@ -3,6 +3,7 @@
 import React, { useMemo } from 'react';
 import { X, FileSpreadsheet, Download } from 'lucide-react';
 import { calcularHistorialDetalladoSalud } from '@/core/licencias/calculoSubsidios';
+import { useBackHandler } from '@/shared/utils/appBackHandler';
 
 interface PrevisualizadorExcelModalProps {
   isOpen: boolean;
@@ -11,7 +12,8 @@ interface PrevisualizadorExcelModalProps {
 }
 
 export default function PrevisualizadorExcelModal({ isOpen, onClose, trabajador }: PrevisualizadorExcelModalProps) {
-  
+  useBackHandler(isOpen && !!trabajador, onClose);
+
   const rows = useMemo(() => {
     if (!trabajador || !trabajador.licencias || !Array.isArray(trabajador.licencias) || trabajador.licencias.length === 0) return [];
 

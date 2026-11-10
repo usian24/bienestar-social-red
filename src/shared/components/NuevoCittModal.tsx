@@ -9,6 +9,7 @@ import {
 import { useSession } from 'next-auth/react';
 import { tienePermiso } from '@/shared/utils/permisos';
 import { addDaysToCalendarDate, getCalendarDateStr } from '@/core/licencias/calculoSubsidios';
+import { useBackHandler } from '@/shared/utils/appBackHandler';
 
 interface NuevoCittModalProps {
   isOpen: boolean;
@@ -32,6 +33,14 @@ function NuevoCittModalInner({
   const rol = (session?.user as any)?.rol || 'CONSULTA';
   const permisos = (session?.user as any)?.permisos || [];
   const puedeSubirArchivo = tienePermiso(permisos, rol, 'SUBIR_ARCHIVOS');
+
+  const [guardando, setGuardando] = useState(false);
+
+  useBackHandler(true, () => {
+    if (!guardando) {
+      onClose();
+    }
+  });
 
   const inicioCalInicial = editData ? getCalendarDateStr(editData.fechaInicio) : '';
   const fechaFinInicial = editData
@@ -67,7 +76,6 @@ function NuevoCittModalInner({
   const [diagnostico, setDiagnostico] = useState((editData as any)?.diagnostico || '');
   const [familiarPaciente, setFamiliarPaciente] = useState((editData as any)?.familiarPaciente || '');
   
-  const [guardando, setGuardando] = useState(false);
   const [mensajeGuardado, setMensajeGuardado] = useState('Guardando descanso médico...');
   const [exito, setExito] = useState(false);
   const [error, setError] = useState('');
@@ -624,7 +632,7 @@ function NuevoCittModalInner({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+    <div className="fixed inset-0 z-[75] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh] relative">
         
         {/* Overlay de Carga durante el Guardado de Licencia (Estilo Apple limpio) */}

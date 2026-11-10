@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { X, Pencil, Trash2, Calendar, FileText, User, Clock, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { X, Pencil, Trash2, Calendar, FileText, User, Clock, Loader2, Maximize2, ImageOff } from 'lucide-react';
 import NuevoCittModal from './NuevoCittModal';
+import VisorEvidenciaModal from './VisorEvidenciaModal';
 import { useSession } from 'next-auth/react';
 import { tienePermiso } from '@/shared/utils/permisos';
 import { formatCalendarDateDMY } from '@/core/licencias/calculoSubsidios';
+import { useBackHandler } from '@/shared/utils/appBackHandler';
 
 interface DetallesTrabajadorModalProps {
   isOpen: boolean;
@@ -23,9 +25,21 @@ export default function DetallesTrabajadorModal({ isOpen, onClose, trabajadorInf
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [evidenciaVisor, setEvidenciaVisor] = useState<{ url: string; titulo: string } | null>(null);
+  const [brokenThumbIds, setBrokenThumbIds] = useState<Record<string, boolean>>({});
 
   // Estados para Edición
   const [licenciaEditando, setLicenciaEditando] = useState<any>(null);
+
+  const handleCerrarModal = useCallback(() => {
+    setEvidenciaVisor(null);
+    setLicenciaEditando(null);
+    setPreviewId(null);
+    setBrokenThumbIds({});
+    onClose();
+  }, [onClose]);
+
+  useBackHandler(isOpen, handleCerrarModal);
 
   const fetchDetalles = async () => {
     if (!trabajadorInfoFijo?.id) return;
@@ -88,29 +102,29 @@ export default function DetallesTrabajadorModal({ isOpen, onClose, trabajadorInf
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
           
           {/* Cabecera */}
-          <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-blue-600" />
-              Historial del Servidor
+          <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 gap-2">
+            <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 min-w-0 truncate">
+              <FileText className="w-5 h-5 text-blue-600 shrink-0" />
+              <span className="truncate">Historial del Servidor</span>
             </h3>
-            <div className="flex gap-3 items-center">
+            <div className="flex gap-2 sm:gap-3 items-center shrink-0">
               {(trabajadorInfoFijo?.id || trabajadorInfoFijo?.trabajadorId) && (
                 <a
                   href={`${reporteUrl.endsWith('/') ? reporteUrl : `${reporteUrl}/`}${trabajadorInfoFijo.id || trabajadorInfoFijo.trabajadorId}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+                  className="px-3 sm:px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
                   title="Abrir Reporte PDF Personal del Servidor"
                 >
                   <FileText className="w-3.5 h-3.5" />
                   <span>Reporte Personal PDF</span>
                 </a>
               )}
-              <button onClick={onClose} className="p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600 dark:text-slate-300 rounded-md transition-colors">
+              <button onClick={handleCerrarModal} className="p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600 dark:text-slate-300 rounded-md transition-colors cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -177,7 +191,7 @@ export default function DetallesTrabajadorModal({ isOpen, onClose, trabajadorInf
                         
                         <div className="p-5 pl-7">
                           {/* Cabecera de la Cartilla */}
-                          <div className="flex justify-between items-start mb-4">
+                          <div className="flex flex-wrap justify-between items-start gap-2.5 mb-4">
                             <div>
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide ${
                                 lic.tipoLicencia === 'LEY_30012'
@@ -282,29 +296,62 @@ export default function DetallesTrabajadorModal({ isOpen, onClose, trabajadorInf
                           )}
 
                           {lic.archivoRuta && previewId === lic.id && (
-                            <div className="mt-3 bg-slate-100 dark:bg-slate-700 p-4 rounded-lg border border-slate-200">
-                              {lic.archivoRuta.endsWith('.pdf') ? (
+                            <div className="mt-3 bg-slate-100 dark:bg-slate-700 p-4 rounded-lg border border-slate-200 dark:border-slate-600">
+                              {lic.archivoRuta.toLowerCase().endsWith('.pdf') ? (
                                 <div className="text-center p-4">
                                   <p className="text-sm text-slate-600 dark:text-slate-300 mb-3">Este archivo es un PDF. Haz clic abajo para abrirlo.</p>
                                 </div>
+                              ) : brokenThumbIds[lic.id] ? (
+                                <div className="flex flex-col items-center justify-center py-6 px-4 text-center rounded-xl bg-white/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-600 mb-3">
+                                  <div className="w-11 h-11 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-300 mb-2.5">
+                                    <ImageOff className="w-5 h-5" />
+                                  </div>
+                                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                                    Imagen no disponible en el servidor
+                                  </p>
+                                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 max-w-xs">
+                                    El archivo adjunto fue eliminado o movido del almacenamiento.
+                                  </p>
+                                </div>
                               ) : (
                                 <div className="flex justify-center mb-4">
-                                  <img 
-                                    src={lic.archivoRuta} 
-                                    alt="Certificado" 
-                                    className="max-h-64 object-contain rounded border border-slate-300 shadow-sm"
-                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setEvidenciaVisor({
+                                        url: lic.archivoRuta,
+                                        titulo: `Certificado ${lic.numeroCertificado || 'S/N'}`,
+                                      })
+                                    }
+                                    className="group relative rounded border border-slate-300 shadow-sm overflow-hidden cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    title="Toca para ampliar con zoom táctil"
+                                  >
+                                    <img 
+                                      src={lic.archivoRuta} 
+                                      alt="Certificado" 
+                                      onError={() => setBrokenThumbIds((prev) => ({ ...prev, [lic.id]: true }))}
+                                      className="max-h-64 object-contain"
+                                    />
+                                  </button>
                                 </div>
                               )}
-                              <div className="flex justify-center">
-                                <a 
-                                  href={lic.archivoRuta} 
-                                  target="_blank" 
-                                  className="px-4 py-2 bg-blue-600 text-white rounded text-xs font-bold hover:bg-blue-700 shadow-sm"
-                                >
-                                  VER EN TAMAÑO GIGANTE
-                                </a>
-                              </div>
+                              {!brokenThumbIds[lic.id] && (
+                                <div className="flex justify-center">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setEvidenciaVisor({
+                                        url: lic.archivoRuta,
+                                        titulo: `Certificado ${lic.numeroCertificado || 'S/N'}`,
+                                      })
+                                    }
+                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-sm inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                                  >
+                                    <Maximize2 className="w-3.5 h-3.5" />
+                                    <span>VER EN TAMAÑO GIGANTE</span>
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           )}
 
@@ -329,6 +376,14 @@ export default function DetallesTrabajadorModal({ isOpen, onClose, trabajadorInf
         }}
         trabajadorFijo={trabajadorInfoFijo}
         editData={licenciaEditando}
+      />
+
+      {/* Visor interactivo en pantalla completa con gestos pinch-to-zoom y botón Volver */}
+      <VisorEvidenciaModal
+        isOpen={!!evidenciaVisor}
+        url={evidenciaVisor?.url || null}
+        titulo={evidenciaVisor?.titulo}
+        onClose={() => setEvidenciaVisor(null)}
       />
     </>
   );

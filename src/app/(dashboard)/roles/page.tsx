@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Shield, PlusCircle, Trash2, X, Pencil, Users, Heart, Settings, FileText, Folder, Terminal, Bot, Info } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { PERMISOS_DESCRIPCION, Permiso } from '@/shared/utils/permisos';
+import { useBackHandler } from '@/shared/utils/appBackHandler';
 
 export default function RolesPage() {
   const { data: session } = useSession();
@@ -21,6 +22,8 @@ export default function RolesPage() {
 
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  useBackHandler(isModalOpen && !saving, () => setIsModalOpen(false));
 
   const fetchRoles = async () => {
     try {

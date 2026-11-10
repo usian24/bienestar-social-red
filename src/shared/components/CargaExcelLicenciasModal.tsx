@@ -3,6 +3,7 @@
 import React, { useState, useRef } from "react";
 import { UploadCloud, X, FileSpreadsheet, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useBackHandler } from "@/shared/utils/appBackHandler";
 
 interface CargaExcelLicenciasModalProps {
   isOpen: boolean;
@@ -16,6 +17,8 @@ export default function CargaExcelLicenciasModal({ isOpen, onClose, onSuccess }:
   const [resultado, setResultado] = useState<any>(null);
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useBackHandler(isOpen && !loading, onClose);
 
   if (!isOpen) return null;
 

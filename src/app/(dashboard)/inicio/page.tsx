@@ -12,6 +12,7 @@ import VideoGuiaCard from '@/shared/components/VideoGuiaCard';
 import MLMiniCard from '@/shared/components/MLMiniCard';
 import DetallesTrabajadorModal from '@/shared/components/DetallesTrabajadorModal';
 import { formatCalendarDateDMY } from '@/core/licencias/calculoSubsidios';
+import { useBackHandler } from '@/shared/utils/appBackHandler';
 
 export default function InicioPage() {
   const { data: session, status } = useSession();
@@ -33,6 +34,8 @@ export default function InicioPage() {
   const [nuevoCitt, setNuevoCitt] = useState('');
   const [guardandoCanje, setGuardandoCanje] = useState(false);
   const [esModoPerdido, setEsModoPerdido] = useState(false);
+
+  useBackHandler(!!alertaSeleccionada && !guardandoCanje, () => setAlertaSeleccionada(null));
 
   // Estado para modal de expediente individual
   const [expedienteSeleccionado, setExpedienteSeleccionado] = useState<any | null>(null);

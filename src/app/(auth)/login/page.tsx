@@ -14,10 +14,10 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Si ya tiene sesión activa, redirigir automáticamente al dashboard
+  // Si ya tiene sesión activa, redirigir automáticamente al dashboard sin dejar /login en el historial
   useEffect(() => {
     if (status === "authenticated") {
-      window.location.href = "/inicio";
+      window.location.replace("/inicio");
     }
   }, [status]);
 
@@ -38,8 +38,8 @@ export default function LoginPage() {
         setError(result.error);
         setLoading(false);
       } else if (result?.ok) {
-        // Usar window.location.href asegura que las cookies de sesión se confirmen en WebViews de Android
-        window.location.href = "/inicio";
+        // window.location.replace confirma cookies de sesión en WebViews Android y evita regresar a /login al presionar Atrás
+        window.location.replace("/inicio");
       } else {
         setError("No se pudo iniciar sesión. Verifica tus credenciales.");
         setLoading(false);

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { X, FileSpreadsheet, Download, Loader2 } from 'lucide-react';
+import { useBackHandler } from '@/shared/utils/appBackHandler';
 
 interface PrevisualizadorExcelMasivoModalProps {
   isOpen: boolean;
@@ -21,6 +22,8 @@ export default function PrevisualizadorExcelMasivoModal({ isOpen, onClose, filte
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState(0);
+
+  useBackHandler(isOpen, onClose);
 
   useEffect(() => {
     if (!isOpen) return;

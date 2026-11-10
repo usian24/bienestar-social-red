@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import ChatbotAsistente from '@/shared/components/ChatbotAsistente';
 import { formatCalendarDateDMY } from '@/core/licencias/calculoSubsidios';
+import { useBackHandler } from '@/shared/utils/appBackHandler';
 
 export default function TrabajadorDashboard() {
   const [userData, setUserData] = useState<any>(null);
@@ -24,6 +25,8 @@ export default function TrabajadorDashboard() {
   const [guardandoPassword, setGuardandoPassword] = useState(false);
   const [errorPassword, setErrorPassword] = useState('');
   const [exitoPassword, setExitoPassword] = useState('');
+
+  useBackHandler(modalPasswordOpen && !guardandoPassword, () => setModalPasswordOpen(false));
 
   useEffect(() => {
     async function loadData() {
